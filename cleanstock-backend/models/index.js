@@ -6,6 +6,14 @@ const Product = require('./Product');
 const StockEntry = require('./StockEntry');
 const Order = require('./Order');
 const OrderItem = require('./OrderItem');
+const PhysicalSpace = require('./PhysicalSpace');
+
+// Define relations
+ActivityLog.belongsTo(Order, { foreignKey: 'orderId' });
+Order.hasMany(ActivityLog, { foreignKey: 'orderId', as: 'Historial' });
+
+PhysicalSpace.hasMany(User, { foreignKey: 'physicalSpaceId' });
+User.belongsTo(PhysicalSpace, { foreignKey: 'physicalSpaceId', as: 'EspacioFisico' });
 
 const syncDatabase = async () => {
   try {
@@ -20,5 +28,11 @@ module.exports = {
   sequelize,
   User,
   ActivityLog,
+  Category,
+  Product,
+  StockEntry,
+  Order,
+  OrderItem,
+  PhysicalSpace,
   syncDatabase
 };

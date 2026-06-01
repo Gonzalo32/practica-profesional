@@ -32,7 +32,8 @@ const createOrder = async (req, res) => {
     await ActivityLog.create({
       userId: req.user.id,
       action: 'CREATE_ORDER',
-      details: `Solicitante generó la orden ${order.id}. Estado: ${order.status}`
+      details: `Solicitante generó la orden ${order.id}. Estado: ${order.status}`,
+      orderId: order.id
     });
 
     res.status(201).json({ message: 'Orden generada', order });
@@ -45,9 +46,13 @@ const createOrder = async (req, res) => {
 const getOrders = async (req, res) => {
   try {
     const query = {};
-    // Si es Solicitante, solo ve sus pedidos. Si es Despachante/Admin, los ve todos o filtra por estado.
+    // Si es Solicitante, solo ve sus pedidos. Si es Despachante/Admin/Usuario Responsable, los ve todos o filtra.
     if (req.user.role === 'Solicitante') {
       query.solicitanteId = req.user.id;
+    }
+
+    if (req.query.status) {
+      query.status = req.query.status;
     }
 
     const orders = await Order.findAll({
@@ -55,7 +60,8 @@ const getOrders = async (req, res) => {
       include: [
         { model: User, as: 'Solicitante', attributes: ['username'] },
         { model: OrderItem, include: [{ model: Product, attributes: ['name'] }] }
-      ]
+      ],
+      order: [['createdAt', 'DESC']]
     });
     res.json(orders);
   } catch (error) {
@@ -95,7 +101,8 @@ const approveOrder = async (req, res) => {
     await ActivityLog.create({
       userId: decoded.adminId, // El admin que validó
       action: 'APPROVE_ORDER',
-      details: `Administrador aprobó la orden ${order.id} mediante token`
+      details: `Administrador aprobó la orden ${order.id} mediante token`,
+      orderId: order.id
     });
     
     res.json({ message: 'Orden aprobada y enviada al Despachante', order });
@@ -104,8 +111,89 @@ const approveOrder = async (req, res) => {
   }
 };
 
+// T5.2 y T5.3: Actualizar el estado del pedido (Máquina de Estados)
+const updateOrderStatus = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ message: 'El estado es requerido' });
+    }
+
+    const order = await Order.findByPk(orderId);
+    if (!order) return res.status(404).json({ message: 'Orden no encontrada' });
+
+    const currentStatus = order.status;
+    const userRole = req.user.role;
+
+    let allowed = false;
+
+    // Transiciones válidas:
+    // PENDIENTE -> EN_PREPARACION (Despachante, Administrador)
+    // EN_PREPARACION -> DESPACHADO (Despachante, Administrador)
+    // DESPACHADO -> ENTREGADO (Solicitante, Usuario Responsable, Administrador)
+    // Cualquier estado previo a ENTREGADO -> RECHAZADO (Administrador)
+
+    if (status === 'EN_PREPARACION') {
+      if (currentStatus === 'PENDIENTE' && (userRole === 'Despachante' || userRole === 'Administrador')) {
+        allowed = true;
+      }
+    } else if (status === 'DESPACHADO') {
+      if (currentStatus === 'EN_PREPARACION' && (userRole === 'Despachante' || userRole === 'Administrador')) {
+        allowed = true;
+      }
+    } else if (status === 'ENTREGADO') {
+      if (currentStatus === 'DESPACHADO' && (userRole === 'Solicitante' || userRole === 'Usuario Responsable' || userRole === 'Administrador')) {
+        allowed = true;
+      }
+    } else if (status === 'RECHAZADO') {
+      if (currentStatus !== 'ENTREGADO' && currentStatus !== 'RECHAZADO' && userRole === 'Administrador') {
+        allowed = true;
+      }
+    }
+
+    if (!allowed) {
+      return res.status(400).json({ 
+        message: `Transición de estado inválida de ${currentStatus} a ${status} para el rol ${userRole}` 
+      });
+    }
+
+    order.status = status;
+    await order.save();
+
+    await ActivityLog.create({
+      userId: req.user.id,
+      action: 'UPDATE_STATUS',
+      details: `Usuario ${req.user.username} (${userRole}) cambió el estado de la orden a ${status}`,
+      orderId: order.id
+    });
+
+    res.json({ message: 'Estado del pedido actualizado', order });
+  } catch (error) {
+    res.status(500).json({ message: 'Error actualizando estado del pedido', error: error.message });
+  }
+};
+
+// T5.4: Trazabilidad e historial de un pedido específico
+const getOrderHistory = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const history = await ActivityLog.findAll({
+      where: { orderId },
+      include: [{ model: User, attributes: ['username', 'role'] }],
+      order: [['createdAt', 'ASC']]
+    });
+    res.json(history);
+  } catch (error) {
+    res.status(500).json({ message: 'Error obteniendo historial del pedido', error: error.message });
+  }
+};
+
 module.exports = {
   createOrder,
   getOrders,
-  approveOrder
+  approveOrder,
+  updateOrderStatus,
+  getOrderHistory
 };

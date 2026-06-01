@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CleanStock — Sistema de Gestión de Inventario</title>
+  <!-- Google Fonts: Inter and Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Ambient background glow elements -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- APP CONTAINER -->
+  <div id="app">
+    <!-- LOGIN VIEW -->
+    <div id="login-view" class="view container-login">
+      <div class="login-card glass">
+        <div class="brand">
+          <div class="logo-box">
+            <div class="box-3d"></div>
+          </div>
+          <h1>Clean<span>Stock</span></h1>
+          <p class="tagline">"Datos claros generan información confiable"</p>
+        </div>
+        
+        <form id="login-form">
+          <div class="form-group">
+            <label for="username">Usuario</label>
+            <input type="text" id="username" required autocomplete="username" placeholder="Ingresa tu usuario">
+          </div>
+          <div class="form-group">
+            <label for="password">Contraseña</label>
+            <input type="password" id="password" required autocomplete="current-password" placeholder="••••••••">
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">
+            <span>Iniciar Sesión</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+        </form>
+
+        <div class="login-help glass-light">
+          <p>¿Primera vez? Hace click abajo para inicializar el administrador por defecto (<strong>admin</strong> / <strong>admin123</strong>).</p>
+          <button id="btn-init-db" class="btn btn-secondary btn-sm">Inicializar Base de Datos</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN APP VIEW (DASHBOARD) -->
+    <div id="main-view" class="view hidden">
+      <!-- HEADER -->
+      <header class="glass">
+        <div class="header-brand">
+          <div class="logo-box-small">
+            <div class="box-3d-small"></div>
+          </div>
+          <h2>Clean<span>Stock</span></h2>
+        </div>
+        
+        <div class="user-profile">
+          <div class="profile-info">
+            <span class="user-name" id="profile-username">Usuario</span>
+            <span class="user-role badge" id="profile-role">Rol</span>
+          </div>
+          <button id="btn-logout" class="btn btn-danger btn-circle" title="Cerrar Sesión">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- NAVIGATION TABS -->
+      <nav class="nav-tabs" id="main-navigation">
+        <!-- Generado dinámicamente según el rol en app.js -->
+      </nav>
+
+      <!-- VIEW PANELS -->
+      <main class="content-container">
+        <!-- 🔴 PANEL ADMINISTRADOR -->
+        <section id="panel-admin" class="panel hidden">
+          <div class="grid-dashboard">
+            <!-- Stats -->
+            <div class="card glass stat-card">
+              <h3>Usuarios Activos</h3>
+              <p class="stat-number" id="admin-stat-users">-</p>
+            </div>
+            <div class="card glass stat-card">
+              <h3>Productos</h3>
+              <p class="stat-number" id="admin-stat-products">-</p>
+            </div>
+            <div class="card glass stat-card">
+              <h3>Pedidos Realizados</h3>
+              <p class="stat-number" id="admin-stat-orders">-</p>
+            </div>
+          </div>
+
+          <!-- Admin Tabs Content: Users CRUD vs Audit Logs vs Aprobaciones -->
+          <div class="sub-nav">
+            <button class="btn btn-tab active" data-sub="admin-users">Gestión de Usuarios</button>
+            <button class="btn btn-tab" data-sub="admin-spaces">Gestión de Espacios Físicos</button>
+            <button class="btn btn-tab" data-sub="admin-approvals">Aprobación de Pedidos</button>
+            <button class="btn btn-tab" data-sub="admin-logs">Historial de Auditoría</button>
+          </div>
+
+          <!-- Subpanel: Users CRUD -->
+          <div id="subpanel-admin-users" class="subpanel">
+            <div class="card glass form-card">
+              <h3>Crear Nuevo Usuario</h3>
+              <form id="form-create-user" class="inline-form">
+                <input type="text" id="new-user-username" placeholder="Nombre de usuario" required>
+                <input type="password" id="new-user-password" placeholder="Contraseña" required>
+                <select id="new-user-role" required>
+                  <option value="Solicitante">Solicitante</option>
+                  <option value="Despachante">Despachante</option>
+                  <option value="Usuario Responsable">Usuario Responsable</option>
+                  <option value="Administrador">Administrador</option>
+                </select>
+                <select id="new-user-space">
+                  <option value="">Sin Espacio Físico</option>
+                  <!-- Dinámico -->
+                </select>
+                <button type="submit" class="btn btn-primary">Registrar</button>
+              </form>
+            </div>
+
+            <div class="card glass table-card">
+              <h3>Listado de Usuarios</h3>
+              <div class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Usuario</th>
+                      <th>Rol</th>
+                      <th>Lugar</th>
+                      <th>Estado</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-users-body">
+                    <!-- Dinámico -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Subpanel: Physical Spaces CRUD -->
+          <div id="subpanel-admin-spaces" class="subpanel hidden">
+            <div class="card glass form-card">
+              <h3>Crear Nuevo Espacio Físico</h3>
+              <form id="form-create-space" class="inline-form">
+                <input type="text" id="space-name" placeholder="Nombre (ej. Sede Central)" required>
+                <input type="text" id="space-description" placeholder="Descripción corta">
+                <select id="space-type" required>
+                  <option value="" disabled selected>Tipo de Espacio</option>
+                  <option value="filial">Filial</option>
+                  <option value="Zona">Zona</option>
+                  <option value="sucursal">Sucursal</option>
+                  <option value="dependencia">Dependencia</option>
+                  <option value="sector">Sector</option>
+                </select>
+                <button type="submit" class="btn btn-primary">Crear Espacio</button>
+              </form>
+            </div>
+
+            <div class="card glass table-card">
+              <h3>Listado de Espacios Físicos</h3>
+              <div class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>Tipo</th>
+                      <th>Descripción</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-spaces-body">
+                    <!-- Dinámico -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Subpanel: Admin Approvals -->
+          <div id="subpanel-admin-approvals" class="subpanel hidden">
+            <div class="card glass table-card">
+              <h3>Pedidos Pendientes de Aprobación</h3>
+              <div class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Pedido ID</th>
+                      <th>Solicitante</th>
+                      <th>Fecha</th>
+                      <th>Detalle</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-admin-approvals-body">
+                    <!-- Dinámico -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Subpanel: Audit Logs -->
+          <div id="subpanel-admin-logs" class="subpanel hidden">
+            <div class="card glass table-card">
+              <h3>Historial de Auditoría Global</h3>
+              <div class="table-responsive log-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Usuario</th>
+                      <th>Acción</th>
+                      <th>Detalle</th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-admin-logs-body">
+                    <!-- Dinámico -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 🔵 PANEL SOLICITANTE -->
+        <section id="panel-solicitante" class="panel hidden">
+          <div class="solicitante-layout">
+            <!-- Catalogo (Left Column) -->
+            <div class="catalog-section">
+              <div class="card glass filter-card">
+                <div class="filter-row">
+                  <input type="text" id="catalog-search" placeholder="🔍 Buscar insumo...">
+                  <select id="catalog-category-filter">
+                    <option value="">Todos los rubros</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div id="catalog-grid" class="catalog-grid">
+                <!-- Productos dinámicos -->
+              </div>
+            </div>
+
+            <!-- Carrito & Mis Pedidos (Right Column) -->
+            <div class="sidebar-section">
+              <div class="card glass cart-card">
+                <h3>Mi Carrito</h3>
+                <div id="cart-items" class="cart-items">
+                  <p class="empty-text">El carrito está vacío.</p>
+                </div>
+                <div class="cart-summary hidden" id="cart-summary">
+                  <div class="form-check">
+                    <input type="checkbox" id="cart-validation-req">
+                    <label for="cart-validation-req">Requiere validación del Admin (Urgente/Crítico)</label>
+                  </div>
+                  <button id="btn-submit-order" class="btn btn-primary btn-block">Enviar Pedido</button>
+                </div>
+              </div>
+
+              <div class="card glass orders-card">
+                <h3>Mis Pedidos Recientes</h3>
+                <div id="solicitante-orders-list" class="orders-list">
+                  <!-- Pedidos dinámicos -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 🟢 PANEL USUARIO RESPONSABLE -->
+        <section id="panel-responsable" class="panel hidden">
+          <div class="responsable-tabs sub-nav">
+            <button class="btn btn-tab active" data-sub="resp-stock-entry">Registrar Entrada</button>
+            <button class="btn btn-tab" data-sub="resp-catalog-mgmt">Gestionar Catálogo</button>
+            <button class="btn btn-tab" data-sub="resp-deliveries">Órdenes a Recibir</button>
+          </div>
+
+          <!-- Subpanel: Stock Entry Form -->
+          <div id="subpanel-resp-stock-entry" class="subpanel">
+            <div class="two-column-layout">
+              <div class="card glass form-card">
+                <h3>Registrar Ingreso de Stock</h3>
+                <form id="form-stock-entry">
+                  <div class="form-group">
+                    <label for="stock-product">Insumo / Producto</label>
+                    <select id="stock-product" required>
+                      <option value="">Selecciona un insumo...</option>
+                    </select>
+                  </div>
+                  <div class="grid-fields">
+                    <div class="form-group">
+                      <label for="stock-lot">Número de Lote</label>
+                      <input type="text" id="stock-lot" placeholder="Ej: LOT-2026-99" required>
+                    </div>
+                    <div class="form-group">
+                      <label for="stock-expiration">Fecha de Vencimiento</label>
+                      <input type="date" id="stock-expiration" required>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label for="stock-quantity">Cantidad a Ingresar</label>
+                    <input type="number" id="stock-quantity" min="1" placeholder="Ej: 50" required>
+                  </div>
+                  <button type="submit" class="btn btn-success btn-block">Confirmar Registro de Ingreso</button>
+                </form>
+              </div>
+
+              <div class="card glass table-card">
+                <h3>Movimientos Recientes</h3>
+                <div class="table-responsive">
+                  <table class="simple-table">
+                    <thead>
+                      <tr>
+                        <th>Producto</th>
+                        <th>Cant.</th>
+                        <th>Lote</th>
+                        <th>Vence</th>
+                        <th>Registró</th>
+                      </tr>
+                    </thead>
+                    <tbody id="table-resp-recent-stock">
+                      <!-- Dinámico -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Subpanel: Catalog & Categories Management -->
+          <div id="subpanel-resp-catalog-mgmt" class="subpanel hidden">
+            <div class="two-column-layout">
+              <div class="card glass form-card">
+                <h3>Agregar Nuevo Insumo al Catálogo</h3>
+                <form id="form-create-product">
+                  <div class="form-group">
+                    <label for="prod-name">Nombre del Insumo</label>
+                    <input type="text" id="prod-name" placeholder="Ej: Guantes de Latex Talle M" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="prod-category">Categoría / Rubro</label>
+                    <select id="prod-category" required>
+                      <option value="">Selecciona...</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="prod-description">Descripción</label>
+                    <textarea id="prod-description" rows="2" placeholder="Detalle técnico..."></textarea>
+                  </div>
+                  <div class="form-group">
+                    <label for="prod-minstock">Stock Mínimo Alerta</label>
+                    <input type="number" id="prod-minstock" min="0" value="10">
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-block">Agregar Producto</button>
+                </form>
+              </div>
+
+              <div class="card glass form-card">
+                <h3>Crear Nueva Categoría (Rubro)</h3>
+                <form id="form-create-category">
+                  <div class="form-group">
+                    <label for="cat-name">Nombre de Rubro</label>
+                    <input type="text" id="cat-name" placeholder="Ej: Descartables" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="cat-description">Descripción</label>
+                    <textarea id="cat-description" rows="3" placeholder="Descripción corta..."></textarea>
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-block">Agregar Rubro</button>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- Subpanel: Deliveries to mark as ENTREGADO -->
+          <div id="subpanel-resp-deliveries" class="subpanel hidden">
+            <div class="card glass table-card">
+              <h3>Pedidos Despachados (Esperando Confirmación de Recepción)</h3>
+              <div class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Pedido ID</th>
+                      <th>Solicitante</th>
+                      <th>Artículos</th>
+                      <th>Fecha Despacho</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-resp-deliveries-body">
+                    <!-- Dinámico -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 🚚 PANEL DESPACHANTE -->
+        <section id="panel-despachante" class="panel hidden">
+          <div class="card glass table-card">
+            <h3>Panel de Despacho de Pedidos</h3>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Pedido ID</th>
+                    <th>Solicitante</th>
+                    <th>Fecha</th>
+                    <th>Estado</th>
+                    <th>Detalle Insumos</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="table-despachante-orders-body">
+                  <!-- Dinámico -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- TIMELINE / TRAZABILIDAD MODAL -->
+  <div id="timeline-modal" class="modal hidden">
+    <div class="modal-content glass">
+      <div class="modal-header">
+        <h3>Historial de Trazabilidad del Pedido</h3>
+        <button id="close-modal-btn" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-order-id">Pedido: <span id="modal-order-id-label">-</span></p>
+        <div class="timeline" id="timeline-container">
+          <!-- Timestamps dinámicos -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN VALIDATION TOKEN MODAL -->
+  <div id="validation-token-modal" class="modal hidden">
+    <div class="modal-content glass">
+      <div class="modal-header">
+        <h3>Aprobación Urgente / Crítica</h3>
+        <button id="close-token-modal-btn" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="token-generation-box">
+          <p>Para aprobar esta orden, genera un Token de Validación temporal.</p>
+          <button id="btn-generate-token" class="btn btn-secondary">Generar Token</button>
+          
+          <div id="token-display-box" class="token-display hidden">
+            <label for="token-string">Token de Validación Temporal (15m)</label>
+            <div class="copy-box">
+              <input type="text" id="token-string" readonly>
+              <button id="btn-copy-token" class="btn btn-sm">Copiar</button>
+            </div>
+          </div>
+        </div>
+        
+        <hr class="modal-divider">
+        
+        <div class="token-apply-box">
+          <p>Ingresa el token generado para autorizar la orden inmediatamente.</p>
+          <form id="form-apply-token">
+            <div class="form-group">
+              <textarea id="apply-token-input" rows="4" placeholder="Pega el token aquí..." required></textarea>
+            </div>
+            <button type="submit" class="btn btn-success btn-block">Aprobar Pedido con Token</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

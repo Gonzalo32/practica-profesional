@@ -24,6 +24,10 @@ const User = sequelize.define('User', {
   isActive: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
+  },
+  physicalSpaceId: {
+    type: DataTypes.UUID,
+    allowNull: true
   }
 });
 

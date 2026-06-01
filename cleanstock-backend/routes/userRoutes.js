@@ -1,5 +1,5 @@
 const express = require('express');
-const { createUser, getUsers, updateUser, deactivateUser } = require('../controllers/userController');
+const { createUser, getUsers, updateUser, deactivateUser, getAuditLogs } = require('../controllers/userController');
 const { verifyToken, requireRole } = require('../middlewares/authMiddleware');
 
 const router = express.Router();
@@ -10,6 +10,7 @@ router.use(requireRole(['Administrador']));
 
 router.post('/', createUser);
 router.get('/', getUsers);
+router.get('/logs', getAuditLogs);
 router.put('/:id', updateUser);
 router.delete('/:id', deactivateUser);
 

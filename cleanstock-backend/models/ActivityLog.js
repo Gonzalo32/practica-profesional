@@ -19,6 +19,10 @@ const ActivityLog = sequelize.define('ActivityLog', {
   timestamp: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
+  },
+  orderId: {
+    type: DataTypes.UUID,
+    allowNull: true
   }
 });
 

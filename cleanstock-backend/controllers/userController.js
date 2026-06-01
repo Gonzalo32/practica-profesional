@@ -1,11 +1,10 @@
 const bcrypt = require('bcryptjs');
-const User = require('../models/User');
-const ActivityLog = require('../models/ActivityLog');
+const { User, ActivityLog, PhysicalSpace } = require('../models');
 
 // T2.1: Crear nuevo usuario (Solo Administrador)
 const createUser = async (req, res) => {
   try {
-    const { username, password, role } = req.body;
+    const { username, password, role, physicalSpaceId } = req.body;
     
     const userExists = await User.findOne({ where: { username } });
     if (userExists) {
@@ -18,7 +17,8 @@ const createUser = async (req, res) => {
     const newUser = await User.create({
       username,
       passwordHash,
-      role: role || 'Solicitante'
+      role: role || 'Solicitante',
+      physicalSpaceId: physicalSpaceId || null
     });
     
     await ActivityLog.create({
@@ -29,7 +29,7 @@ const createUser = async (req, res) => {
     
     res.status(201).json({ message: 'Usuario creado exitosamente', user: { id: newUser.id, username, role: newUser.role } });
   } catch (error) {
-    res.status(500).json({ message: 'Error creando usuario' });
+    res.status(500).json({ message: 'Error creando usuario', error: error.message });
   }
 };
 
@@ -37,11 +37,12 @@ const createUser = async (req, res) => {
 const getUsers = async (req, res) => {
   try {
     const users = await User.findAll({
-      attributes: ['id', 'username', 'role', 'isActive', 'createdAt']
+      attributes: ['id', 'username', 'role', 'isActive', 'physicalSpaceId', 'createdAt'],
+      include: [{ model: PhysicalSpace, as: 'EspacioFisico', attributes: ['id', 'name', 'type'] }]
     });
     res.json(users);
   } catch (error) {
-    res.status(500).json({ message: 'Error obteniendo usuarios' });
+    res.status(500).json({ message: 'Error obteniendo usuarios', error: error.message });
   }
 };
 
@@ -49,7 +50,7 @@ const getUsers = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { username, role } = req.body;
+    const { username, role, physicalSpaceId } = req.body;
     
     const user = await User.findByPk(id);
     if (!user) {
@@ -58,6 +59,10 @@ const updateUser = async (req, res) => {
     
     user.username = username || user.username;
     user.role = role || user.role;
+    
+    if (physicalSpaceId !== undefined) {
+      user.physicalSpaceId = physicalSpaceId || null;
+    }
     
     await user.save();
     
@@ -69,7 +74,7 @@ const updateUser = async (req, res) => {
     
     res.json({ message: 'Usuario actualizado', user: { id: user.id, username: user.username, role: user.role } });
   } catch (error) {
-    res.status(500).json({ message: 'Error actualizando usuario' });
+    res.status(500).json({ message: 'Error actualizando usuario', error: error.message });
   }
 };
 
@@ -98,9 +103,22 @@ const deactivateUser = async (req, res) => {
   }
 };
 
+const getAuditLogs = async (req, res) => {
+  try {
+    const logs = await ActivityLog.findAll({
+      include: [{ model: User, attributes: ['username', 'role'] }],
+      order: [['timestamp', 'DESC']]
+    });
+    res.json(logs);
+  } catch (error) {
+    res.status(500).json({ message: 'Error obteniendo logs de auditoría', error: error.message });
+  }
+};
+
 module.exports = {
   createUser,
   getUsers,
   updateUser,
-  deactivateUser
+  deactivateUser,
+  getAuditLogs
 };

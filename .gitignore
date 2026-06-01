@@ -21,3 +21,6 @@ temp_pdf_parse/
 *.log
 .DS_Store
 Thumbs.db
+
+# IDE executable
+Antigravity IDE.exe
