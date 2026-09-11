@@ -1346,10 +1346,13 @@ window.addEventListener('click', (e) => {
 // ==========================================================================
 // 🏢 BRANCHES PANEL
 // ==========================================================================
+let loadedBranchesList = [];
+
 async function loadBranchesPanel() {
   try {
     const branches = await apiFetch('/branches');
     state.branches = branches;
+    loadedBranchesList = branches;
 
     const tbody = document.getElementById('table-branches-body');
     if (!tbody) return;
@@ -1364,12 +1367,23 @@ async function loadBranchesPanel() {
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><strong>${branch.name}</strong></td>
-        <td><span class="badge badge-branch">${capitalize(branch.type)}</span></td>
+        <td>${capitalize(branch.type)}</td>
         <td>${branch.address || '<span style="color:var(--text-muted)">Sin dirección</span>'}</td>
         <td>${branch.description || '<span style="color:var(--text-muted)">—</span>'}</td>
         <td>
-          <button class="btn btn-secondary btn-sm" onclick="viewBranchStock('${branch.id}', '${branch.name}')">📊 Ver Stock</button>
-          ${state.user.role === 'Administrador' ? `<button class="btn btn-danger btn-sm" onclick="deleteBranch('${branch.id}')">Eliminar</button>` : ''}
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button class="btn-icon" title="Ver Detalle" onclick="openViewBranchModal('${branch.id}')">
+              <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+            ${state.user.role === 'Administrador' ? `
+              <button class="btn-icon" title="Editar Sucursal" onclick="openEditBranchModal('${branch.id}')">
+                <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+              </button>
+              <button class="btn-icon btn-icon-danger" title="Eliminar Sucursal" onclick="deleteBranch('${branch.id}')">
+                <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              </button>
+            ` : ''}
+          </div>
         </td>
       `;
       tbody.appendChild(tr);
@@ -1377,6 +1391,154 @@ async function loadBranchesPanel() {
   } catch (err) {
     showToast(err.message, 'error');
   }
+}
+
+// Modal handlers: Crear Sucursal
+const formCreateBranch = document.getElementById('form-create-branch');
+const modalCreateBranch = document.getElementById('modal-create-branch');
+const btnOpenCreateBranchModal = document.getElementById('btn-open-create-branch-modal');
+const btnCloseCreateBranchModal = document.getElementById('btn-close-create-branch-modal');
+const btnCancelCreateBranchModal = document.getElementById('btn-cancel-create-branch-modal');
+
+if (btnOpenCreateBranchModal && modalCreateBranch) {
+  btnOpenCreateBranchModal.addEventListener('click', () => {
+    modalCreateBranch.classList.remove('hidden');
+  });
+}
+
+function closeCreateBranchModal() {
+  if (modalCreateBranch) {
+    modalCreateBranch.classList.add('hidden');
+    if (formCreateBranch) formCreateBranch.reset();
+  }
+}
+if (btnCloseCreateBranchModal) btnCloseCreateBranchModal.addEventListener('click', closeCreateBranchModal);
+if (btnCancelCreateBranchModal) btnCancelCreateBranchModal.addEventListener('click', closeCreateBranchModal);
+if (modalCreateBranch) {
+  modalCreateBranch.addEventListener('click', (e) => {
+    if (e.target === modalCreateBranch) closeCreateBranchModal();
+  });
+}
+
+if (formCreateBranch) {
+  formCreateBranch.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('branch-name').value.trim();
+    const address = document.getElementById('branch-address').value.trim();
+    const description = document.getElementById('branch-description').value.trim();
+    const type = document.getElementById('branch-type').value;
+
+    if (!name || !address || !description || !type) {
+      showToast('Todos los campos son obligatorios.', 'error');
+      return;
+    }
+
+    try {
+      await apiFetch('/branches', {
+        method: 'POST',
+        body: JSON.stringify({ name, address, description, type })
+      });
+      showToast('Sucursal creada exitosamente', 'success');
+      closeCreateBranchModal();
+      loadBranchesPanel();
+      loadBaseData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  });
+}
+
+// Modal handlers: Ver Sucursal
+window.openViewBranchModal = (branchId) => {
+  const branch = loadedBranchesList.find(b => b.id === branchId);
+  if (!branch) return;
+  const content = document.getElementById('view-branch-details-content');
+  if (content) {
+    content.innerHTML = `
+      <div style="grid-column: span 2;"><strong>Nombre:</strong> ${branch.name}</div>
+      <div><strong>Tipo:</strong> ${capitalize(branch.type)}</div>
+      <div style="grid-column: span 2;"><strong>Dirección:</strong> ${branch.address || 'Sin dirección'}</div>
+      <div style="grid-column: span 2;"><strong>Descripción:</strong> ${branch.description || 'Sin descripción'}</div>
+    `;
+  }
+  const modal = document.getElementById('modal-view-branch');
+  if (modal) modal.classList.remove('hidden');
+};
+
+const modalViewBranch = document.getElementById('modal-view-branch');
+const btnCloseViewBranchModal = document.getElementById('btn-close-view-branch-modal');
+const btnCloseViewBranchModalFooter = document.getElementById('btn-close-view-branch-modal-footer');
+function closeViewBranchModal() {
+  if (modalViewBranch) modalViewBranch.classList.add('hidden');
+}
+if (btnCloseViewBranchModal) btnCloseViewBranchModal.addEventListener('click', closeViewBranchModal);
+if (btnCloseViewBranchModalFooter) btnCloseViewBranchModalFooter.addEventListener('click', closeViewBranchModal);
+if (modalViewBranch) {
+  modalViewBranch.addEventListener('click', (e) => {
+    if (e.target === modalViewBranch) closeViewBranchModal();
+  });
+}
+
+// Modal handlers: Editar Sucursal
+const modalEditBranch = document.getElementById('modal-edit-branch');
+const formEditBranch = document.getElementById('form-edit-branch');
+const btnCloseEditBranchModal = document.getElementById('btn-close-edit-branch-modal');
+const btnCancelEditBranchModal = document.getElementById('btn-cancel-edit-branch-modal');
+
+function closeEditBranchModal() {
+  if (modalEditBranch) {
+    modalEditBranch.classList.add('hidden');
+    if (formEditBranch) formEditBranch.reset();
+  }
+}
+if (btnCloseEditBranchModal) btnCloseEditBranchModal.addEventListener('click', closeEditBranchModal);
+if (btnCancelEditBranchModal) btnCancelEditBranchModal.addEventListener('click', closeEditBranchModal);
+if (modalEditBranch) {
+  modalEditBranch.addEventListener('click', (e) => {
+    if (e.target === modalEditBranch) closeEditBranchModal();
+  });
+}
+
+window.openEditBranchModal = (branchId) => {
+  const branch = loadedBranchesList.find(b => b.id === branchId);
+  if (!branch) return;
+
+  document.getElementById('edit-branch-id').value = branch.id;
+  document.getElementById('edit-branch-name').value = branch.name || '';
+  document.getElementById('edit-branch-type').value = branch.type || 'sucursal';
+  document.getElementById('edit-branch-address').value = branch.address || '';
+  document.getElementById('edit-branch-description').value = branch.description || '';
+
+  if (modalEditBranch) modalEditBranch.classList.remove('hidden');
+};
+
+if (formEditBranch) {
+  formEditBranch.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('edit-branch-id').value;
+    const name = document.getElementById('edit-branch-name').value.trim();
+    const type = document.getElementById('edit-branch-type').value;
+    const address = document.getElementById('edit-branch-address').value.trim();
+    const description = document.getElementById('edit-branch-description').value.trim();
+
+    if (!name || !type || !address || !description) {
+      showToast('Todos los campos son obligatorios.', 'error');
+      return;
+    }
+
+    try {
+      await apiFetch(`/branches/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name, type, address, description })
+      });
+      showToast('Sucursal actualizada exitosamente', 'success');
+      closeEditBranchModal();
+      loadBranchesPanel();
+      loadBaseData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  });
 }
 
 window.deleteBranch = async (branchId) => {
@@ -1391,29 +1553,6 @@ window.deleteBranch = async (branchId) => {
   }
 };
 
-const formCreateBranch = document.getElementById('form-create-branch');
-if (formCreateBranch) {
-  formCreateBranch.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const name = document.getElementById('branch-name').value.trim();
-    const address = document.getElementById('branch-address').value.trim();
-    const description = document.getElementById('branch-description').value.trim();
-    const type = document.getElementById('branch-type').value;
-
-    try {
-      await apiFetch('/branches', {
-        method: 'POST',
-        body: JSON.stringify({ name, address, description, type })
-      });
-      showToast('Sucursal creada exitosamente', 'success');
-      formCreateBranch.reset();
-      loadBranchesPanel();
-      loadBaseData();
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
-  });
-}
 
 // ==========================================================================
 // 📊 STOCK POR SUCURSAL

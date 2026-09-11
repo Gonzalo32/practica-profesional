@@ -9,7 +9,15 @@ const login = async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    const user = await User.findOne({ where: { username } });
+    const { Op } = require('sequelize');
+    const user = await User.findOne({
+      where: {
+        [Op.or]: [
+          { username: username },
+          { email: username }
+        ]
+      }
+    });
     if (!user || !user.isActive) {
       return res.status(401).json({ message: 'Credenciales inválidas o usuario inactivo' });
     }
@@ -43,26 +51,31 @@ const login = async (req, res) => {
   }
 };
 
-// Endpoint auxiliar para generar un usuario inicial (admin) y probar
 const registerInitialAdmin = async (req, res) => {
   try {
-    const adminExists = await User.findOne({ where: { role: 'Administrador' } });
-    if (adminExists) {
-      return res.status(400).json({ message: 'Ya existe un administrador' });
-    }
-    
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash('admin123', salt);
     
-    const admin = await User.create({
-      username: 'admin',
-      passwordHash,
-      role: 'Administrador'
-    });
+    let admin = await User.findOne({ where: { email: 'admin@cleanstock.com' } });
+    if (!admin) {
+      admin = await User.create({
+        username: 'admin@cleanstock.com',
+        email: 'admin@cleanstock.com',
+        passwordHash,
+        role: 'Administrador',
+        firstName: 'Admin',
+        lastName: 'Prueba',
+        isActive: true
+      });
+    } else {
+      admin.passwordHash = passwordHash;
+      admin.isActive = true;
+      await admin.save();
+    }
     
-    res.status(201).json({ message: 'Administrador creado', id: admin.id });
+    res.status(201).json({ message: 'Administrador de prueba listo', email: 'admin@cleanstock.com' });
   } catch (error) {
-    res.status(500).json({ message: 'Error creando administrador' });
+    res.status(500).json({ message: 'Error creando usuario de prueba', error: error.message });
   }
 };
 
