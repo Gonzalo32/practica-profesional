@@ -12,6 +12,42 @@ const User = sequelize.define('User', {
     allowNull: false,
     unique: true
   },
+  firstName: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  lastName: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  email: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  phone: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  document: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  cuil: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  birthDate: {
+    type: DataTypes.DATEONLY,
+    allowNull: true
+  },
+  address: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  zipCode: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   passwordHash: {
     type: DataTypes.STRING,
     allowNull: false

@@ -16,9 +16,14 @@ const PhysicalSpace = sequelize.define('PhysicalSpace', {
     type: DataTypes.TEXT,
     allowNull: true
   },
+  address: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   type: {
     type: DataTypes.ENUM('filial', 'Zona', 'sucursal', 'dependencia', 'sector'),
-    allowNull: false
+    allowNull: false,
+    defaultValue: 'sucursal'
   }
 });
 
