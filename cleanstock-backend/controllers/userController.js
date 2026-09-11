@@ -4,21 +4,30 @@ const { User, ActivityLog, PhysicalSpace } = require('../models');
 // T2.1: Crear nuevo usuario (Solo Administrador)
 const createUser = async (req, res) => {
   try {
-    const { username, password, role, physicalSpaceId } = req.body;
-    
+    const { username, password, role, physicalSpaceId, firstName, lastName, email, phone, document, cuil, birthDate, address, zipCode } = req.body;
+
     const userExists = await User.findOne({ where: { username } });
     if (userExists) {
       return res.status(400).json({ message: 'El usuario ya existe' });
     }
-    
+
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
-    
+
     const newUser = await User.create({
       username,
       passwordHash,
       role: role || 'Solicitante',
-      physicalSpaceId: physicalSpaceId || null
+      physicalSpaceId: physicalSpaceId || null,
+      firstName: firstName || null,
+      lastName: lastName || null,
+      email: email || null,
+      phone: phone || null,
+      document: document || null,
+      cuil: cuil || null,
+      birthDate: birthDate || null,
+      address: address || null,
+      zipCode: zipCode || null
     });
     
     await ActivityLog.create({
@@ -37,7 +46,7 @@ const createUser = async (req, res) => {
 const getUsers = async (req, res) => {
   try {
     const users = await User.findAll({
-      attributes: ['id', 'username', 'role', 'isActive', 'physicalSpaceId', 'createdAt'],
+      attributes: ['id', 'username', 'role', 'isActive', 'physicalSpaceId', 'createdAt', 'firstName', 'lastName', 'email', 'phone', 'document', 'cuil', 'birthDate', 'address', 'zipCode'],
       include: [{ model: PhysicalSpace, as: 'EspacioFisico', attributes: ['id', 'name', 'type'] }]
     });
     res.json(users);
@@ -50,19 +59,25 @@ const getUsers = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { username, role, physicalSpaceId } = req.body;
-    
+    const { username, role, physicalSpaceId, firstName, lastName, email, phone, document, cuil, birthDate, address, zipCode } = req.body;
+
     const user = await User.findByPk(id);
     if (!user) {
       return res.status(404).json({ message: 'Usuario no encontrado' });
     }
-    
-    user.username = username || user.username;
-    user.role = role || user.role;
-    
-    if (physicalSpaceId !== undefined) {
-      user.physicalSpaceId = physicalSpaceId || null;
-    }
+
+    if (username) user.username = username;
+    if (role) user.role = role;
+    if (physicalSpaceId !== undefined) user.physicalSpaceId = physicalSpaceId || null;
+    if (firstName !== undefined) user.firstName = firstName || null;
+    if (lastName !== undefined) user.lastName = lastName || null;
+    if (email !== undefined) user.email = email || null;
+    if (phone !== undefined) user.phone = phone || null;
+    if (document !== undefined) user.document = document || null;
+    if (cuil !== undefined) user.cuil = cuil || null;
+    if (birthDate !== undefined) user.birthDate = birthDate || null;
+    if (address !== undefined) user.address = address || null;
+    if (zipCode !== undefined) user.zipCode = zipCode || null;
     
     await user.save();
     

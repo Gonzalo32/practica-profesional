@@ -11,8 +11,17 @@ let state = {
   cart: [],
   products: [],
   categories: [],
-  currentTab: ''
+  branches: [],
+  currentTab: '',
+  selectedFromBranch: null,
+  selectedToBranch: null
 };
+
+// Helper: capitaliza primera letra
+function capitalize(str) {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
 
 // ==========================================================================
 // 🛡️ API UTILITY FUNCTION
@@ -160,6 +169,8 @@ function renderNavigation() {
   if (role === 'Administrador') {
     tabs = [
       { id: 'admin', label: '🛡️ Control Administrador' },
+      { id: 'branches', label: '🏢 Sucursales' },
+      { id: 'stock-view', label: '📊 Stock por Sucursal' },
       { id: 'solicitante', label: '🛒 Catálogo y Pedidos' },
       { id: 'responsable', label: '📦 Gestión de Inventario' },
       { id: 'despachante', label: '🚚 Panel Despacho' }
@@ -213,27 +224,34 @@ function activatePanel(panelId) {
 
 async function loadBaseData() {
   try {
-    // Silently fetch products and categories
+    // Silently fetch products, categories, and branches
     state.products = await apiFetch('/inventory/products');
     state.categories = await apiFetch('/inventory/categories');
+    state.branches = await apiFetch('/branches');
   } catch (err) {
-    console.error('Error cargando catálogo:', err.message);
+    console.error('Error cargando datos base:', err.message);
   }
 }
 
 function refreshPanelData(panelId) {
   if (panelId === 'panel-admin') {
     loadAdminStats();
-    loadAdminSpaces(); // Load spaces first so they are available in state_spaces for user row rendering
+    loadAdminSpaces();
     loadAdminUsers();
     loadAdminApprovals();
     loadAdminLogs();
+  } else if (panelId === 'panel-branches') {
+    loadBranchesPanel();
+  } else if (panelId === 'panel-stock-view') {
+    loadBranchStockPanel();
   } else if (panelId === 'panel-solicitante') {
     loadCatalog();
     loadSolicitanteOrders();
     renderCart();
+    populateBranchSelectors();
   } else if (panelId === 'panel-responsable') {
     loadResponsableData();
+    populateStockEntryBranches();
   } else if (panelId === 'panel-despachante') {
     loadDespachanteOrders();
   }
@@ -276,63 +294,198 @@ async function loadAdminStats() {
   }
 }
 
+let loadedUsersList = [];
+
 async function loadAdminUsers() {
   try {
-    const users = await apiFetch('/users');
+    const allUsers = await apiFetch('/users');
+    // Filtrar solo usuarios activos
+    const users = allUsers.filter(u => u.isActive);
+    loadedUsersList = users;
+
     const tbody = document.getElementById('table-users-body');
     tbody.innerHTML = '';
 
-    users.forEach(user => {
-      // Build location text: first type in dropdown, then space name
-      const locationText = user.EspacioFisico 
-        ? `${capitalize(user.EspacioFisico.type)} ${user.EspacioFisico.name}` 
-        : '<span style="color:var(--text-muted)">Sin asignar</span>';
+    if (users.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-text">No hay usuarios activos registrados.</td></tr>';
+    } else {
+      users.forEach(user => {
+        const spaceName = user.EspacioFisico?.name || '<span style="color:var(--text-muted)">Sin asignar</span>';
+        const doc = user.document || user.cuil || '-';
 
-      // Build space reassignment dropdown
-      let spaceOptions = `<option value="">Asignar Lugar</option>
-                          <option value="none">Quitar Lugar</option>`;
-      state_spaces.forEach(sp => {
-        spaceOptions += `<option value="${sp.id}" ${user.physicalSpaceId === sp.id ? 'selected' : ''}>${capitalize(sp.type)} ${sp.name}</option>`;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${user.firstName || '-'}</strong></td>
+          <td><strong>${user.lastName || '-'}</strong></td>
+          <td>${user.email || user.username || '-'}</td>
+          <td>${user.phone || '-'}</td>
+          <td>${spaceName}</td>
+          <td>${doc}</td>
+          <td>${user.role}</td>
+          <td>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <button class="btn-icon" title="Ver Detalle" onclick="openViewUserModal('${user.id}')">
+                <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </button>
+              <button class="btn-icon" title="Editar Usuario" onclick="openEditUserModal('${user.id}')">
+                <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+              </button>
+              <button class="btn-icon btn-icon-danger" title="Eliminar Usuario" onclick="deactivateUser('${user.id}')">
+                <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              </button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
       });
+    }
 
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><strong>${user.username}</strong></td>
-        <td><span class="badge">${user.role}</span></td>
-        <td>${locationText}</td>
-        <td>
-          <span class="status-badge ${user.isActive ? 'status-entregado' : 'status-rechazado'}">
-            ${user.isActive ? 'Activo' : 'Inactivo'}
-          </span>
-        </td>
-        <td>
-          ${user.isActive ? `
-            <button class="btn btn-secondary btn-sm" onclick="deactivateUser('${user.id}')">Dar de Baja</button>
-            <select class="btn-sm" style="width:auto; margin-left:10px" onchange="changeUserRole('${user.id}', this.value)">
-              <option value="">Cambiar Rol</option>
-              <option value="Solicitante">Solicitante</option>
-              <option value="Despachante">Despachante</option>
-              <option value="Usuario Responsable">Usuario Resp.</option>
-              <option value="Administrador">Administrador</option>
-            </select>
-            <select class="btn-sm" style="width:auto; margin-left:10px" onchange="changeUserSpace('${user.id}', this.value)">
-              ${spaceOptions}
-            </select>
-          ` : '<span style="color:var(--text-muted)">Sin acciones</span>'}
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
+    // Popular el select de sucursales en el form de creación de usuario
+    populateUserSpaceSelect();
+
   } catch (err) {
     showToast(err.message, 'error');
   }
 }
 
+window.openViewUserModal = (userId) => {
+  const user = loadedUsersList.find(u => u.id === userId);
+  if (!user) return;
+  const content = document.getElementById('view-user-details-content');
+  if (content) {
+    content.innerHTML = `
+      <div><strong>Nombre:</strong> ${user.firstName || '-'}</div>
+      <div><strong>Apellido:</strong> ${user.lastName || '-'}</div>
+      <div><strong>Correo:</strong> ${user.email || user.username || '-'}</div>
+      <div><strong>Teléfono:</strong> ${user.phone || '-'}</div>
+      <div><strong>DNI / CUIL / Doc:</strong> ${user.document || user.cuil || '-'}</div>
+      <div><strong>Fecha Nacimiento:</strong> ${user.birthDate || '-'}</div>
+      <div><strong>Dirección:</strong> ${user.address || '-'}</div>
+      <div><strong>Código Postal:</strong> ${user.zipCode || '-'}</div>
+      <div><strong>Rol:</strong> ${user.role}</div>
+      <div><strong>Sucursal:</strong> ${user.EspacioFisico?.name || 'Sin asignar'}</div>
+    `;
+  }
+  const modal = document.getElementById('modal-view-user');
+  if (modal) modal.classList.remove('hidden');
+};
+
+const modalViewUser = document.getElementById('modal-view-user');
+const btnCloseViewUserModal = document.getElementById('btn-close-view-user-modal');
+const btnCloseViewUserModalFooter = document.getElementById('btn-close-view-user-modal-footer');
+function closeViewUserModal() {
+  if (modalViewUser) modalViewUser.classList.add('hidden');
+}
+if (btnCloseViewUserModal) btnCloseViewUserModal.addEventListener('click', closeViewUserModal);
+if (btnCloseViewUserModalFooter) btnCloseViewUserModalFooter.addEventListener('click', closeViewUserModal);
+if (modalViewUser) {
+  modalViewUser.addEventListener('click', (e) => {
+    if (e.target === modalViewUser) closeViewUserModal();
+  });
+}
+
+const modalEditUser = document.getElementById('modal-edit-user');
+const formEditUser = document.getElementById('form-edit-user');
+const btnCloseEditUserModal = document.getElementById('btn-close-edit-user-modal');
+const btnCancelEditUserModal = document.getElementById('btn-cancel-edit-user-modal');
+
+function closeEditUserModal() {
+  if (modalEditUser) {
+    modalEditUser.classList.add('hidden');
+    if (formEditUser) formEditUser.reset();
+  }
+}
+if (btnCloseEditUserModal) btnCloseEditUserModal.addEventListener('click', closeEditUserModal);
+if (btnCancelEditUserModal) btnCancelEditUserModal.addEventListener('click', closeEditUserModal);
+if (modalEditUser) {
+  modalEditUser.addEventListener('click', (e) => {
+    if (e.target === modalEditUser) closeEditUserModal();
+  });
+}
+
+window.openEditUserModal = async (userId) => {
+  const user = loadedUsersList.find(u => u.id === userId);
+  if (!user) return;
+
+  // Llenar select de sucursales en edit form
+  const editSpaceSelect = document.getElementById('edit-user-space');
+  if (editSpaceSelect) {
+    if (!state.branches || state.branches.length === 0) {
+      state.branches = await apiFetch('/branches');
+    }
+    editSpaceSelect.innerHTML = '<option value="">Seleccionar Sucursal...</option>';
+    state.branches.forEach(b => {
+      editSpaceSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+    });
+  }
+
+  document.getElementById('edit-user-id').value = user.id;
+  document.getElementById('edit-user-email').value = user.email || user.username || '';
+  document.getElementById('edit-user-firstname').value = user.firstName || '';
+  document.getElementById('edit-user-lastname').value = user.lastName || '';
+  document.getElementById('edit-user-document').value = user.document || user.cuil || '';
+  document.getElementById('edit-user-birthdate').value = user.birthDate || '';
+  document.getElementById('edit-user-phone').value = user.phone || '';
+  document.getElementById('edit-user-address').value = user.address || '';
+  document.getElementById('edit-user-zipcode').value = user.zipCode || '';
+  document.getElementById('edit-user-role').value = user.role;
+  if (editSpaceSelect) editSpaceSelect.value = user.physicalSpaceId || '';
+
+  if (modalEditUser) modalEditUser.classList.remove('hidden');
+};
+
+if (formEditUser) {
+  formEditUser.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('edit-user-id').value;
+    const email = document.getElementById('edit-user-email').value.trim();
+    const firstName = document.getElementById('edit-user-firstname').value.trim();
+    const lastName = document.getElementById('edit-user-lastname').value.trim();
+    const documentStr = document.getElementById('edit-user-document').value.trim();
+    const birthDate = document.getElementById('edit-user-birthdate').value;
+    const phone = document.getElementById('edit-user-phone').value.trim();
+    const address = document.getElementById('edit-user-address').value.trim();
+    const zipCode = document.getElementById('edit-user-zipcode').value.trim();
+    const role = document.getElementById('edit-user-role').value;
+    const physicalSpaceId = document.getElementById('edit-user-space').value;
+
+    if (!email || !firstName || !lastName || !documentStr || !birthDate || !phone || !address || !zipCode || !role || !physicalSpaceId) {
+      showToast('Todos los campos son obligatorios.', 'error');
+      return;
+    }
+
+    try {
+      await apiFetch(`/users/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          username: email,
+          email,
+          firstName,
+          lastName,
+          document: documentStr,
+          cuil: documentStr,
+          birthDate,
+          phone,
+          address,
+          zipCode,
+          role,
+          physicalSpaceId
+        })
+      });
+      showToast('Usuario actualizado exitosamente', 'success');
+      closeEditUserModal();
+      loadAdminUsers();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  });
+}
+
 window.deactivateUser = async (userId) => {
-  if (!confirm('¿Seguro que deseas dar de baja a este usuario?')) return;
+  if (!confirm('¿Seguro que deseas eliminar este usuario?')) return;
   try {
     await apiFetch(`/users/${userId}`, { method: 'DELETE' });
-    showToast('Usuario dado de baja exitosamente', 'success');
+    showToast('Usuario eliminado exitosamente', 'success');
     loadAdminUsers();
     loadAdminStats();
   } catch (err) {
@@ -354,23 +507,101 @@ window.changeUserRole = async (userId, newRole) => {
   }
 };
 
-// Form to create user
+window.changeUserSpace = async (userId, spaceId) => {
+  if (!spaceId) return;
+  try {
+    await apiFetch(`/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ physicalSpaceId: spaceId === 'none' ? null : spaceId })
+    });
+    showToast('Sucursal asignada actualizada', 'success');
+    loadAdminUsers();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+};
+
 const formCreateUser = document.getElementById('form-create-user');
+const modalCreateUser = document.getElementById('modal-create-user');
+const btnOpenCreateUserModal = document.getElementById('btn-open-create-user-modal');
+const btnCloseCreateUserModal = document.getElementById('btn-close-create-user-modal');
+const btnCancelCreateUserModal = document.getElementById('btn-cancel-create-user-modal');
+
+async function populateUserSpaceSelect() {
+  const spaceSelect = document.getElementById('new-user-space');
+  if (!spaceSelect) return;
+  try {
+    if (!state.branches || state.branches.length === 0) {
+      state.branches = await apiFetch('/branches');
+    }
+    spaceSelect.innerHTML = '<option value="">Seleccionar Sucursal...</option>';
+    if (state.branches && state.branches.length > 0) {
+      state.branches.forEach(b => {
+        spaceSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`;
+      });
+    }
+  } catch (err) {
+    console.error('Error cargando sucursales para el select:', err);
+  }
+}
+
+if (btnOpenCreateUserModal && modalCreateUser) {
+  btnOpenCreateUserModal.addEventListener('click', async () => {
+    await populateUserSpaceSelect();
+    modalCreateUser.classList.remove('hidden');
+  });
+}
+
+function closeCreateUserModal() {
+  if (modalCreateUser) {
+    modalCreateUser.classList.add('hidden');
+    if (formCreateUser) formCreateUser.reset();
+  }
+}
+
+if (btnCloseCreateUserModal) btnCloseCreateUserModal.addEventListener('click', closeCreateUserModal);
+if (btnCancelCreateUserModal) btnCancelCreateUserModal.addEventListener('click', closeCreateUserModal);
+
+if (modalCreateUser) {
+  modalCreateUser.addEventListener('click', (e) => {
+    if (e.target === modalCreateUser) {
+      closeCreateUserModal();
+    }
+  });
+}
+
 if (formCreateUser) {
   formCreateUser.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const username = document.getElementById('new-user-username').value.trim();
+    const email = document.getElementById('new-user-email').value.trim();
+    const username = email;
     const password = document.getElementById('new-user-password').value;
     const role = document.getElementById('new-user-role').value;
-    const physicalSpaceId = document.getElementById('new-user-space').value || null;
+    const physicalSpaceId = document.getElementById('new-user-space').value;
+    const firstName = document.getElementById('new-user-firstname').value.trim();
+    const lastName = document.getElementById('new-user-lastname').value.trim();
+    const documentStr = document.getElementById('new-user-document').value.trim();
+    const birthDate = document.getElementById('new-user-birthdate').value;
+    const phone = document.getElementById('new-user-phone').value.trim();
+    const address = document.getElementById('new-user-address').value.trim();
+    const zipCode = document.getElementById('new-user-zipcode').value.trim();
+
+    if (!email || !password || !role || !physicalSpaceId || !firstName || !lastName || !documentStr || !birthDate || !phone || !address || !zipCode) {
+      showToast('Todos los campos son obligatorios.', 'error');
+      return;
+    }
 
     try {
       await apiFetch('/users', {
         method: 'POST',
-        body: JSON.stringify({ username, password, role, physicalSpaceId })
+        body: JSON.stringify({ 
+          username, password, role, physicalSpaceId, 
+          firstName, lastName, document: documentStr, cuil: documentStr, birthDate,
+          email, phone, address, zipCode
+        })
       });
       showToast('Usuario registrado exitosamente', 'success');
-      formCreateUser.reset();
+      closeCreateUserModal();
       loadAdminUsers();
       loadAdminStats();
     } catch (err) {
@@ -724,10 +955,17 @@ window.removeFromCart = (productId) => {
   renderCart();
 };
 
-// Submit Order (T4.2)
+// Submit Order (T4.2) — inter-branch support
 document.getElementById('btn-submit-order').addEventListener('click', async () => {
   if (state.cart.length === 0) return;
   const requiresValidation = document.getElementById('cart-validation-req').checked;
+  const fromBranchEl = document.getElementById('order-from-branch');
+  const toBranchEl = document.getElementById('order-to-branch');
+  const notesEl = document.getElementById('order-notes');
+
+  const fromBranchId = fromBranchEl ? fromBranchEl.value || null : null;
+  const toBranchId = toBranchEl ? toBranchEl.value || null : null;
+  const notes = notesEl ? notesEl.value.trim() || null : null;
 
   try {
     const items = state.cart.map(item => ({
@@ -737,12 +975,15 @@ document.getElementById('btn-submit-order').addEventListener('click', async () =
 
     await apiFetch('/orders', {
       method: 'POST',
-      body: JSON.stringify({ items, requiresValidation })
+      body: JSON.stringify({ items, requiresValidation, fromBranchId, toBranchId, notes })
     });
 
     showToast('¡Pedido enviado exitosamente!', 'success');
     state.cart = [];
     document.getElementById('cart-validation-req').checked = false;
+    if (fromBranchEl) fromBranchEl.value = '';
+    if (toBranchEl) toBranchEl.value = '';
+    if (notesEl) notesEl.value = '';
     renderCart();
     loadSolicitanteOrders();
   } catch (err) {
@@ -862,7 +1103,7 @@ async function loadRecentStockTable() {
   }
 }
 
-// Register Incoming Stock (T3.2)
+// Register Incoming Stock (T3.2) — with branch support
 const formStockEntry = document.getElementById('form-stock-entry');
 if (formStockEntry) {
   formStockEntry.addEventListener('submit', async (e) => {
@@ -871,16 +1112,20 @@ if (formStockEntry) {
     const lotNumber = document.getElementById('stock-lot').value.trim();
     const expirationDate = document.getElementById('stock-expiration').value;
     const quantity = parseInt(document.getElementById('stock-quantity').value) || 0;
+    const branchIdEl = document.getElementById('stock-entry-branch');
+    const branchId = branchIdEl ? branchIdEl.value || null : null;
 
     try {
       await apiFetch('/inventory/stock', {
         method: 'POST',
-        body: JSON.stringify({ productId, lotNumber, expirationDate, quantity })
+        body: JSON.stringify({ productId, lotNumber, expirationDate, quantity, branchId })
       });
 
       showToast('Ingreso de stock registrado exitosamente', 'success');
       formStockEntry.reset();
       loadResponsableData();
+      // Refresh stock view if on that panel
+      if (state.currentTab === 'panel-stock-view') loadBranchStockPanel();
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -1099,9 +1344,308 @@ window.addEventListener('click', (e) => {
 });
 
 // ==========================================================================
+// 🏢 BRANCHES PANEL
+// ==========================================================================
+async function loadBranchesPanel() {
+  try {
+    const branches = await apiFetch('/branches');
+    state.branches = branches;
+
+    const tbody = document.getElementById('table-branches-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (branches.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty-text">No hay sucursales registradas. Crea la primera.</td></tr>';
+      return;
+    }
+
+    branches.forEach(branch => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${branch.name}</strong></td>
+        <td><span class="badge badge-branch">${capitalize(branch.type)}</span></td>
+        <td>${branch.address || '<span style="color:var(--text-muted)">Sin dirección</span>'}</td>
+        <td>${branch.description || '<span style="color:var(--text-muted)">—</span>'}</td>
+        <td>
+          <button class="btn btn-secondary btn-sm" onclick="viewBranchStock('${branch.id}', '${branch.name}')">📊 Ver Stock</button>
+          ${state.user.role === 'Administrador' ? `<button class="btn btn-danger btn-sm" onclick="deleteBranch('${branch.id}')">Eliminar</button>` : ''}
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+window.deleteBranch = async (branchId) => {
+  if (!confirm('¿Seguro que deseas eliminar esta sucursal? Se desasociarán todos sus usuarios y stock.')) return;
+  try {
+    await apiFetch(`/branches/${branchId}`, { method: 'DELETE' });
+    showToast('Sucursal eliminada', 'success');
+    loadBranchesPanel();
+    loadBaseData();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+};
+
+const formCreateBranch = document.getElementById('form-create-branch');
+if (formCreateBranch) {
+  formCreateBranch.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('branch-name').value.trim();
+    const address = document.getElementById('branch-address').value.trim();
+    const description = document.getElementById('branch-description').value.trim();
+    const type = document.getElementById('branch-type').value;
+
+    try {
+      await apiFetch('/branches', {
+        method: 'POST',
+        body: JSON.stringify({ name, address, description, type })
+      });
+      showToast('Sucursal creada exitosamente', 'success');
+      formCreateBranch.reset();
+      loadBranchesPanel();
+      loadBaseData();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  });
+}
+
+// ==========================================================================
+// 📊 STOCK POR SUCURSAL
+// ==========================================================================
+async function loadBranchStockPanel() {
+  try {
+    const branches = await apiFetch('/branches');
+    state.branches = branches;
+
+    const sel = document.getElementById('stock-view-branch-select');
+    if (!sel) return;
+
+    const currentVal = sel.value;
+    sel.innerHTML = '<option value="">— Seleccionar sucursal —</option>';
+    branches.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.id;
+      opt.textContent = `${capitalize(b.type)} ${b.name}`;
+      if (b.id === currentVal) opt.selected = true;
+      sel.appendChild(opt);
+    });
+
+    if (currentVal) {
+      await loadStockForBranch(currentVal);
+    } else {
+      const tbody = document.getElementById('table-branch-stock-body');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="empty-text">Seleccioná una sucursal para ver su stock.</td></tr>';
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function loadStockForBranch(branchId) {
+  try {
+    const { branch, stockItems } = await apiFetch(`/branches/${branchId}/stock`);
+    const tbody = document.getElementById('table-branch-stock-body');
+    const titleEl = document.getElementById('stock-view-branch-title');
+
+    if (titleEl) titleEl.textContent = `Stock — ${capitalize(branch.type)} ${branch.name}`;
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (stockItems.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty-text">Esta sucursal no tiene stock registrado aún.</td></tr>';
+      return;
+    }
+
+    stockItems.forEach(item => {
+      const product = item.Producto;
+      const category = product?.Category?.name || '—';
+      const minStock = product?.minimumStock || 0;
+      const stockClass = item.quantity <= 0 ? 'stock-critical' : item.quantity <= minStock ? 'stock-low' : 'stock-ok';
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${product?.name || 'N/A'}</strong></td>
+        <td><span class="badge">${category}</span></td>
+        <td><span class="stock-qty ${stockClass}">${item.quantity}</span></td>
+        <td><span style="font-size:0.8rem; color:var(--text-muted)">Mín: ${minStock}</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+window.viewBranchStock = (branchId, branchName) => {
+  // Navigate to stock view panel and load that branch's stock
+  const stockViewTab = document.querySelector('[data-panel="panel-stock-view"]');
+  if (stockViewTab) {
+    switchTab(stockViewTab);
+    setTimeout(async () => {
+      const sel = document.getElementById('stock-view-branch-select');
+      if (sel) {
+        sel.value = branchId;
+        await loadStockForBranch(branchId);
+      }
+    }, 200);
+  }
+};
+
+// Stock view branch selector change event
+const stockViewSel = document.getElementById('stock-view-branch-select');
+if (stockViewSel) {
+  stockViewSel.addEventListener('change', async (e) => {
+    if (e.target.value) await loadStockForBranch(e.target.value);
+    else {
+      const tbody = document.getElementById('table-branch-stock-body');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="empty-text">Seleccioná una sucursal para ver su stock.</td></tr>';
+      const title = document.getElementById('stock-view-branch-title');
+      if (title) title.textContent = 'Stock por Sucursal';
+    }
+  });
+}
+
+// Manual stock adjust form (from stock view panel)
+const formStockAdjust = document.getElementById('form-stock-adjust');
+if (formStockAdjust) {
+  formStockAdjust.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const branchId = document.getElementById('adjust-branch').value;
+    const productId = document.getElementById('adjust-product').value;
+    const quantity = parseInt(document.getElementById('adjust-quantity').value);
+    const reason = document.getElementById('adjust-reason').value.trim();
+
+    if (!branchId || !productId || isNaN(quantity)) {
+      showToast('Completá todos los campos del ajuste', 'error');
+      return;
+    }
+
+    try {
+      await apiFetch(`/branches/${branchId}/stock/adjust`, {
+        method: 'POST',
+        body: JSON.stringify({ productId, quantity, reason })
+      });
+      showToast('Stock ajustado correctamente', 'success');
+      formStockAdjust.reset();
+      if (document.getElementById('stock-view-branch-select')?.value) {
+        loadStockForBranch(document.getElementById('stock-view-branch-select').value);
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  });
+}
+
+// ==========================================================================
+// 🔄 POPULATE BRANCH SELECTORS IN FORMS
+// ==========================================================================
+function populateBranchSelectors() {
+  const fromSel = document.getElementById('order-from-branch');
+  const toSel = document.getElementById('order-to-branch');
+
+  if (fromSel) {
+    fromSel.innerHTML = '<option value="">Sin sucursal origen (pedido general)</option>';
+    state.branches.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.id;
+      opt.textContent = `${capitalize(b.type)} ${b.name}`;
+      fromSel.appendChild(opt);
+    });
+  }
+
+  if (toSel) {
+    toSel.innerHTML = '<option value="">Sin sucursal destino</option>';
+    state.branches.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.id;
+      opt.textContent = `${capitalize(b.type)} ${b.name}`;
+      toSel.appendChild(opt);
+    });
+  }
+}
+
+function populateStockEntryBranches() {
+  const sel = document.getElementById('stock-entry-branch');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Sin sucursal específica</option>';
+  state.branches.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b.id;
+    opt.textContent = `${capitalize(b.type)} ${b.name}`;
+    sel.appendChild(opt);
+  });
+
+  // Also populate adjust-branch and adjust-product selects
+  const adjBranch = document.getElementById('adjust-branch');
+  if (adjBranch) {
+    adjBranch.innerHTML = '<option value="">— Sucursal —</option>';
+    state.branches.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.id;
+      opt.textContent = `${capitalize(b.type)} ${b.name}`;
+      adjBranch.appendChild(opt);
+    });
+  }
+
+  const adjProduct = document.getElementById('adjust-product');
+  if (adjProduct) {
+    adjProduct.innerHTML = '<option value="">— Producto —</option>';
+    state.products.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name;
+      adjProduct.appendChild(opt);
+    });
+  }
+}
+
+// ==========================================================================
+// 📋 TRAZABILIDAD DE MOVIMIENTOS
+// ==========================================================================
+async function loadMovementsTraceability() {
+  try {
+    const logs = await apiFetch('/branches/movements');
+    const tbody = document.getElementById('table-movements-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (logs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty-text">No hay movimientos de stock registrados.</td></tr>';
+      return;
+    }
+
+    logs.forEach(log => {
+      const date = new Date(log.createdAt || log.timestamp).toLocaleString();
+      const isEntry = log.action === 'STOCK_ENTRY' || log.action === 'REGISTER_STOCK';
+      const isExit = log.action === 'STOCK_EXIT';
+      const isMove = log.action === 'STOCK_MOVEMENT';
+
+      const typeLabel = isEntry ? '📥 Entrada' : isExit ? '📤 Salida' : isMove ? '🔄 Movimiento' : log.action;
+      const typeClass = isEntry ? 'status-entregado' : isExit ? 'status-rechazado' : 'status-preparacion';
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="font-size:0.8rem; color:var(--text-muted)">${date}</td>
+        <td><span class="status-badge ${typeClass}">${typeLabel}</span></td>
+        <td style="font-size:0.85rem">${log.details}</td>
+        <td><strong>${log.User?.username || 'Sistema'}</strong></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    console.error('Error cargando movimientos:', err);
+  }
+}
+
+// ==========================================================================
 // 🚩 START APP
 // ==========================================================================
-// Initialize on page load
 window.addEventListener('DOMContentLoaded', () => {
   initApp();
 });

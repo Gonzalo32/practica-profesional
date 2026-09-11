@@ -25,6 +25,20 @@ const Order = sequelize.define('Order', {
   validatorId: {
     type: DataTypes.UUID,
     allowNull: true
+  },
+  // Sucursal que despacha / tiene el stock de origen
+  fromBranchId: {
+    type: DataTypes.UUID,
+    allowNull: true
+  },
+  // Sucursal que recibe los artículos
+  toBranchId: {
+    type: DataTypes.UUID,
+    allowNull: true
+  },
+  notes: {
+    type: DataTypes.TEXT,
+    allowNull: true
   }
 });
 
@@ -36,3 +50,4 @@ User.hasMany(Order, { foreignKey: 'validatorId', as: 'Validaciones' });
 Order.belongsTo(User, { foreignKey: 'validatorId', as: 'Validador' });
 
 module.exports = Order;
+

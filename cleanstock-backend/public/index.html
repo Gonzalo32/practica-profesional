@@ -54,91 +54,101 @@
     </div>
 
     <!-- MAIN APP VIEW (DASHBOARD) -->
-    <div id="main-view" class="view hidden">
-      <!-- HEADER -->
-      <header class="glass">
-        <div class="header-brand">
-          <div class="logo-box-small">
-            <div class="box-3d-small"></div>
+    <div id="main-view" class="view hidden layout-sidebar">
+      
+      <!-- SIDEBAR -->
+      <aside class="sidebar glass">
+        <div class="sidebar-header">
+          <div class="header-brand">
+            <div class="logo-box-small">
+              <div class="box-3d-small"></div>
+            </div>
+            <h2>Clean<span>Stock</span></h2>
           </div>
-          <h2>Clean<span>Stock</span></h2>
         </div>
-        
-        <div class="user-profile">
-          <div class="profile-info">
-            <span class="user-name" id="profile-username">Usuario</span>
-            <span class="user-role badge" id="profile-role">Rol</span>
-          </div>
-          <button id="btn-logout" class="btn btn-danger btn-circle" title="Cerrar Sesión">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-          </button>
-        </div>
-      </header>
 
-      <!-- NAVIGATION TABS -->
-      <nav class="nav-tabs" id="main-navigation">
-        <!-- Generado dinámicamente según el rol en app.js -->
-      </nav>
+        <!-- NAVIGATION TABS -->
+        <nav class="nav-tabs sidebar-nav" id="main-navigation">
+          <!-- Generado dinámicamente según el rol en app.js -->
+        </nav>
+        
+        <div class="sidebar-footer">
+          <div class="user-profile">
+            <div class="profile-info">
+              <span class="user-name" id="profile-username">Usuario</span>
+              <span class="user-role badge" id="profile-role">Rol</span>
+            </div>
+            <button id="btn-logout" class="btn btn-danger btn-circle" title="Cerrar Sesión">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+            </button>
+          </div>
+        </div>
+      </aside>
 
       <!-- VIEW PANELS -->
       <main class="content-container">
         <!-- 🔴 PANEL ADMINISTRADOR -->
         <section id="panel-admin" class="panel hidden">
           <div class="grid-dashboard">
-            <!-- Stats -->
+            <!-- KPI: Usuarios -->
             <div class="card glass stat-card">
               <h3>Usuarios Activos</h3>
               <p class="stat-number" id="admin-stat-users">-</p>
             </div>
+            <!-- KPI: Productos -->
             <div class="card glass stat-card">
               <h3>Productos</h3>
               <p class="stat-number" id="admin-stat-products">-</p>
             </div>
+            <!-- KPI: Pedidos -->
             <div class="card glass stat-card">
               <h3>Pedidos Realizados</h3>
               <p class="stat-number" id="admin-stat-orders">-</p>
             </div>
+            <!-- KPI: Alertas activas (Módulo 6) -->
+            <div class="card glass stat-card stat-card-alert">
+              <h3>⚠️ Alertas de Stock</h3>
+              <p class="stat-number" id="admin-stat-alerts">-</p>
+              <span class="stat-sub" id="admin-stat-critical"></span>
+            </div>
+            <!-- KPI: Pedidos en tránsito -->
+            <div class="card glass stat-card stat-card-transit">
+              <h3>🚚 En Tránsito</h3>
+              <p class="stat-number" id="admin-stat-transit">-</p>
+            </div>
+            <!-- KPI: Ingresos del día -->
+            <div class="card glass stat-card stat-card-today">
+              <h3>📊 Ingresos Hoy</h3>
+              <p class="stat-number" id="admin-stat-today">-</p>
+            </div>
           </div>
 
-          <!-- Admin Tabs Content: Users CRUD vs Audit Logs vs Aprobaciones -->
+          <!-- Admin Sub-tabs -->
           <div class="sub-nav">
             <button class="btn btn-tab active" data-sub="admin-users">Gestión de Usuarios</button>
-            <button class="btn btn-tab" data-sub="admin-spaces">Gestión de Espacios Físicos</button>
             <button class="btn btn-tab" data-sub="admin-approvals">Aprobación de Pedidos</button>
+            <button class="btn btn-tab" data-sub="admin-alerts">🔔 Alertas de Stock</button>
             <button class="btn btn-tab" data-sub="admin-logs">Historial de Auditoría</button>
           </div>
 
           <!-- Subpanel: Users CRUD -->
           <div id="subpanel-admin-users" class="subpanel">
-            <div class="card glass form-card">
-              <h3>Crear Nuevo Usuario</h3>
-              <form id="form-create-user" class="inline-form">
-                <input type="text" id="new-user-username" placeholder="Nombre de usuario" required>
-                <input type="password" id="new-user-password" placeholder="Contraseña" required>
-                <select id="new-user-role" required>
-                  <option value="Solicitante">Solicitante</option>
-                  <option value="Despachante">Despachante</option>
-                  <option value="Usuario Responsable">Usuario Responsable</option>
-                  <option value="Administrador">Administrador</option>
-                </select>
-                <select id="new-user-space">
-                  <option value="">Sin Espacio Físico</option>
-                  <!-- Dinámico -->
-                </select>
-                <button type="submit" class="btn btn-primary">Registrar</button>
-              </form>
-            </div>
-
             <div class="card glass table-card">
-              <h3>Listado de Usuarios</h3>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin-bottom: 0;">Listado de Usuarios</h3>
+                <button id="btn-open-create-user-modal" class="btn btn-primary">➕ Crear Usuario</button>
+              </div>
               <div class="table-responsive">
                 <table>
                   <thead>
                     <tr>
-                      <th>Usuario</th>
+                      <th>Nombre</th>
+                      <th>Apellido</th>
+                      <th>Correo</th>
+                      <th>Teléfono</th>
+                      <th>Sucursal</th>
+                      <th>DNI / CUIL / Documento</th>
                       <th>Rol</th>
-                      <th>Lugar</th>
-                      <th>Estado</th>
                       <th>Acciones</th>
                     </tr>
                   </thead>
@@ -150,42 +160,149 @@
             </div>
           </div>
 
-          <!-- Subpanel: Physical Spaces CRUD -->
-          <div id="subpanel-admin-spaces" class="subpanel hidden">
-            <div class="card glass form-card">
-              <h3>Crear Nuevo Espacio Físico</h3>
-              <form id="form-create-space" class="inline-form">
-                <input type="text" id="space-name" placeholder="Nombre (ej. Sede Central)" required>
-                <input type="text" id="space-description" placeholder="Descripción corta">
-                <select id="space-type" required>
-                  <option value="" disabled selected>Tipo de Espacio</option>
-                  <option value="filial">Filial</option>
-                  <option value="Zona">Zona</option>
-                  <option value="sucursal">Sucursal</option>
-                  <option value="dependencia">Dependencia</option>
-                  <option value="sector">Sector</option>
-                </select>
-                <button type="submit" class="btn btn-primary">Crear Espacio</button>
-              </form>
-            </div>
-
-            <div class="card glass table-card">
-              <h3>Listado de Espacios Físicos</h3>
-              <div class="table-responsive">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Nombre</th>
-                      <th>Tipo</th>
-                      <th>Descripción</th>
-                      <th>Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody id="table-spaces-body">
-                    <!-- Dinámico -->
-                  </tbody>
-                </table>
+          <!-- Modal: Crear Usuario -->
+          <div id="modal-create-user" class="modal hidden">
+            <div class="modal-content glass card" style="max-width: 720px; width: 95%; padding: 20px 25px;">
+              <div class="modal-header" style="margin-bottom: 10px; padding-bottom: 8px;">
+                <h3 style="font-size: 1.2rem;">Crear Nuevo Usuario</h3>
+                <button type="button" class="close-btn" id="btn-close-create-user-modal">&times;</button>
               </div>
+              <form id="form-create-user" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem 1rem; margin-top: 0.5rem;">
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="new-user-email" style="font-size: 0.75rem; margin-bottom: 2px;">Correo Electrónico <span style="color:var(--color-danger)">*</span></label>
+                  <input type="email" id="new-user-email" placeholder="juan@empresa.com" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="new-user-password" style="font-size: 0.75rem; margin-bottom: 2px;">Contraseña <span style="color:var(--color-danger)">*</span></label>
+                  <input type="password" id="new-user-password" placeholder="Contraseña" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="new-user-firstname" style="font-size: 0.75rem; margin-bottom: 2px;">Nombre <span style="color:var(--color-danger)">*</span></label>
+                  <input type="text" id="new-user-firstname" placeholder="Juan" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="new-user-lastname" style="font-size: 0.75rem; margin-bottom: 2px;">Apellido <span style="color:var(--color-danger)">*</span></label>
+                  <input type="text" id="new-user-lastname" placeholder="Pérez" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="new-user-document" style="font-size: 0.75rem; margin-bottom: 2px;">DNI / CUIL / CUIT <span style="color:var(--color-danger)">*</span></label>
+                  <input type="text" id="new-user-document" placeholder="20-12345678-9 / DNI" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="new-user-birthdate" style="font-size: 0.75rem; margin-bottom: 2px;">Fecha de Nacimiento <span style="color:var(--color-danger)">*</span></label>
+                  <input type="date" id="new-user-birthdate" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="new-user-phone" style="font-size: 0.75rem; margin-bottom: 2px;">Teléfono <span style="color:var(--color-danger)">*</span></label>
+                  <input type="tel" id="new-user-phone" placeholder="Código de área + Número" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="new-user-address" style="font-size: 0.75rem; margin-bottom: 2px;">Dirección <span style="color:var(--color-danger)">*</span></label>
+                  <input type="text" id="new-user-address" placeholder="Calle, Número, Piso/Depto" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="new-user-zipcode" style="font-size: 0.75rem; margin-bottom: 2px;">Código Postal <span style="color:var(--color-danger)">*</span></label>
+                  <input type="text" id="new-user-zipcode" placeholder="C1001 / 1400" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="new-user-role" style="font-size: 0.75rem; margin-bottom: 2px;">Rol <span style="color:var(--color-danger)">*</span></label>
+                  <select id="new-user-role" required style="padding: 6px 12px; font-size: 0.85rem;">
+                    <option value="Solicitante">Solicitante</option>
+                    <option value="Despachante">Despachante</option>
+                    <option value="Usuario Responsable">Usuario Responsable</option>
+                    <option value="Administrador">Administrador</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="new-user-space" style="font-size: 0.75rem; margin-bottom: 2px;">Sucursal Asignada <span style="color:var(--color-danger)">*</span></label>
+                  <select id="new-user-space" required style="padding: 6px 12px; font-size: 0.85rem;">
+                    <option value="">Seleccionar Sucursal...</option>
+                    <!-- Dinámico -->
+                  </select>
+                </div>
+                <div style="grid-column: span 2; display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px;">
+                  <button type="button" class="btn btn-secondary" id="btn-cancel-create-user-modal">Cancelar</button>
+                  <button type="submit" class="btn btn-primary">Registrar Usuario</button>
+                </div>
+              </form>
+          <!-- Modal: Ver Usuario -->
+          <div id="modal-view-user" class="modal hidden">
+            <div class="modal-content glass card" style="max-width: 600px; width: 95%; padding: 20px 25px;">
+              <div class="modal-header" style="margin-bottom: 10px; padding-bottom: 8px;">
+                <h3 style="font-size: 1.2rem;">👁️ Detalles de Usuario</h3>
+                <button type="button" class="close-btn" id="btn-close-view-user-modal">&times;</button>
+              </div>
+              <div id="view-user-details-content" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.5rem; font-size: 0.9rem;">
+                <!-- Dinámico -->
+              </div>
+              <div style="display: flex; justify-content: flex-end; margin-top: 15px;">
+                <button type="button" class="btn btn-secondary" id="btn-close-view-user-modal-footer">Cerrar</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal: Editar Usuario -->
+          <div id="modal-edit-user" class="modal hidden">
+            <div class="modal-content glass card" style="max-width: 720px; width: 95%; padding: 20px 25px;">
+              <div class="modal-header" style="margin-bottom: 10px; padding-bottom: 8px;">
+                <h3 style="font-size: 1.2rem;">✏️ Editar Usuario</h3>
+                <button type="button" class="close-btn" id="btn-close-edit-user-modal">&times;</button>
+              </div>
+              <form id="form-edit-user" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem 1rem; margin-top: 0.5rem;">
+                <input type="hidden" id="edit-user-id">
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="edit-user-email" style="font-size: 0.75rem; margin-bottom: 2px;">Correo Electrónico <span style="color:var(--color-danger)">*</span></label>
+                  <input type="email" id="edit-user-email" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="edit-user-firstname" style="font-size: 0.75rem; margin-bottom: 2px;">Nombre <span style="color:var(--color-danger)">*</span></label>
+                  <input type="text" id="edit-user-firstname" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="edit-user-lastname" style="font-size: 0.75rem; margin-bottom: 2px;">Apellido <span style="color:var(--color-danger)">*</span></label>
+                  <input type="text" id="edit-user-lastname" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="edit-user-document" style="font-size: 0.75rem; margin-bottom: 2px;">DNI / CUIL / CUIT <span style="color:var(--color-danger)">*</span></label>
+                  <input type="text" id="edit-user-document" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="edit-user-birthdate" style="font-size: 0.75rem; margin-bottom: 2px;">Fecha de Nacimiento <span style="color:var(--color-danger)">*</span></label>
+                  <input type="date" id="edit-user-birthdate" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="edit-user-phone" style="font-size: 0.75rem; margin-bottom: 2px;">Teléfono <span style="color:var(--color-danger)">*</span></label>
+                  <input type="tel" id="edit-user-phone" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="edit-user-address" style="font-size: 0.75rem; margin-bottom: 2px;">Dirección <span style="color:var(--color-danger)">*</span></label>
+                  <input type="text" id="edit-user-address" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="edit-user-zipcode" style="font-size: 0.75rem; margin-bottom: 2px;">Código Postal <span style="color:var(--color-danger)">*</span></label>
+                  <input type="text" id="edit-user-zipcode" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="edit-user-role" style="font-size: 0.75rem; margin-bottom: 2px;">Rol <span style="color:var(--color-danger)">*</span></label>
+                  <select id="edit-user-role" required style="padding: 6px 12px; font-size: 0.85rem;">
+                    <option value="Solicitante">Solicitante</option>
+                    <option value="Despachante">Despachante</option>
+                    <option value="Usuario Responsable">Usuario Responsable</option>
+                    <option value="Administrador">Administrador</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="edit-user-space" style="font-size: 0.75rem; margin-bottom: 2px;">Sucursal Asignada <span style="color:var(--color-danger)">*</span></label>
+                  <select id="edit-user-space" required style="padding: 6px 12px; font-size: 0.85rem;">
+                    <option value="">Seleccionar Sucursal...</option>
+                    <!-- Dinámico -->
+                  </select>
+                </div>
+                <div style="grid-column: span 2; display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px;">
+                  <button type="button" class="btn btn-secondary" id="btn-cancel-edit-user-modal">Cancelar</button>
+                  <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+              </form>
             </div>
           </div>
 
@@ -206,6 +323,35 @@
                   </thead>
                   <tbody id="table-admin-approvals-body">
                     <!-- Dinámico -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Subpanel: Alerts -->
+          <div id="subpanel-admin-alerts" class="subpanel hidden">
+            <div class="card glass table-card">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem">
+                <h3>🔔 Artículos con Stock Bajo o Crítico</h3>
+                <button class="btn btn-secondary btn-sm" onclick="loadAlerts()">Actualizar</button>
+              </div>
+              <div class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Sucursal</th>
+                      <th>Producto</th>
+                      <th>Categoría</th>
+                      <th>Stock Actual</th>
+                      <th>Reservado</th>
+                      <th>Disponible</th>
+                      <th>Mínimo</th>
+                      <th>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-alerts-body">
+                    <tr><td colspan="8" class="empty-text">Hacé click en Actualizar para ver las alertas activas.</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -262,6 +408,24 @@
                   <p class="empty-text">El carrito está vacío.</p>
                 </div>
                 <div class="cart-summary hidden" id="cart-summary">
+                  <div class="form-group">
+                    <label for="order-from-branch">📤 Sucursal Origen (quién envía)</label>
+                    <select id="order-from-branch">
+                      <option value="">Sin sucursal origen (pedido general)</option>
+                      <!-- Dinámico -->
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="order-to-branch">📥 Sucursal Destino (quién recibe)</label>
+                    <select id="order-to-branch">
+                      <option value="">Sin sucursal destino</option>
+                      <!-- Dinámico -->
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="order-notes">Notas del Pedido (opcional)</label>
+                    <textarea id="order-notes" rows="2" placeholder="Observaciones..."></textarea>
+                  </div>
                   <div class="form-check">
                     <input type="checkbox" id="cart-validation-req">
                     <label for="cart-validation-req">Requiere validación del Admin (Urgente/Crítico)</label>
@@ -284,6 +448,7 @@
         <section id="panel-responsable" class="panel hidden">
           <div class="responsable-tabs sub-nav">
             <button class="btn btn-tab active" data-sub="resp-stock-entry">Registrar Entrada</button>
+            <button class="btn btn-tab" data-sub="resp-informal-entry">📌 Ingreso Extraordinario</button>
             <button class="btn btn-tab" data-sub="resp-catalog-mgmt">Gestionar Catálogo</button>
             <button class="btn btn-tab" data-sub="resp-deliveries">Órdenes a Recibir</button>
           </div>
@@ -314,6 +479,13 @@
                     <label for="stock-quantity">Cantidad a Ingresar</label>
                     <input type="number" id="stock-quantity" min="1" placeholder="Ej: 50" required>
                   </div>
+                  <div class="form-group">
+                    <label for="stock-entry-branch">🏢 Sucursal Destino</label>
+                    <select id="stock-entry-branch">
+                      <option value="">Sin sucursal específica</option>
+                      <!-- Dinámico -->
+                    </select>
+                  </div>
                   <button type="submit" class="btn btn-success btn-block">Confirmar Registro de Ingreso</button>
                 </form>
               </div>
@@ -333,6 +505,75 @@
                     </thead>
                     <tbody id="table-resp-recent-stock">
                       <!-- Dinámico -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Subpanel: Ingreso Extraordinario (Módulo 2) -->
+          <div id="subpanel-resp-informal-entry" class="subpanel hidden">
+            <div class="two-column-layout">
+              <div class="card glass form-card">
+                <h3>📌 Ingreso Extraordinario / Extraoficial</h3>
+                <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.2rem">
+                  Para registrar artículos que llegaron fuera del sistema normal: encontrados en depósito,
+                  donaciones, devoluciones, excedentes o llegaron sin orden de compra.
+                  <strong style="color:var(--color-warning)">No requiere lote ni fecha de vencimiento.</strong>
+                </p>
+                <form id="form-informal-entry">
+                  <div class="form-group">
+                    <label for="informal-product">Producto</label>
+                    <select id="informal-product" required>
+                      <option value="">Seleccionar producto...</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="informal-branch">Sucursal Destino</label>
+                    <select id="informal-branch" required>
+                      <option value="">Seleccionar sucursal...</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="informal-entry-type">Tipo de Ingreso</label>
+                    <select id="informal-entry-type" required>
+                      <option value="ENCONTRADO">🔍 Encontrado en depósito</option>
+                      <option value="DONACION">🎁 Donación</option>
+                      <option value="DEVOLUCION">🔄 Devolución</option>
+                      <option value="EXCEDENTE">⬆️ Excedente de otro proyecto</option>
+                      <option value="SIN_OC">📦 Llegó sin Orden de Compra</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="informal-quantity">Cantidad</label>
+                    <input type="number" id="informal-quantity" min="1" placeholder="Ej: 10" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="informal-description">Descripción / Motivo <span style="color:var(--color-danger)">*</span></label>
+                    <textarea id="informal-description" rows="3"
+                      placeholder="Descripción obligatoria: dónde se encontró, quién lo trajo, en qué condición, etc."
+                      required></textarea>
+                  </div>
+                  <button type="submit" class="btn btn-warning btn-block">Registrar Ingreso Extraordinario</button>
+                </form>
+              </div>
+
+              <div class="card glass table-card">
+                <h3>📋 Ingresos Extraordinarios Recientes</h3>
+                <div class="table-responsive">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Fecha</th>
+                        <th>Tipo</th>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Registrado por</th>
+                      </tr>
+                    </thead>
+                    <tbody id="table-informal-entries">
+                      <tr><td colspan="5" class="empty-text">No hay ingresos extraordinarios registrados.</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -405,6 +646,159 @@
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 🏢 PANEL SUCURSALES -->
+        <section id="panel-branches" class="panel hidden">
+          <div class="panel-header-row">
+            <h2>🏢 Gestión de Sucursales</h2>
+          </div>
+
+          <div class="two-column-layout">
+            <!-- Formulario creación -->
+            <div class="card glass form-card">
+              <h3>Crear Nueva Sucursal</h3>
+              <form id="form-create-branch">
+                <div class="form-group">
+                  <label for="branch-name">Nombre de la Sucursal</label>
+                  <input type="text" id="branch-name" placeholder="Ej: Sucursal Centro" required>
+                </div>
+                <div class="form-group">
+                  <label for="branch-address">Dirección</label>
+                  <input type="text" id="branch-address" placeholder="Ej: Av. Corrientes 1234">
+                </div>
+                <div class="form-group">
+                  <label for="branch-description">Descripción</label>
+                  <textarea id="branch-description" rows="2" placeholder="Observaciones..."></textarea>
+                </div>
+                <div class="form-group">
+                  <label for="branch-type">Tipo</label>
+                  <select id="branch-type">
+                    <option value="sucursal">Sucursal</option>
+                    <option value="filial">Filial</option>
+                    <option value="Zona">Zona</option>
+                    <option value="dependencia">Dependencia</option>
+                    <option value="sector">Sector</option>
+                  </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Crear Sucursal</button>
+              </form>
+            </div>
+
+            <!-- Tabla de sucursales -->
+            <div class="card glass table-card">
+              <h3>Sucursales Registradas</h3>
+              <div class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>Tipo</th>
+                      <th>Dirección</th>
+                      <th>Descripción</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-branches-body">
+                    <!-- Dinámico -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 📊 PANEL STOCK POR SUCURSAL -->
+        <section id="panel-stock-view" class="panel hidden">
+          <div class="panel-header-row">
+            <h2 id="stock-view-branch-title">📊 Stock por Sucursal</h2>
+          </div>
+
+          <div class="card glass filter-card">
+            <div class="filter-row">
+              <label for="stock-view-branch-select">Seleccionar Sucursal:</label>
+              <select id="stock-view-branch-select" style="max-width:300px">
+                <option value="">— Seleccionar sucursal —</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="two-column-layout" style="margin-top: 1.5rem;">
+            <!-- Tabla de stock -->
+            <div class="card glass table-card">
+              <div class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Producto</th>
+                      <th>Categoría</th>
+                      <th>Total</th>
+                      <th>Reservado</th>
+                      <th>Disponible</th>
+                      <th>Mínimo</th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-branch-stock-body">
+                    <tr><td colspan="6" class="empty-text">Seleccioná una sucursal para ver su stock.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Ajuste manual de stock -->
+            <div class="card glass form-card">
+              <h3>⚖️ Ajuste Manual de Stock</h3>
+              <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem">
+                Usar para correcciones, pérdidas, vencimientos o ingresos directos.
+              </p>
+              <form id="form-stock-adjust">
+                <div class="form-group">
+                  <label for="adjust-branch">Sucursal</label>
+                  <select id="adjust-branch" required>
+                    <option value="">— Sucursal —</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="adjust-product">Producto</label>
+                  <select id="adjust-product" required>
+                    <option value="">— Producto —</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="adjust-quantity">Cantidad (+ para sumar, - para restar)</label>
+                  <input type="number" id="adjust-quantity" placeholder="Ej: -5 o +20" required>
+                </div>
+                <div class="form-group">
+                  <label for="adjust-reason">Motivo</label>
+                  <input type="text" id="adjust-reason" placeholder="Ej: Pérdida por vencimiento">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Aplicar Ajuste</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Trazabilidad de movimientos -->
+          <div class="card glass table-card" style="margin-top:1.5rem">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem">
+              <h3>📋 Historial de Movimientos de Stock</h3>
+              <button class="btn btn-secondary btn-sm" onclick="loadMovementsTraceability()">Actualizar</button>
+            </div>
+            <div class="table-responsive log-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Detalle</th>
+                    <th>Usuario</th>
+                  </tr>
+                </thead>
+                <tbody id="table-movements-body">
+                  <tr><td colspan="4" class="empty-text">Click en Actualizar para cargar los movimientos.</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </section>

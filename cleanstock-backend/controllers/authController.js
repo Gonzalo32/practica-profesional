@@ -8,33 +8,34 @@ const { JWT_SECRET } = require('../middlewares/authMiddleware');
 const login = async (req, res) => {
   try {
     const { username, password } = req.body;
-    
+
     const user = await User.findOne({ where: { username } });
     if (!user || !user.isActive) {
       return res.status(401).json({ message: 'Credenciales inválidas o usuario inactivo' });
     }
-    
+
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
       return res.status(401).json({ message: 'Credenciales inválidas' });
     }
-    
-    // T1.2: Incluir rol del usuario en el payload
+
+    // T1.2: Incluir rol + sucursal del usuario en el payload (Módulo 4)
     const payload = {
       id: user.id,
       username: user.username,
-      role: user.role
+      role: user.role,
+      branchId: user.physicalSpaceId || null   // sucursal asignada al usuario
     };
-    
+
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '8h' });
-    
+
     // T1.5: Registro de Actividad
     await ActivityLog.create({
       userId: user.id,
       action: 'LOGIN',
       details: 'El usuario inició sesión exitosamente'
     });
-    
+
     res.json({ token, user: payload });
   } catch (error) {
     console.error(error);

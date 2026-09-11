@@ -7,7 +7,8 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const inventoryRoutes = require('./routes/inventoryRoutes');
 const orderRoutes = require('./routes/orderRoutes');
-const spaceRoutes = require('./routes/spaceRoutes');
+const branchRoutes = require('./routes/branchRoutes');
+const alertRoutes = require('./routes/alertRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,7 +22,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/orders', orderRoutes);
-app.use('/api/spaces', spaceRoutes);
+app.use('/api/branches', branchRoutes);
+app.use('/api/alerts', alertRoutes);
 
 // Test Route
 app.get('/api/ping', (req, res) => {
@@ -37,3 +39,4 @@ const startServer = async () => {
 };
 
 startServer();
+
