@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Portfolio personal de Javier Marambio — Futuro analista de sistemas" />
+  <title>Javier Marambio | Portfolio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+  <!-- ── NAVBAR ────────────────────────────────────────────────── -->
+  <nav id="navbar" class="navbar">
+    <div class="nav-container">
+      <a href="#inicio" class="nav-logo">
+        <span class="logo-bracket">&lt;</span>Javier Marambio<span class="logo-bracket">/&gt;</span>
+      </a>
+      <ul class="nav-links" id="nav-links">
+        <li><a href="#inicio" class="nav-link">Inicio</a></li>
+        <li><a href="#habilidades" class="nav-link">Habilidades</a></li>
+        <li><a href="#proyectos" class="nav-link">Proyectos</a></li>
+        <li><a href="#contacto" class="nav-link">Contacto</a></li>
+      </ul>
+      <button class="hamburger" id="hamburger" aria-label="Menú">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ── HERO / PRESENTACIÓN ───────────────────────────────────── -->
+  <section id="inicio" class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-content">
+      <div class="hero-avatar-wrapper">
+        <img src="assets/avatar.png" alt="Foto de Javier Marambio" class="hero-avatar" id="hero-avatar"
+          onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=Javier+Marambio&background=6c63ff&color=fff&size=200&bold=true';" />
+        <div class="avatar-ring"></div>
+      </div>
+      <div class="hero-text">
+        <p class="hero-greeting">¡Hola, soy</p>
+        <h1 class="hero-name">Javier Marambio<span class="accent">.</span></h1>
+        <p class="hero-title">Futuro analista de sistemas <span class="typed" id="typed"></span></p>
+        <p class="hero-desc">
+          Me gusta aprender y entender el funcionamiento de las cosas, me considero una persona
+          curiosa, proactiva y con ganas de crecer tanto profesional como personalmente.
+          Me gusta crear soluciones y aportar valor a los usuarios.
+        </p>
+        <div class="hero-actions">
+          <a href="#proyectos" class="btn btn-primary">Ver mis proyectos</a>
+          <a href="#contacto" class="btn btn-outline">Contactarme</a>
+        </div>
+      </div>
+    </div>
+    <div class="scroll-indicator">
+      <span></span>
+    </div>
+  </section>
+
+  <!-- ── HABILIDADES ───────────────────────────────────────────── -->
+  <section id="habilidades" class="skills section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Lo que sé hacer</span>
+        <h2 class="section-title">Mis <span class="accent">Habilidades</span></h2>
+        <p class="section-subtitle">Tecnologías y herramientas con las que trabajo a diario</p>
+      </div>
+
+      <div class="skills-grid">
+
+        <!-- HTML -->
+        <div class="skill-card" data-skill="HTML">
+          <div class="skill-icon" style="--clr: #e44d26;">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M1.5 0h21l-1.91 21.563L11.977 24l-8.565-2.438L1.5 0zm7.031 9.75l-.232-2.718 10.059.003.23-2.622L5.412 4.41l.698 8.01h9.126l-.326 3.426-2.91.804-2.955-.81-.188-2.11H6.248l.33 4.171L12 19.351l5.379-1.443.744-8.157H8.531z" />
+            </svg>
+          </div>
+          <h3 class="skill-name">HTML</h3>
+          <p class="skill-desc">Marcado semántico y accesible</p>
+          <div class="skill-bar">
+            <div class="skill-fill" style="--pct: 90%"></div>
+          </div>
+        </div>
+
+        <!-- CSS -->
+        <div class="skill-card" data-skill="CSS">
+          <div class="skill-icon" style="--clr: #2965f1;">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M1.5 0h21l-1.91 21.563L11.977 24l-8.565-2.438L1.5 0zm17.09 4.413L5.41 4.41l.213 2.622 10.125.002-.255 2.716h-6.64l.24 2.573h6.182l-.366 3.523-2.91.804-2.956-.81-.188-2.11h-2.61l.29 3.855L12 19.288l5.373-1.53L18.59 4.413z" />
+            </svg>
+          </div>
+          <h3 class="skill-name">CSS</h3>
+          <p class="skill-desc">Diseño responsivo y animaciones</p>
+          <div class="skill-bar">
+            <div class="skill-fill" style="--pct: 85%"></div>
+          </div>
+        </div>
+
+        <!-- JavaScript -->
+        <div class="skill-card" data-skill="JavaScript">
+          <div class="skill-icon" style="--clr: #f7df1e;">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M0 0h24v24H0V0zm22.034 18.276c-.175-1.095-.888-2.015-3.003-2.873-.736-.345-1.554-.585-1.797-1.14-.091-.33-.105-.51-.046-.705.15-.646.915-.84 1.515-.66.39.12.75.42.976.9 1.034-.676 1.034-.676 1.755-1.125-.27-.42-.404-.601-.586-.78-.63-.705-1.469-1.065-2.834-1.034l-.705.089c-.676.165-1.32.525-1.71 1.005-1.14 1.291-.811 3.541.569 4.471 1.365 1.02 3.361 1.244 3.616 2.205.24 1.17-.87 1.545-1.966 1.41-.811-.18-1.26-.586-1.755-1.336l-1.83 1.051c.21.48.45.689.81 1.109 1.74 1.756 6.09 1.666 6.871-1.004.029-.09.24-.705.074-1.65l.046.067zm-8.983-7.245h-2.248c0 1.938-.009 3.864-.009 5.805 0 1.232.063 2.363-.138 2.711-.33.689-1.18.601-1.566.48-.396-.196-.597-.466-.83-.855-.063-.105-.11-.196-.127-.196l-1.825 1.125c.305.63.75 1.172 1.324 1.517.855.51 2.004.675 3.207.405.783-.226 1.458-.691 1.811-1.411.51-.93.402-2.07.397-3.346.012-2.054 0-4.109 0-6.179l.004-.056z" />
+            </svg>
+          </div>
+          <h3 class="skill-name">JavaScript</h3>
+          <p class="skill-desc">Interactividad y lógica del cliente</p>
+          <div class="skill-bar">
+            <div class="skill-fill" style="--pct: 80%"></div>
+          </div>
+        </div>
+
+        <!-- Python -->
+        <div class="skill-card" data-skill="Python">
+          <div class="skill-icon" style="--clr: #3776ab;">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M11.914 0C5.82 0 6.2 2.656 6.2 2.656l.007 2.752h5.814v.826H3.9S0 5.789 0 11.969c0 6.18 3.403 5.963 3.403 5.963h2.031v-2.867s-.109-3.402 3.35-3.402h5.766s3.24.052 3.24-3.13V3.13S18.271 0 11.914 0zm-3.21 1.814a1.049 1.049 0 1 1 0 2.098 1.049 1.049 0 0 1 0-2.098z" />
+              <path
+                d="M12.086 24c6.094 0 5.714-2.656 5.714-2.656l-.007-2.752H12v-.826h8.1S24 18.211 24 12.031c0-6.18-3.403-5.963-3.403-5.963h-2.031v2.867s.109 3.402-3.35 3.402H9.45S6.21 12.285 6.21 15.467v5.403S5.73 24 12.086 24zm3.21-1.814a1.049 1.049 0 1 1 0-2.098 1.049 1.049 0 0 1 0 2.098z" />
+            </svg>
+          </div>
+          <h3 class="skill-name">Python</h3>
+          <p class="skill-desc">Lenguaje de programación interpretado</p>
+          <div class="skill-bar">
+            <div class="skill-fill" style="--pct: 75%"></div>
+          </div>
+        </div>
+
+        <!-- Java -->
+        <div class="skill-card" data-skill="Java">
+          <div class="skill-icon" style="--clr: #f89820;">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M8.851 18.56s-.917.534.653.714c1.902.218 2.874.187 4.969-.211 0 0 .552.346 1.321.646-4.699 2.013-10.633-.118-6.943-1.149M8.276 15.933s-1.028.761.542.924c2.032.209 3.636.227 6.413-.308 0 0 .384.389.987.602-5.679 1.661-12.007.13-7.942-1.218M13.116 11.475c1.158 1.333-.304 2.533-.304 2.533s2.939-1.518 1.589-3.418c-1.261-1.772-2.228-2.652 3.007-5.688 0 0-8.216 2.051-4.292 6.573M19.33 20.504s.679.559-.747.991c-2.712.822-11.288 1.069-13.669.033-.856-.373.75-.89 1.254-.998.527-.114.828-.093.828-.093-.953-.671-6.156 1.317-2.643 1.887 9.58 1.553 17.462-.7 14.977-1.82M9.292 13.21s-4.362 1.036-1.544 1.412c1.189.159 3.561.123 5.77-.062 1.806-.152 3.618-.477 3.618-.477s-.637.272-1.098.587c-4.429 1.165-12.986.623-10.522-.568 2.082-1.006 3.776-.892 3.776-.892M17.116 17.584c4.503-2.34 2.421-4.589.968-4.285-.355.074-.515.138-.515.138s.132-.207.385-.297c2.875-1.011 5.086 2.981-.928 4.562 0-.001.07-.062.09-.118M14.401 0s2.494 2.494-2.365 6.33c-3.896 3.077-.888 4.832-.001 6.836-2.274-2.053-3.943-3.858-2.824-5.539 1.644-2.469 6.197-3.665 5.19-7.627M9.734 23.924c4.322.277 10.959-.153 11.116-2.198 0 0-.302.775-3.572 1.391-3.688.694-8.239.613-10.937.168 0-.001.553.457 3.393.639" />
+            </svg>
+          </div>
+          <h3 class="skill-name">Java</h3>
+          <p class="skill-desc">Programación orientada a objetos</p>
+          <div class="skill-bar">
+            <div class="skill-fill" style="--pct: 65%"></div>
+          </div>
+        </div>
+
+        <!-- SQL -->
+        <div class="skill-card" data-skill="SQL">
+          <div class="skill-icon" style="--clr: #00758f;">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M16.405 5.501c-.115 0-.193.014-.274.033v.013h.014c.054.104.146.18.214.273.054.107.1.214.154.32l.014-.015c.094-.066.14-.172.14-.333-.04-.047-.046-.094-.08-.14-.04-.067-.126-.1-.182-.151zM5.77 18.695h-.927a50.854 50.854 0 0 0-.27-4.41h-.008l-1.41 4.41H2.45l-1.4-4.41h-.01a72.892 72.892 0 0 0-.195 4.41H0c.055-1.966.219-3.93.5-5.87h1.15l1.335 4.064h.008l1.347-4.064h1.095c.312 1.967.482 3.933.536 5.87zm4.098 0h-.918v-.41h-.004c-.249.313-.6.5-1.039.5-.964 0-1.52-.607-1.52-1.847v-2.273h.927v2.136c0 .724.27 1.046.835 1.046.54 0 .827-.37.827-.987V14.665h.927v4.03zm3.829-2.935h-.008c-.253.395-.634.601-1.08.601-.637 0-1.074-.378-1.074-.966 0-.966.763-1.33 2.09-1.33v-.193c0-.432-.248-.648-.817-.648-.4 0-.8.113-1.095.324l-.127-.66c.36-.207.847-.32 1.39-.32 1.015 0 1.52.428 1.52 1.357v1.893c0 .42.014.74.055 1.013h-.854v-.07zm4.68 2.935h-1.174l-1.39-2.852h-.008v2.852h-.927v-5.87h.927v2.738h.008l1.35-2.738h1.08l-1.488 2.79 1.622 3.08zm-.903-8.95c-.7-.043-1.4-.05-2.1-.038-.7.014-1.4.043-2.1.1-.7.057-1.4.133-2.1.247-.7.113-1.4.256-2.1.442-.7.186-1.4.414-2.1.7a8.35 8.35 0 0 0-1.89 1.09A4.37 4.37 0 0 0 .07 13.24c-.098.36-.137.726-.1 1.086.038.36.145.71.31 1.03.344.64.924 1.158 1.607 1.54.684.38 1.47.61 2.275.73.806.12 1.628.13 2.444.04a10.49 10.49 0 0 0 2.338-.558c.073-.028.146-.05.218-.08V14.1c-.5.256-1.05.448-1.607.576a7.68 7.68 0 0 1-1.726.17 5.32 5.32 0 0 1-1.655-.272c-.516-.18-.976-.46-1.32-.84a1.82 1.82 0 0 1-.446-1.14c-.006-.4.1-.786.3-1.12.414-.665 1.12-1.13 1.934-1.44.813-.312 1.723-.47 2.635-.54.912-.07 1.827-.053 2.734.013.908.064 1.81.18 2.7.35v-1.21c-.456-.087-.916-.163-1.38-.225z" />
+            </svg>
+          </div>
+          <h3 class="skill-name">SQL</h3>
+          <p class="skill-desc">Consultas y gestión de bases de datos</p>
+          <div class="skill-bar">
+            <div class="skill-fill" style="--pct: 55%"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PROYECTOS ─────────────────────────────────────────────── -->
+  <section id="proyectos" class="projects section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Mi trabajo</span>
+        <h2 class="section-title">Mis <span class="accent">Proyectos</span></h2>
+        <p class="section-subtitle">Una selección de proyectos que reflejan mis habilidades y aprendizaje</p>
+      </div>
+
+      <div class="projects-grid">
+
+        <!-- Proyecto 1 -->
+        <article class="project-card">
+          <div class="project-img" style="--grad: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+            <div class="project-img-icon">🛒</div>
+          </div>
+          <div class="project-body">
+            <div class="project-tags">
+              <span class="tag">HTML</span>
+              <span class="tag">CSS</span>
+              <span class="tag">JavaScript</span>
+            </div>
+            <h3 class="project-title">CleanStock — Control de Inventario</h3>
+            <p class="project-desc">
+              Aplicación para el control de inventario de empresas con varias sucursales o
+              pequeños comercios, con filtros por categoría y gestión en tiempo real.
+              Diseño moderno y responsivo.
+            </p>
+          </div>
+        </article>
+
+        <!-- Proyecto 2 -->
+        <article class="project-card">
+          <div class="project-img" style="--grad: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+            <div class="project-img-icon">🏥</div>
+          </div>
+          <div class="project-body">
+            <div class="project-tags">
+              <span class="tag">Python</span>
+              <span class="tag">SQL</span>
+            </div>
+            <h3 class="project-title">Sistema Gestor de Turnos Médicos</h3>
+            <p class="project-desc">
+              Aplicación para la gestión de turnos médicos en consultorios, con funciones
+              de agenda, recordatorios y notificaciones automáticas.
+            </p>
+          </div>
+        </article>
+
+        <!-- Proyecto 3 -->
+        <article class="project-card">
+          <div class="project-img" style="--grad: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+            <div class="project-img-icon">🚗</div>
+          </div>
+          <div class="project-body">
+            <div class="project-tags">
+              <span class="tag">HTML</span>
+              <span class="tag">CSS</span>
+              <span class="tag">SQL</span>
+            </div>
+            <h3 class="project-title">Gestor Automotor</h3>
+            <p class="project-desc">
+              Página web para el control de automotores (autos, camionetas, etc.)
+              en una concesionaria, con búsqueda, filtros y panel administrativo.
+            </p>
+          </div>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CONTACTO ──────────────────────────────────────────────── -->
+  <section id="contacto" class="contact section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">¿Charlamos?</span>
+        <h2 class="section-title">¡<span class="accent">Contáctame</span>!</h2>
+        <p class="section-subtitle">Estoy disponible para nuevas oportunidades y colaboraciones</p>
+      </div>
+
+      <div class="contact-content">
+
+        <!-- Info izquierda -->
+        <div class="contact-info">
+          <div class="contact-item">
+            <div class="contact-icon">📧</div>
+            <div>
+              <h4>Email</h4>
+              <p>javi29marambio@gmail.com</p>
+            </div>
+          </div>
+          <div class="contact-item">
+            <div class="contact-icon">
+              <svg viewBox="0 0 24 24" fill="#25D366" xmlns="http://www.w3.org/2000/svg"
+                style="width:32px;height:32px;">
+                <path
+                  d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+              </svg>
+            </div>
+            <div>
+              <h4>WhatsApp</h4>
+              <p>+54 299 6 034 170</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tarjeta derecha -->
+        <div class="contact-card">
+          <p class="contact-card-text">
+            ¿Tenés un proyecto en mente o querés hablar sobre una oportunidad laboral?
+            ¡No dudes en escribirme! Respondo en menos de 24 horas.
+          </p>
+          <button id="btn-contactame" class="btn btn-primary btn-large" onclick="mostrarContacto()">
+            ✉️ Contáctame
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FOOTER ────────────────────────────────────────────────── -->
+  <footer class="footer">
+    <div class="container">
+      <p class="footer-text">
+        Diseñado y desarrollado por <strong>Javier Marambio</strong> &mdash; 2026
+      </p>
+      <p class="footer-sub">Hecho con HTML, CSS &amp; JavaScript</p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+
+</html>
