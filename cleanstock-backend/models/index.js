@@ -69,6 +69,10 @@ const syncDatabase = async () => {
     await safeAddColumn('Users', 'email', { type: DataTypes.STRING, allowNull: true });
     await safeAddColumn('Users', 'phone', { type: DataTypes.STRING, allowNull: true });
     await safeAddColumn('Users', 'document', { type: DataTypes.STRING, allowNull: true });
+    await safeAddColumn('Users', 'cuil', { type: DataTypes.STRING, allowNull: true });
+    await safeAddColumn('Users', 'birthDate', { type: DataTypes.DATEONLY, allowNull: true });
+    await safeAddColumn('Users', 'address', { type: DataTypes.STRING, allowNull: true });
+    await safeAddColumn('Users', 'zipCode', { type: DataTypes.STRING, allowNull: true });
 
     console.log('Base de datos sincronizada');
   } catch (error) {
