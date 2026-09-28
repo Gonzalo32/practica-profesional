@@ -20,6 +20,10 @@ const PhysicalSpace = sequelize.define('PhysicalSpace', {
     type: DataTypes.STRING,
     allowNull: true
   },
+  phone: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   type: {
     type: DataTypes.ENUM('filial', 'Zona', 'sucursal', 'dependencia', 'sector'),
     allowNull: false,

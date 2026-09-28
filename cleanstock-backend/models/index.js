@@ -56,8 +56,9 @@ const syncDatabase = async () => {
     await safeAddColumn('Orders', 'toBranchId',   { type: DataTypes.UUID, allowNull: true });
     await safeAddColumn('Orders', 'notes',         { type: DataTypes.TEXT, allowNull: true });
 
-    // New column in PhysicalSpaces table
+    // New columns in PhysicalSpaces table
     await safeAddColumn('PhysicalSpaces', 'address', { type: DataTypes.STRING, allowNull: true });
+    await safeAddColumn('PhysicalSpaces', 'phone',   { type: DataTypes.STRING, allowNull: true });
 
     // New columns in BranchStock table (Módulo 5 — reserva de stock)
     await safeAddColumn('BranchStocks', 'reservedQuantity', { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 });

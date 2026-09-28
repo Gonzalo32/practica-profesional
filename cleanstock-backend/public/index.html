@@ -33,12 +33,12 @@
         
         <form id="login-form">
           <div class="form-group">
-            <label for="username">Usuario</label>
-            <input type="text" id="username" required autocomplete="username" placeholder="Ingresa tu usuario">
+            <label for="username">Correo Electrónico</label>
+            <input type="text" id="username" value="admin@cleanstock.com" required autocomplete="username" placeholder="juan@empresa.com">
           </div>
           <div class="form-group">
             <label for="password">Contraseña</label>
-            <input type="password" id="password" required autocomplete="current-password" placeholder="••••••••">
+            <input type="password" id="password" value="admin123" required autocomplete="current-password" placeholder="••••••••">
           </div>
           <button type="submit" class="btn btn-primary btn-block">
             <span>Iniciar Sesión</span>
@@ -47,8 +47,8 @@
         </form>
 
         <div class="login-help glass-light">
-          <p>¿Primera vez? Hace click abajo para inicializar el administrador por defecto (<strong>admin</strong> / <strong>admin123</strong>).</p>
-          <button id="btn-init-db" class="btn btn-secondary btn-sm">Inicializar Base de Datos</button>
+          <p>¿Primera vez? Hace click abajo para inicializar el administrador por defecto (<strong>admin@cleanstock.com</strong> / <strong>admin123</strong>).</p>
+          <button type="button" id="btn-init-db" class="btn btn-secondary btn-sm">Inicializar Base de Datos</button>
         </div>
       </div>
     </div>
@@ -93,33 +93,33 @@
             <!-- KPI: Usuarios -->
             <div class="card glass stat-card">
               <h3>Usuarios Activos</h3>
-              <p class="stat-number" id="admin-stat-users">-</p>
+              <p class="stat-number" id="admin-stat-users">0</p>
             </div>
             <!-- KPI: Productos -->
             <div class="card glass stat-card">
               <h3>Productos</h3>
-              <p class="stat-number" id="admin-stat-products">-</p>
+              <p class="stat-number" id="admin-stat-products">0</p>
             </div>
             <!-- KPI: Pedidos -->
             <div class="card glass stat-card">
               <h3>Pedidos Realizados</h3>
-              <p class="stat-number" id="admin-stat-orders">-</p>
+              <p class="stat-number" id="admin-stat-orders">0</p>
             </div>
             <!-- KPI: Alertas activas (Módulo 6) -->
             <div class="card glass stat-card stat-card-alert">
               <h3>⚠️ Alertas de Stock</h3>
-              <p class="stat-number" id="admin-stat-alerts">-</p>
-              <span class="stat-sub" id="admin-stat-critical"></span>
+              <p class="stat-number" id="admin-stat-alerts">0</p>
+              <span class="stat-sub" id="admin-stat-critical">0 críticas</span>
             </div>
             <!-- KPI: Pedidos en tránsito -->
             <div class="card glass stat-card stat-card-transit">
               <h3>🚚 En Tránsito</h3>
-              <p class="stat-number" id="admin-stat-transit">-</p>
+              <p class="stat-number" id="admin-stat-transit">0</p>
             </div>
             <!-- KPI: Ingresos del día -->
             <div class="card glass stat-card stat-card-today">
               <h3>📊 Ingresos Hoy</h3>
-              <p class="stat-number" id="admin-stat-today">-</p>
+              <p class="stat-number" id="admin-stat-today">0</p>
             </div>
           </div>
 
@@ -134,10 +134,31 @@
           <!-- Subpanel: Users CRUD -->
           <div id="subpanel-admin-users" class="subpanel">
             <div class="card glass table-card">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
                 <h3 style="margin-bottom: 0;">Listado de Usuarios</h3>
                 <button id="btn-open-create-user-modal" class="btn btn-primary">➕ Crear Usuario</button>
               </div>
+
+              <!-- Toolbar de Búsqueda, Filtro y Paginación -->
+              <div class="table-toolbar">
+                <div class="search-box">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                  <input type="text" id="user-search-input" placeholder="Buscar por nombre, email, DNI..." />
+                </div>
+                <div class="filter-box">
+                  <select id="user-filter-role">
+                    <option value="">Todos los Roles</option>
+                    <option value="Administrador">Administrador</option>
+                    <option value="Solicitante">Solicitante</option>
+                    <option value="Usuario Responsable">Usuario Responsable</option>
+                    <option value="Despachante">Despachante</option>
+                  </select>
+                  <select id="user-filter-branch">
+                    <option value="">Todas las Sucursales</option>
+                  </select>
+                </div>
+              </div>
+
               <div class="table-responsive">
                 <table>
                   <thead>
@@ -156,6 +177,16 @@
                     <!-- Dinámico -->
                   </tbody>
                 </table>
+              </div>
+
+              <!-- Paginador -->
+              <div class="pagination-container" id="users-pagination">
+                <span class="pagination-info" id="users-pagination-info">Mostrando 0 de 0 usuarios</span>
+                <div class="pagination-controls">
+                  <button class="btn btn-secondary btn-sm" id="btn-prev-users-page" disabled>Anterior</button>
+                  <span id="users-current-page" class="page-number">Página 1</span>
+                  <button class="btn btn-secondary btn-sm" id="btn-next-users-page" disabled>Siguiente</button>
+                </div>
               </div>
             </div>
           </div>
@@ -409,26 +440,32 @@
                 </div>
                 <div class="cart-summary hidden" id="cart-summary">
                   <div class="form-group">
-                    <label for="order-from-branch">📤 Sucursal Origen (quién envía)</label>
+                    <label for="order-from-branch">
+                      📤 Sucursal Origen (quién envía)
+                      <span class="tooltip-icon" title="Sucursal proveedora de donde se descontará el stock reservado." style="cursor:help; opacity:0.8;">ℹ️</span>
+                    </label>
                     <select id="order-from-branch">
-                      <option value="">Sin sucursal origen (pedido general)</option>
+                      <option value="">Seleccionar sucursal origen...</option>
                       <!-- Dinámico -->
                     </select>
                   </div>
                   <div class="form-group">
-                    <label for="order-to-branch">📥 Sucursal Destino (quién recibe)</label>
-                    <select id="order-to-branch">
-                      <option value="">Sin sucursal destino</option>
+                    <label for="order-to-branch">
+                      📥 Sucursal Destino (quién recibe) <span style="color:var(--color-danger)">*</span>
+                      <span class="tooltip-icon" title="Sucursal o sede solicitante que recibirá la entrega." style="cursor:help; opacity:0.8;">ℹ️</span>
+                    </label>
+                    <select id="order-to-branch" required>
+                      <option value="" disabled selected>Seleccionar sucursal destino...</option>
                       <!-- Dinámico -->
                     </select>
                   </div>
                   <div class="form-group">
                     <label for="order-notes">Notas del Pedido (opcional)</label>
-                    <textarea id="order-notes" rows="2" placeholder="Observaciones..."></textarea>
+                    <textarea id="order-notes" rows="2" placeholder="Observaciones o justificación adicional..."></textarea>
                   </div>
-                  <div class="form-check">
-                    <input type="checkbox" id="cart-validation-req">
-                    <label for="cart-validation-req">Requiere validación del Admin (Urgente/Crítico)</label>
+                  <div id="auto-validation-info" class="glass-light" style="padding: 10px 12px; margin-bottom: 15px; font-size: 0.8rem; color: var(--text-muted); border-radius: var(--radius-sm); display: flex; align-items: center; gap: 8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    <span>El sistema evaluará automáticamente si el pedido requiere aprobación previa de Administración según los niveles de stock.</span>
                   </div>
                   <button id="btn-submit-order" class="btn btn-primary btn-block">Enviar Pedido</button>
                 </div>
@@ -460,29 +497,32 @@
                 <h3>Registrar Ingreso de Stock</h3>
                 <form id="form-stock-entry">
                   <div class="form-group">
-                    <label for="stock-product">Insumo / Producto</label>
+                    <label for="stock-product">Insumo / Producto <span style="color:var(--color-danger)">*</span></label>
                     <select id="stock-product" required>
                       <option value="">Selecciona un insumo...</option>
                     </select>
                   </div>
                   <div class="grid-fields">
                     <div class="form-group">
-                      <label for="stock-lot">Número de Lote</label>
+                      <label for="stock-lot">Número de Lote <span style="color:var(--color-danger)">*</span></label>
                       <input type="text" id="stock-lot" placeholder="Ej: LOT-2026-99" required>
                     </div>
                     <div class="form-group">
-                      <label for="stock-expiration">Fecha de Vencimiento</label>
+                      <label for="stock-expiration">Fecha de Vencimiento <span style="color:var(--color-danger)">*</span></label>
                       <input type="date" id="stock-expiration" required>
                     </div>
                   </div>
                   <div class="form-group">
-                    <label for="stock-quantity">Cantidad a Ingresar</label>
+                    <label for="stock-quantity">Cantidad a Ingresar <span style="color:var(--color-danger)">*</span></label>
                     <input type="number" id="stock-quantity" min="1" placeholder="Ej: 50" required>
                   </div>
                   <div class="form-group">
-                    <label for="stock-entry-branch">🏢 Sucursal Destino</label>
-                    <select id="stock-entry-branch">
-                      <option value="">Sin sucursal específica</option>
+                    <label for="stock-entry-branch">
+                      🏢 Sucursal Destino <span style="color:var(--color-danger)">*</span>
+                      <span class="tooltip-icon" title="Sucursal específica que recibirá el ingreso físico para mantener la trazabilidad por ubicación." style="cursor:help; opacity:0.8;">ℹ️</span>
+                    </label>
+                    <select id="stock-entry-branch" required>
+                      <option value="" disabled selected>Seleccionar sucursal destino...</option>
                       <!-- Dinámico -->
                     </select>
                   </div>
@@ -524,29 +564,29 @@
                 </p>
                 <form id="form-informal-entry">
                   <div class="form-group">
-                    <label for="informal-product">Producto</label>
+                    <label for="informal-product">Producto <span style="color:var(--color-danger)">*</span></label>
                     <select id="informal-product" required>
                       <option value="">Seleccionar producto...</option>
                     </select>
                   </div>
                   <div class="form-group">
-                    <label for="informal-branch">Sucursal Destino</label>
+                    <label for="informal-branch">Sucursal Destino <span style="color:var(--color-danger)">*</span></label>
                     <select id="informal-branch" required>
                       <option value="">Seleccionar sucursal...</option>
                     </select>
                   </div>
                   <div class="form-group">
-                    <label for="informal-entry-type">Tipo de Ingreso</label>
+                    <label for="informal-entry-type">Tipo de Ingreso <span style="color:var(--color-danger)">*</span></label>
                     <select id="informal-entry-type" required>
                       <option value="ENCONTRADO">🔍 Encontrado en depósito</option>
-                      <option value="DONACION">🎁 Donación</option>
-                      <option value="DEVOLUCION">🔄 Devolución</option>
-                      <option value="EXCEDENTE">⬆️ Excedente de otro proyecto</option>
-                      <option value="SIN_OC">📦 Llegó sin Orden de Compra</option>
+                      <option value="DONACION">🎁 Donación / Aporte externo</option>
+                      <option value="DEVOLUCION">🔄 Devolución de sucursal / sector</option>
+                      <option value="EXCEDENTE">⬆️ Excedente de proyecto / obra</option>
+                      <option value="SIN_OC">📦 Llegó sin Orden de Compra previa</option>
                     </select>
                   </div>
                   <div class="form-group">
-                    <label for="informal-quantity">Cantidad</label>
+                    <label for="informal-quantity">Cantidad <span style="color:var(--color-danger)">*</span></label>
                     <input type="number" id="informal-quantity" min="1" placeholder="Ej: 10" required>
                   </div>
                   <div class="form-group">
@@ -588,22 +628,31 @@
                 <h3>Agregar Nuevo Insumo al Catálogo</h3>
                 <form id="form-create-product">
                   <div class="form-group">
-                    <label for="prod-name">Nombre del Insumo</label>
+                    <label for="prod-name">Nombre del Insumo <span style="color:var(--color-danger)">*</span></label>
                     <input type="text" id="prod-name" placeholder="Ej: Guantes de Latex Talle M" required>
                   </div>
                   <div class="form-group">
-                    <label for="prod-category">Categoría / Rubro</label>
+                    <label for="prod-category">Categoría / Rubro <span style="color:var(--color-danger)">*</span></label>
                     <select id="prod-category" required>
-                      <option value="">Selecciona...</option>
+                      <option value="" disabled selected>Selecciona rubro...</option>
                     </select>
+                    <small style="display:block; margin-top:4px;">
+                      <a href="#" id="link-focus-create-cat" style="color:var(--color-accent); text-decoration:underline; font-size:0.8rem;">
+                        ¿No encontrás la categoría? ➕ Crear nuevo Rubro a la derecha
+                      </a>
+                    </small>
                   </div>
                   <div class="form-group">
-                    <label for="prod-description">Descripción</label>
-                    <textarea id="prod-description" rows="2" placeholder="Detalle técnico..."></textarea>
+                    <label for="prod-description">Descripción Técnica <span style="color:var(--color-danger)">*</span></label>
+                    <textarea id="prod-description" rows="2" placeholder="Especificaciones técnicas, talle, marca o características..." required></textarea>
                   </div>
                   <div class="form-group">
-                    <label for="prod-minstock">Stock Mínimo Alerta</label>
-                    <input type="number" id="prod-minstock" min="0" value="10">
+                    <label for="prod-minstock">
+                      Stock Mínimo Alerta <span style="color:var(--color-danger)">*</span>
+                      <span class="tooltip-icon" title="Nivel límite configurable. Si el stock total baje de esta cifra, el sistema genera alertas de reposición." style="cursor:help; opacity:0.8;">ℹ️</span>
+                    </label>
+                    <input type="number" id="prod-minstock" min="0" value="10" required>
+                    <small style="color:var(--text-muted); font-size:0.75rem;">Valor por defecto editable (ej: 10 unidades).</small>
                   </div>
                   <button type="submit" class="btn btn-primary btn-block">Agregar Producto</button>
                 </form>
@@ -613,7 +662,7 @@
                 <h3>Crear Nueva Categoría (Rubro)</h3>
                 <form id="form-create-category">
                   <div class="form-group">
-                    <label for="cat-name">Nombre de Rubro</label>
+                    <label for="cat-name">Nombre de Rubro <span style="color:var(--color-danger)">*</span></label>
                     <input type="text" id="cat-name" placeholder="Ej: Descartables" required>
                   </div>
                   <div class="form-group">
@@ -642,7 +691,12 @@
                     </tr>
                   </thead>
                   <tbody id="table-resp-deliveries-body">
-                    <!-- Dinámico -->
+                    <tr>
+                      <td colspan="5" class="empty-text" style="padding: 24px; text-align: center;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">📦</div>
+                        <p style="margin: 0; color: var(--text-muted);">No hay pedidos despachados esperando confirmación de recepción en este momento.</p>
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -656,56 +710,160 @@
             <h2>🏢 Gestión de Sucursales</h2>
           </div>
 
-          <div class="two-column-layout">
-            <!-- Formulario creación -->
-            <div class="card glass form-card">
-              <h3>Crear Nueva Sucursal</h3>
-              <form id="form-create-branch">
-                <div class="form-group">
-                  <label for="branch-name">Nombre de la Sucursal</label>
-                  <input type="text" id="branch-name" placeholder="Ej: Sucursal Centro" required>
-                </div>
-                <div class="form-group">
-                  <label for="branch-address">Dirección</label>
-                  <input type="text" id="branch-address" placeholder="Ej: Av. Corrientes 1234">
-                </div>
-                <div class="form-group">
-                  <label for="branch-description">Descripción</label>
-                  <textarea id="branch-description" rows="2" placeholder="Observaciones..."></textarea>
-                </div>
-                <div class="form-group">
-                  <label for="branch-type">Tipo</label>
-                  <select id="branch-type">
-                    <option value="sucursal">Sucursal</option>
-                    <option value="filial">Filial</option>
-                    <option value="Zona">Zona</option>
-                    <option value="dependencia">Dependencia</option>
-                    <option value="sector">Sector</option>
-                  </select>
-                </div>
-                <button type="submit" class="btn btn-primary btn-block">Crear Sucursal</button>
-              </form>
+          <div class="card glass table-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+              <h3 style="margin-bottom: 0;">Sucursales Registradas</h3>
+              <button id="btn-open-create-branch-modal" class="btn btn-primary">➕ Crear Sucursal</button>
             </div>
 
-            <!-- Tabla de sucursales -->
-            <div class="card glass table-card">
-              <h3>Sucursales Registradas</h3>
-              <div class="table-responsive">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Nombre</th>
-                      <th>Tipo</th>
-                      <th>Dirección</th>
-                      <th>Descripción</th>
-                      <th>Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody id="table-branches-body">
-                    <!-- Dinámico -->
-                  </tbody>
-                </table>
+            <!-- Toolbar de Búsqueda y Filtro por Tipo -->
+            <div class="table-toolbar">
+              <div class="search-box">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="branch-search-input" placeholder="Buscar por nombre, dirección, teléfono..." />
               </div>
+              <div class="filter-box">
+                <select id="branch-filter-type">
+                  <option value="">Todos los Tipos</option>
+                  <option value="sucursal">Sucursal</option>
+                  <option value="filial">Filial</option>
+                  <option value="Zona">Zona</option>
+                  <option value="dependencia">Dependencia</option>
+                  <option value="sector">Sector</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Tipo</th>
+                    <th>Dirección</th>
+                    <th>Teléfono</th>
+                    <th>Descripción</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="table-branches-body">
+                  <!-- Dinámico -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Modal: Crear Sucursal -->
+          <div id="modal-create-branch" class="modal hidden">
+            <div class="modal-content glass card" style="max-width: 650px; width: 95%; padding: 20px 25px;">
+              <div class="modal-header" style="margin-bottom: 10px; padding-bottom: 8px;">
+                <h3 style="font-size: 1.2rem;">Crear Nueva Sucursal</h3>
+                <button type="button" class="close-btn" id="btn-close-create-branch-modal">&times;</button>
+              </div>
+              <form id="form-create-branch" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem 1rem; margin-top: 0.5rem;">
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="branch-name" style="font-size: 0.75rem; margin-bottom: 2px;">Nombre de la Sucursal <span style="color:var(--color-danger)">*</span></label>
+                  <input type="text" id="branch-name" placeholder="Ej: Sucursal Centro" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="branch-type" style="font-size: 0.75rem; margin-bottom: 2px;">
+                    Tipo <span style="color:var(--color-danger)">*</span>
+                    <span class="tooltip-icon" title="Sucursal: Sede principal o local comercial.&#10;Filial: Sede secundaria dependiente.&#10;Zona: Región geográfica de entrega.&#10;Dependencia: Oficina interna.&#10;Sector: Área o depósito específico." style="cursor:help; margin-left:4px; opacity:0.8;">ℹ️</span>
+                  </label>
+                  <select id="branch-type" required style="padding: 6px 12px; font-size: 0.85rem;">
+                    <option value="" disabled selected>Seleccionar tipo...</option>
+                    <option value="sucursal">Sucursal (Sede principal/comercial)</option>
+                    <option value="filial">Filial (Sede secundaria)</option>
+                    <option value="Zona">Zona (Región logística)</option>
+                    <option value="dependencia">Dependencia (Oficina interna)</option>
+                    <option value="sector">Sector (Área/Depósito)</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="branch-address" style="font-size: 0.75rem; margin-bottom: 2px;">Dirección <span style="color:var(--color-danger)">*</span></label>
+                  <input type="text" id="branch-address" placeholder="Ej: Av. Corrientes 1234" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="branch-phone" style="font-size: 0.75rem; margin-bottom: 2px;">Teléfono / Contacto <span style="font-weight:normal; color:var(--text-muted);">(Opcional)</span></label>
+                  <input type="tel" id="branch-phone" placeholder="Ej: 011 4321-5678" style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="grid-column: span 2; margin-bottom: 0;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                    <label for="branch-description" style="font-size: 0.75rem; margin-bottom: 0;">Descripción <span style="font-weight:normal; color:var(--text-muted);">(Opcional)</span></label>
+                    <span id="create-branch-desc-counter" style="font-size: 0.7rem; color: var(--text-muted);">0 / 200</span>
+                  </div>
+                  <textarea id="branch-description" rows="2" maxlength="200" placeholder="Observaciones o notas de referencia..." style="padding: 6px 12px; font-size: 0.85rem; background: rgba(15, 23, 42, 0.45); border: 1px solid rgba(255, 255, 255, 0.12); color: var(--text-main); border-radius: var(--radius-sm); outline: none; width: 100%;"></textarea>
+                </div>
+                <div style="grid-column: span 2; display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px;">
+                  <button type="button" class="btn btn-secondary" id="btn-cancel-create-branch-modal">Cancelar</button>
+                  <button type="submit" class="btn btn-primary">Registrar Sucursal</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Modal: Ver Sucursal -->
+          <div id="modal-view-branch" class="modal hidden">
+            <div class="modal-content glass card" style="max-width: 550px; width: 95%; padding: 20px 25px;">
+              <div class="modal-header" style="margin-bottom: 10px; padding-bottom: 8px;">
+                <h3 style="font-size: 1.2rem;">👁️ Detalles de Sucursal</h3>
+                <button type="button" class="close-btn" id="btn-close-view-branch-modal">&times;</button>
+              </div>
+              <div id="view-branch-details-content" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.5rem; font-size: 0.9rem;">
+                <!-- Dinámico -->
+              </div>
+              <div style="display: flex; justify-content: flex-end; margin-top: 15px;">
+                <button type="button" class="btn btn-secondary" id="btn-close-view-branch-modal-footer">Cerrar</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal: Editar Sucursal -->
+          <div id="modal-edit-branch" class="modal hidden">
+            <div class="modal-content glass card" style="max-width: 650px; width: 95%; padding: 20px 25px;">
+              <div class="modal-header" style="margin-bottom: 10px; padding-bottom: 8px;">
+                <h3 style="font-size: 1.2rem;">✏️ Editar Sucursal</h3>
+                <button type="button" class="close-btn" id="btn-close-edit-branch-modal">&times;</button>
+              </div>
+              <form id="form-edit-branch" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem 1rem; margin-top: 0.5rem;">
+                <input type="hidden" id="edit-branch-id">
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="edit-branch-name" style="font-size: 0.75rem; margin-bottom: 2px;">Nombre de la Sucursal <span style="color:var(--color-danger)">*</span></label>
+                  <input type="text" id="edit-branch-name" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="edit-branch-type" style="font-size: 0.75rem; margin-bottom: 2px;">
+                    Tipo <span style="color:var(--color-danger)">*</span>
+                    <span class="tooltip-icon" title="Sucursal: Sede principal o local comercial.&#10;Filial: Sede secundaria dependiente.&#10;Zona: Región geográfica de entrega.&#10;Dependencia: Oficina interna.&#10;Sector: Área o depósito específico." style="cursor:help; margin-left:4px; opacity:0.8;">ℹ️</span>
+                  </label>
+                  <select id="edit-branch-type" required style="padding: 6px 12px; font-size: 0.85rem;">
+                    <option value="sucursal">Sucursal (Sede principal/comercial)</option>
+                    <option value="filial">Filial (Sede secundaria)</option>
+                    <option value="Zona">Zona (Región logística)</option>
+                    <option value="dependencia">Dependencia (Oficina interna)</option>
+                    <option value="sector">Sector (Área/Depósito)</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="edit-branch-address" style="font-size: 0.75rem; margin-bottom: 2px;">Dirección <span style="color:var(--color-danger)">*</span></label>
+                  <input type="text" id="edit-branch-address" required style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="edit-branch-phone" style="font-size: 0.75rem; margin-bottom: 2px;">Teléfono / Contacto <span style="font-weight:normal; color:var(--text-muted);">(Opcional)</span></label>
+                  <input type="tel" id="edit-branch-phone" placeholder="Ej: 011 4321-5678" style="padding: 6px 12px; font-size: 0.85rem;">
+                </div>
+                <div class="form-group" style="grid-column: span 2; margin-bottom: 0;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                    <label for="edit-branch-description" style="font-size: 0.75rem; margin-bottom: 0;">Descripción <span style="font-weight:normal; color:var(--text-muted);">(Opcional)</span></label>
+                    <span id="edit-branch-desc-counter" style="font-size: 0.7rem; color: var(--text-muted);">0 / 200</span>
+                  </div>
+                  <textarea id="edit-branch-description" rows="2" maxlength="200" placeholder="Observaciones o notas de referencia..." style="padding: 6px 12px; font-size: 0.85rem; background: rgba(15, 23, 42, 0.45); border: 1px solid rgba(255, 255, 255, 0.12); color: var(--text-main); border-radius: var(--radius-sm); outline: none; width: 100%;"></textarea>
+                </div>
+                <div style="grid-column: span 2; display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px;">
+                  <button type="button" class="btn btn-secondary" id="btn-cancel-edit-branch-modal">Cancelar</button>
+                  <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+              </form>
             </div>
           </div>
         </section>
@@ -734,10 +892,22 @@
                     <tr>
                       <th>Producto</th>
                       <th>Categoría</th>
-                      <th>Total</th>
-                      <th>Reservado</th>
-                      <th>Disponible</th>
-                      <th>Mínimo</th>
+                      <th>
+                        Total 
+                        <span class="tooltip-icon" title="Existencia física total registrada en esta sucursal." style="cursor:help; opacity:0.8;">ℹ️</span>
+                      </th>
+                      <th>
+                        Reservado 
+                        <span class="tooltip-icon" title="Unidades comprometidas en pedidos aprobados pendientes de despachar." style="cursor:help; opacity:0.8;">ℹ️</span>
+                      </th>
+                      <th>
+                        Disponible 
+                        <span class="tooltip-icon" title="Unidades aptas para nuevos pedidos (Total - Reservado)." style="cursor:help; opacity:0.8;">ℹ️</span>
+                      </th>
+                      <th>
+                        Mínimo 
+                        <span class="tooltip-icon" title="Nivel mínimo de stock sugerido antes de generar alerta." style="cursor:help; opacity:0.8;">ℹ️</span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody id="table-branch-stock-body">
@@ -755,27 +925,62 @@
               </p>
               <form id="form-stock-adjust">
                 <div class="form-group">
-                  <label for="adjust-branch">Sucursal</label>
+                  <label for="adjust-branch">Sucursal <span style="color:var(--color-danger)">*</span></label>
                   <select id="adjust-branch" required>
-                    <option value="">— Sucursal —</option>
+                    <option value="">— Seleccionar Sucursal —</option>
                   </select>
                 </div>
                 <div class="form-group">
-                  <label for="adjust-product">Producto</label>
+                  <label for="adjust-product">Producto <span style="color:var(--color-danger)">*</span></label>
                   <select id="adjust-product" required>
-                    <option value="">— Producto —</option>
+                    <option value="">— Seleccionar Producto —</option>
                   </select>
                 </div>
                 <div class="form-group">
-                  <label for="adjust-quantity">Cantidad (+ para sumar, - para restar)</label>
-                  <input type="number" id="adjust-quantity" placeholder="Ej: -5 o +20" required>
+                  <label for="adjust-quantity">Cantidad <span style="font-weight:normal; color:var(--text-muted);">(ingresá valores positivos o negativos)</span> <span style="color:var(--color-danger)">*</span></label>
+                  <div style="display: flex; gap: 8px; align-items: center;">
+                    <button type="button" class="btn btn-secondary" id="btn-adjust-qty-minus" style="padding: 6px 14px; font-weight: bold; font-size: 1.1rem;">-</button>
+                    <input type="number" id="adjust-quantity" placeholder="0" required style="text-align: center; font-weight: 600;">
+                    <button type="button" class="btn btn-secondary" id="btn-adjust-qty-plus" style="padding: 6px 14px; font-weight: bold; font-size: 1.1rem;">+</button>
+                  </div>
                 </div>
                 <div class="form-group">
-                  <label for="adjust-reason">Motivo</label>
-                  <input type="text" id="adjust-reason" placeholder="Ej: Pérdida por vencimiento">
+                  <label for="adjust-reason-select">Motivo del Ajuste <span style="color:var(--color-danger)">*</span></label>
+                  <select id="adjust-reason-select" required>
+                    <option value="" disabled selected>— Seleccionar motivo —</option>
+                    <option value="Corrección de conteo / Inventario">Corrección de conteo / Inventario</option>
+                    <option value="Pérdida por vencimiento">Pérdida por vencimiento</option>
+                    <option value="Rotura / Daño de insumo">Rotura / Daño de insumo</option>
+                    <option value="Ingreso directo de insumos">Ingreso directo de insumos</option>
+                    <option value="Otro">Otro (Especificar)</option>
+                  </select>
+                </div>
+                <div class="form-group hidden" id="adjust-reason-other-group">
+                  <label for="adjust-reason-other">Especificar Otro Motivo <span style="color:var(--color-danger)">*</span></label>
+                  <input type="text" id="adjust-reason-other" placeholder="Describí el motivo del ajuste...">
                 </div>
                 <button type="submit" class="btn btn-primary btn-block">Aplicar Ajuste</button>
               </form>
+            </div>
+          </div>
+
+          <!-- Modal: Confirmación de Ajuste de Stock -->
+          <div id="modal-confirm-stock-adjust" class="modal hidden">
+            <div class="modal-content glass card" style="max-width: 480px; width: 95%; padding: 20px 25px;">
+              <div class="modal-header" style="margin-bottom: 12px;">
+                <h3 style="font-size: 1.15rem;">⚠️ Confirmar Ajuste de Stock</h3>
+                <button type="button" class="close-btn" id="btn-close-confirm-adjust-modal">&times;</button>
+              </div>
+              <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 15px;">
+                ¿Estás seguro de que deseas aplicar el siguiente ajuste directo sobre el inventario de la sucursal?
+              </p>
+              <div id="confirm-stock-adjust-summary" class="glass-light" style="padding: 15px; border-radius: var(--radius-sm); font-size: 0.88rem; line-height: 1.6; margin-bottom: 20px;">
+                <!-- Dinámico -->
+              </div>
+              <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" id="btn-cancel-confirm-adjust">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btn-execute-confirm-adjust">Sí, Aplicar Ajuste</button>
+              </div>
             </div>
           </div>
 
@@ -796,7 +1001,7 @@
                   </tr>
                 </thead>
                 <tbody id="table-movements-body">
-                  <tr><td colspan="4" class="empty-text">Click en Actualizar para cargar los movimientos.</td></tr>
+                  <tr><td colspan="4" class="empty-text">Cargando movimientos...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -806,13 +1011,26 @@
         <!-- 🚚 PANEL DESPACHANTE -->
         <section id="panel-despachante" class="panel hidden">
           <div class="card glass table-card">
-            <h3>Panel de Despacho de Pedidos</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+              <h3 style="margin-bottom: 0;">🚚 Panel de Despacho de Pedidos</h3>
+              <div class="filter-box" style="display: flex; align-items: center; gap: 8px;">
+                <label for="despachante-filter-status" style="font-size: 0.85rem; color: var(--text-muted);">Filtrar por Estado:</label>
+                <select id="despachante-filter-status" style="padding: 6px 12px; font-size: 0.85rem; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.12); background: rgba(15, 23, 42, 0.6); color: var(--text-main);">
+                  <option value="">Todos los Estados</option>
+                  <option value="PENDIENTE">⏳ Pendientes</option>
+                  <option value="EN_PREPARACION">🛠️ En Preparación</option>
+                  <option value="DESPACHADO">🚚 Despachados</option>
+                  <option value="ENTREGADO">✅ Entregados</option>
+                </select>
+              </div>
+            </div>
             <div class="table-responsive">
               <table>
                 <thead>
                   <tr>
-                    <th>Pedido ID</th>
+                    <th>N° Pedido</th>
                     <th>Solicitante</th>
+                    <th>🏢 Sucursal Destino</th>
                     <th>Fecha</th>
                     <th>Estado</th>
                     <th>Detalle Insumos</th>

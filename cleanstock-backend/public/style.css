@@ -1258,4 +1258,203 @@ tr:hover td {
   transform: scale(1.15);
 }
 
+/* ==========================================================================
+   🎨 METRIC CARDS VISUAL HIERARCHY
+   ========================================================================== */
+.stat-card.stat-card-alert {
+  background: radial-gradient(circle at top right, hsla(355, 80%, 62%, 0.15), transparent 70%), var(--glass-bg);
+  border: 1px solid hsla(355, 80%, 62%, 0.3);
+}
+.stat-card.stat-card-alert .stat-number {
+  color: var(--color-danger);
+  text-shadow: 0 4px 15px hsla(355, 80%, 62%, 0.3);
+}
+.stat-card.stat-card-alert.has-alerts {
+  animation: pulse-alert 2s infinite ease-in-out;
+}
+@keyframes pulse-alert {
+  0%, 100% { border-color: hsla(355, 80%, 62%, 0.4); box-shadow: 0 0 15px hsla(355, 80%, 62%, 0.2); }
+  50% { border-color: hsla(355, 80%, 62%, 0.8); box-shadow: 0 0 25px hsla(355, 80%, 62%, 0.4); }
+}
+
+.stat-card.stat-card-transit {
+  background: radial-gradient(circle at top right, hsla(200, 90%, 65%, 0.12), transparent 70%), var(--glass-bg);
+  border: 1px solid hsla(200, 90%, 65%, 0.25);
+}
+
+.stat-card.stat-card-today {
+  background: radial-gradient(circle at top right, hsla(145, 65%, 50%, 0.12), transparent 70%), var(--glass-bg);
+  border: 1px solid hsla(145, 65%, 50%, 0.25);
+}
+.stat-card.stat-card-today .stat-number {
+  color: var(--color-success);
+  text-shadow: 0 4px 15px var(--color-success-glow);
+}
+
+/* ==========================================================================
+   🔍 TOOLBAR (SEARCH, FILTER & ACTIONS GROUP)
+   ========================================================================== */
+.table-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  background: var(--glass-bg-light);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  flex: 1;
+  min-width: 240px;
+  transition: var(--transition-smooth);
+}
+.search-box:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 10px var(--color-primary-glow);
+}
+.search-box svg {
+  color: var(--text-muted);
+  margin-right: 8px;
+}
+.search-box input {
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  outline: none;
+  width: 100%;
+  font-size: 0.88rem;
+}
+
+.filter-box {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.filter-box select {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-main);
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  outline: none;
+  cursor: pointer;
+}
+.filter-box select:focus {
+  border-color: var(--color-primary);
+}
+
+/* Grouped Action Icons */
+.action-btn-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+}
+
+/* ==========================================================================
+   📄 PAGINATION STYLES
+   ========================================================================== */
+.pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.pagination-info {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.page-number {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main);
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+/* ==========================================================================
+   📭 EMPTY STATE STYLES
+   ========================================================================== */
+.empty-state-wrapper {
+  padding: 45px 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.empty-state-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.empty-state-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+.empty-state-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  max-width: 380px;
+/* ==========================================================================
+   🍞 TOAST NOTIFICATIONS STYLES
+   ========================================================================== */
+.toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+  z-index: 9999;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
+  transition: var(--transition-smooth);
+}
+.toast-info {
+  background: var(--color-primary);
+  color: var(--text-dark);
+}
+.toast-success {
+  background: var(--color-success);
+  color: #fff;
+}
+.toast-error {
+  background: var(--color-danger);
+  color: #fff;
+}
+.hidden {
+  display: none !important;
+}
+
+
 

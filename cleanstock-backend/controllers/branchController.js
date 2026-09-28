@@ -15,7 +15,7 @@ const getBranches = async (req, res) => {
 // Crear una nueva sucursal
 const createBranch = async (req, res) => {
   try {
-    const { name, description, address, type } = req.body;
+    const { name, description, address, phone, type } = req.body;
 
     if (!name) {
       return res.status(400).json({ message: 'El nombre de la sucursal es obligatorio' });
@@ -25,6 +25,7 @@ const createBranch = async (req, res) => {
       name,
       description: description || null,
       address: address || null,
+      phone: phone || null,
       type: type || 'sucursal'
     });
 
@@ -39,6 +40,7 @@ const createBranch = async (req, res) => {
     if (error.name === 'SequelizeUniqueConstraintError') {
       return res.status(400).json({ message: 'Ya existe una sucursal con ese nombre.' });
     }
+    console.error('Error creando sucursal:', error);
     res.status(500).json({ message: 'Error creando sucursal', error: error.message });
   }
 };
@@ -95,6 +97,7 @@ const updateBranch = async (req, res) => {
 
     if (description !== undefined) branch.description = description;
     if (address !== undefined) branch.address = address;
+    if (req.body.phone !== undefined) branch.phone = req.body.phone;
     if (type) branch.type = type;
 
     await branch.save();
