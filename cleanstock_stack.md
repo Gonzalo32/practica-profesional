@@ -13,8 +13,8 @@
 - Servido estáticamente por Express desde la carpeta `public/`
 
 ## Base de datos
-- **SQLite** – archivo local `cleanstock.sqlite` en la raíz del backend
-- **Sequelize v6** – ORM para definir modelos, relaciones y sincronizar el esquema
+- **MongoDB** – base de datos NoSQL documental
+- **Mongoose v8** – ODM para definir Schemas, validaciones y modelos
 
 ## Autenticación / Seguridad
 - **jsonwebtoken (JWT)** – generación y validación de tokens de acceso
@@ -33,15 +33,17 @@
 - `Order`
 - `OrderItem`
 - `ActivityLog`
+- `BranchStock`
 
 ## Rutas API (`/api/...`)
 | Prefijo           | Archivo              |
 |-------------------|----------------------|
-| `/api/auth`     | authRoutes.js        |
-| `/api/users`    | userRoutes.js        |
-| `/api/inventory`| inventoryRoutes.js   |
-| `/api/orders`   | orderRoutes.js       |
-| `/api/spaces`   | spaceRoutes.js       |
+| `/api/auth`       | authRoutes.js        |
+| `/api/users`      | userRoutes.js        |
+| `/api/inventory`  | inventoryRoutes.js   |
+| `/api/orders`     | orderRoutes.js       |
+| `/api/branches`   | branchRoutes.js      |
+| `/api/alerts`     | alertRoutes.js       |
 
 ## Puerto por defecto
 - `3000` (configurable por variable de entorno `PORT`)
