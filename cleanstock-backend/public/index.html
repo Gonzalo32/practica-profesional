@@ -256,6 +256,9 @@
                   <button type="submit" class="btn btn-primary">Registrar Usuario</button>
                 </div>
               </form>
+            </div>
+          </div>
+
           <!-- Modal: Ver Usuario -->
           <div id="modal-view-user" class="modal hidden">
             <div class="modal-content glass card" style="max-width: 600px; width: 95%; padding: 20px 25px;">
@@ -412,294 +415,80 @@
           </div>
         </section>
 
-        <!-- 🔵 PANEL SOLICITANTE -->
+        <!-- 🔵 PANEL SOLICITANTE: CATÁLOGO Y PEDIDOS -->
         <section id="panel-solicitante" class="panel hidden">
-          <div class="solicitante-layout">
-            <!-- Catalogo (Left Column) -->
-            <div class="catalog-section">
-              <div class="card glass filter-card">
-                <div class="filter-row">
-                  <input type="text" id="catalog-search" placeholder="🔍 Buscar insumo...">
-                  <select id="catalog-category-filter">
-                    <option value="">Todos los rubros</option>
-                  </select>
-                </div>
+          <div class="panel-header-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 1rem;">
+            <h2>🛒 Catálogo y Pedidos Realizados</h2>
+            <button id="btn-open-create-order-modal" class="btn btn-primary">➕ Crear Pedido</button>
+          </div>
+
+          <div class="card glass table-card">
+            <div class="table-toolbar" style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+              <div class="search-box" style="flex: 1; min-width: 200px;">
+                <input type="text" id="solicitante-search-orders" placeholder="Buscar por ID, insumo o sucursal..." style="width:100%; padding: 8px 12px; border-radius: 8px;" />
               </div>
-              
-              <div id="catalog-grid" class="catalog-grid">
-                <!-- Productos dinámicos -->
+              <div class="filter-box">
+                <select id="solicitante-filter-status" style="padding: 8px 12px; border-radius: 8px;">
+                  <option value="">Todos los Estados</option>
+                  <option value="PENDIENTE">⏳ Pendiente</option>
+                  <option value="PENDIENTE_VALIDACION">⚠️ Esperando Validación Admin</option>
+                  <option value="APROBADO">✅ Aprobado</option>
+                  <option value="EN_PREPARACION">🛠️ En Preparación</option>
+                  <option value="DESPACHADO">🚚 Despachado</option>
+                  <option value="ENTREGADO">🎉 Entregado</option>
+                </select>
               </div>
             </div>
 
-            <!-- Carrito & Mis Pedidos (Right Column) -->
-            <div class="sidebar-section">
-              <div class="card glass cart-card">
-                <h3>Mi Carrito</h3>
-                <div id="cart-items" class="cart-items">
-                  <p class="empty-text">El carrito está vacío.</p>
-                </div>
-                <div class="cart-summary hidden" id="cart-summary">
-                  <div class="form-group">
-                    <label for="order-from-branch">
-                      📤 Sucursal Origen (quién envía)
-                      <span class="tooltip-icon" title="Sucursal proveedora de donde se descontará el stock reservado." style="cursor:help; opacity:0.8;">ℹ️</span>
-                    </label>
-                    <select id="order-from-branch">
-                      <option value="">Seleccionar sucursal origen...</option>
-                      <!-- Dinámico -->
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label for="order-to-branch">
-                      📥 Sucursal Destino (quién recibe) <span style="color:var(--color-danger)">*</span>
-                      <span class="tooltip-icon" title="Sucursal o sede solicitante que recibirá la entrega." style="cursor:help; opacity:0.8;">ℹ️</span>
-                    </label>
-                    <select id="order-to-branch" required>
-                      <option value="" disabled selected>Seleccionar sucursal destino...</option>
-                      <!-- Dinámico -->
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label for="order-notes">Notas del Pedido (opcional)</label>
-                    <textarea id="order-notes" rows="2" placeholder="Observaciones o justificación adicional..."></textarea>
-                  </div>
-                  <div id="auto-validation-info" class="glass-light" style="padding: 10px 12px; margin-bottom: 15px; font-size: 0.8rem; color: var(--text-muted); border-radius: var(--radius-sm); display: flex; align-items: center; gap: 8px;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                    <span>El sistema evaluará automáticamente si el pedido requiere aprobación previa de Administración según los niveles de stock.</span>
-                  </div>
-                  <button id="btn-submit-order" class="btn btn-primary btn-block">Enviar Pedido</button>
-                </div>
-              </div>
-
-              <div class="card glass orders-card">
-                <h3>Mis Pedidos Recientes</h3>
-                <div id="solicitante-orders-list" class="orders-list">
-                  <!-- Pedidos dinámicos -->
-                </div>
-              </div>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>N° Pedido</th>
+                    <th>📤 Sucursal Envía</th>
+                    <th>📥 Sucursal Recibe</th>
+                    <th>Insumos Solicitados</th>
+                    <th>Estado</th>
+                    <th>Fecha Solicitud</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="table-solicitante-orders-body">
+                  <tr><td colspan="7" class="empty-text">Cargando pedidos...</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </section>
 
-        <!-- 🟢 PANEL USUARIO RESPONSABLE -->
+        <!-- 🟢 PANEL USUARIO RESPONSABLE / INGRESOS O PROVISIONES -->
         <section id="panel-responsable" class="panel hidden">
-          <div class="responsable-tabs sub-nav">
-            <button class="btn btn-tab active" data-sub="resp-stock-entry">Registrar Entrada</button>
-            <button class="btn btn-tab" data-sub="resp-informal-entry">📌 Ingreso Extraordinario</button>
-            <button class="btn btn-tab" data-sub="resp-catalog-mgmt">Gestionar Catálogo</button>
-            <button class="btn btn-tab" data-sub="resp-deliveries">Órdenes a Recibir</button>
-          </div>
-
-          <!-- Subpanel: Stock Entry Form -->
-          <div id="subpanel-resp-stock-entry" class="subpanel">
-            <div class="two-column-layout">
-              <div class="card glass form-card">
-                <h3>Registrar Ingreso de Stock</h3>
-                <form id="form-stock-entry">
-                  <div class="form-group">
-                    <label for="stock-product">Insumo / Producto <span style="color:var(--color-danger)">*</span></label>
-                    <select id="stock-product" required>
-                      <option value="">Selecciona un insumo...</option>
-                    </select>
-                  </div>
-                  <div class="grid-fields">
-                    <div class="form-group">
-                      <label for="stock-lot">Número de Lote <span style="color:var(--color-danger)">*</span></label>
-                      <input type="text" id="stock-lot" placeholder="Ej: LOT-2026-99" required>
-                    </div>
-                    <div class="form-group">
-                      <label for="stock-expiration">Fecha de Vencimiento <span style="color:var(--color-danger)">*</span></label>
-                      <input type="date" id="stock-expiration" required>
-                    </div>
-                  </div>
-                  <div class="form-group">
-                    <label for="stock-quantity">Cantidad a Ingresar <span style="color:var(--color-danger)">*</span></label>
-                    <input type="number" id="stock-quantity" min="1" placeholder="Ej: 50" required>
-                  </div>
-                  <div class="form-group">
-                    <label for="stock-entry-branch">
-                      🏢 Sucursal Destino <span style="color:var(--color-danger)">*</span>
-                      <span class="tooltip-icon" title="Sucursal específica que recibirá el ingreso físico para mantener la trazabilidad por ubicación." style="cursor:help; opacity:0.8;">ℹ️</span>
-                    </label>
-                    <select id="stock-entry-branch" required>
-                      <option value="" disabled selected>Seleccionar sucursal destino...</option>
-                      <!-- Dinámico -->
-                    </select>
-                  </div>
-                  <button type="submit" class="btn btn-success btn-block">Confirmar Registro de Ingreso</button>
-                </form>
-              </div>
-
-              <div class="card glass table-card">
-                <h3>Movimientos Recientes</h3>
-                <div class="table-responsive">
-                  <table class="simple-table">
-                    <thead>
-                      <tr>
-                        <th>Producto</th>
-                        <th>Cant.</th>
-                        <th>Lote</th>
-                        <th>Vence</th>
-                        <th>Registró</th>
-                      </tr>
-                    </thead>
-                    <tbody id="table-resp-recent-stock">
-                      <!-- Dinámico -->
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+          <div class="panel-header-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 1rem;">
+            <h2>📥 Ingresos y Provisiones de Stock</h2>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <button id="btn-open-stock-entry-modal" class="btn btn-primary">➕ Agregar Ingreso</button>
+              <button id="btn-open-informal-entry-modal" class="btn btn-secondary">📌 Ingreso Extraordinario</button>
             </div>
           </div>
 
-          <!-- Subpanel: Ingreso Extraordinario (Módulo 2) -->
-          <div id="subpanel-resp-informal-entry" class="subpanel hidden">
-            <div class="two-column-layout">
-              <div class="card glass form-card">
-                <h3>📌 Ingreso Extraordinario / Extraoficial</h3>
-                <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.2rem">
-                  Para registrar artículos que llegaron fuera del sistema normal: encontrados en depósito,
-                  donaciones, devoluciones, excedentes o llegaron sin orden de compra.
-                  <strong style="color:var(--color-warning)">No requiere lote ni fecha de vencimiento.</strong>
-                </p>
-                <form id="form-informal-entry">
-                  <div class="form-group">
-                    <label for="informal-product">Producto <span style="color:var(--color-danger)">*</span></label>
-                    <select id="informal-product" required>
-                      <option value="">Seleccionar producto...</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label for="informal-branch">Sucursal Destino <span style="color:var(--color-danger)">*</span></label>
-                    <select id="informal-branch" required>
-                      <option value="">Seleccionar sucursal...</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label for="informal-entry-type">Tipo de Ingreso <span style="color:var(--color-danger)">*</span></label>
-                    <select id="informal-entry-type" required>
-                      <option value="ENCONTRADO">🔍 Encontrado en depósito</option>
-                      <option value="DONACION">🎁 Donación / Aporte externo</option>
-                      <option value="DEVOLUCION">🔄 Devolución de sucursal / sector</option>
-                      <option value="EXCEDENTE">⬆️ Excedente de proyecto / obra</option>
-                      <option value="SIN_OC">📦 Llegó sin Orden de Compra previa</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label for="informal-quantity">Cantidad <span style="color:var(--color-danger)">*</span></label>
-                    <input type="number" id="informal-quantity" min="1" placeholder="Ej: 10" required>
-                  </div>
-                  <div class="form-group">
-                    <label for="informal-description">Descripción / Motivo <span style="color:var(--color-danger)">*</span></label>
-                    <textarea id="informal-description" rows="3"
-                      placeholder="Descripción obligatoria: dónde se encontró, quién lo trajo, en qué condición, etc."
-                      required></textarea>
-                  </div>
-                  <button type="submit" class="btn btn-warning btn-block">Registrar Ingreso Extraordinario</button>
-                </form>
-              </div>
-
-              <div class="card glass table-card">
-                <h3>📋 Ingresos Extraordinarios Recientes</h3>
-                <div class="table-responsive">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Fecha</th>
-                        <th>Tipo</th>
-                        <th>Producto</th>
-                        <th>Cantidad</th>
-                        <th>Registrado por</th>
-                      </tr>
-                    </thead>
-                    <tbody id="table-informal-entries">
-                      <tr><td colspan="5" class="empty-text">No hay ingresos extraordinarios registrados.</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Subpanel: Catalog & Categories Management -->
-          <div id="subpanel-resp-catalog-mgmt" class="subpanel hidden">
-            <div class="two-column-layout">
-              <div class="card glass form-card">
-                <h3>Agregar Nuevo Insumo al Catálogo</h3>
-                <form id="form-create-product">
-                  <div class="form-group">
-                    <label for="prod-name">Nombre del Insumo <span style="color:var(--color-danger)">*</span></label>
-                    <input type="text" id="prod-name" placeholder="Ej: Guantes de Latex Talle M" required>
-                  </div>
-                  <div class="form-group">
-                    <label for="prod-category">Categoría / Rubro <span style="color:var(--color-danger)">*</span></label>
-                    <select id="prod-category" required>
-                      <option value="" disabled selected>Selecciona rubro...</option>
-                    </select>
-                    <small style="display:block; margin-top:4px;">
-                      <a href="#" id="link-focus-create-cat" style="color:var(--color-accent); text-decoration:underline; font-size:0.8rem;">
-                        ¿No encontrás la categoría? ➕ Crear nuevo Rubro a la derecha
-                      </a>
-                    </small>
-                  </div>
-                  <div class="form-group">
-                    <label for="prod-description">Descripción Técnica <span style="color:var(--color-danger)">*</span></label>
-                    <textarea id="prod-description" rows="2" placeholder="Especificaciones técnicas, talle, marca o características..." required></textarea>
-                  </div>
-                  <div class="form-group">
-                    <label for="prod-minstock">
-                      Stock Mínimo Alerta <span style="color:var(--color-danger)">*</span>
-                      <span class="tooltip-icon" title="Nivel límite configurable. Si el stock total baje de esta cifra, el sistema genera alertas de reposición." style="cursor:help; opacity:0.8;">ℹ️</span>
-                    </label>
-                    <input type="number" id="prod-minstock" min="0" value="10" required>
-                    <small style="color:var(--text-muted); font-size:0.75rem;">Valor por defecto editable (ej: 10 unidades).</small>
-                  </div>
-                  <button type="submit" class="btn btn-primary btn-block">Agregar Producto</button>
-                </form>
-              </div>
-
-              <div class="card glass form-card">
-                <h3>Crear Nueva Categoría (Rubro)</h3>
-                <form id="form-create-category">
-                  <div class="form-group">
-                    <label for="cat-name">Nombre de Rubro <span style="color:var(--color-danger)">*</span></label>
-                    <input type="text" id="cat-name" placeholder="Ej: Descartables" required>
-                  </div>
-                  <div class="form-group">
-                    <label for="cat-description">Descripción</label>
-                    <textarea id="cat-description" rows="3" placeholder="Descripción corta..."></textarea>
-                  </div>
-                  <button type="submit" class="btn btn-primary btn-block">Agregar Rubro</button>
-                </form>
-              </div>
-            </div>
-          </div>
-
-          <!-- Subpanel: Deliveries to mark as ENTREGADO -->
-          <div id="subpanel-resp-deliveries" class="subpanel hidden">
-            <div class="card glass table-card">
-              <h3>Pedidos Despachados (Esperando Confirmación de Recepción)</h3>
-              <div class="table-responsive">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Pedido ID</th>
-                      <th>Solicitante</th>
-                      <th>Artículos</th>
-                      <th>Fecha Despacho</th>
-                      <th>Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody id="table-resp-deliveries-body">
-                    <tr>
-                      <td colspan="5" class="empty-text" style="padding: 24px; text-align: center;">
-                        <div style="font-size: 2rem; margin-bottom: 8px;">📦</div>
-                        <p style="margin: 0; color: var(--text-muted);">No hay pedidos despachados esperando confirmación de recepción en este momento.</p>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+          <div class="card glass table-card">
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Sucursal Destino</th>
+                    <th>Producto / Insumo</th>
+                    <th>Cantidad</th>
+                    <th>Lote</th>
+                    <th>Vencimiento</th>
+                    <th>Tipo / Detalles</th>
+                  </tr>
+                </thead>
+                <tbody id="table-resp-recent-stock">
+                  <tr><td colspan="7" class="empty-text">Cargando ingresos y provisiones...</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </section>
@@ -870,81 +659,54 @@
 
         <!-- 📊 PANEL STOCK POR SUCURSAL -->
         <section id="panel-stock-view" class="panel hidden">
-          <div class="panel-header-row">
+          <div class="panel-header-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 1rem;">
             <h2 id="stock-view-branch-title">📊 Stock por Sucursal</h2>
+            <button type="button" id="btn-toggle-stock-adjust" class="btn btn-secondary">
+              ⚖️ Ajuste Manual de Stock
+            </button>
           </div>
 
-          <div class="card glass filter-card">
-            <div class="filter-row">
-              <label for="stock-view-branch-select">Seleccionar Sucursal:</label>
-              <select id="stock-view-branch-select" style="max-width:300px">
+          <div class="card glass filter-card" style="margin-bottom: 1.2rem;">
+            <div class="filter-row" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <label for="stock-view-branch-select" style="font-weight: 600;">Sucursal:</label>
+              <select id="stock-view-branch-select" style="max-width:320px">
                 <option value="">— Seleccionar sucursal —</option>
               </select>
             </div>
           </div>
 
-          <div class="two-column-layout" style="margin-top: 1.5rem;">
-            <!-- Tabla de stock -->
-            <div class="card glass table-card">
-              <div class="table-responsive">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Producto</th>
-                      <th>Categoría</th>
-                      <th>
-                        Total 
-                        <span class="tooltip-icon" title="Existencia física total registrada en esta sucursal." style="cursor:help; opacity:0.8;">ℹ️</span>
-                      </th>
-                      <th>
-                        Reservado 
-                        <span class="tooltip-icon" title="Unidades comprometidas en pedidos aprobados pendientes de despachar." style="cursor:help; opacity:0.8;">ℹ️</span>
-                      </th>
-                      <th>
-                        Disponible 
-                        <span class="tooltip-icon" title="Unidades aptas para nuevos pedidos (Total - Reservado)." style="cursor:help; opacity:0.8;">ℹ️</span>
-                      </th>
-                      <th>
-                        Mínimo 
-                        <span class="tooltip-icon" title="Nivel mínimo de stock sugerido antes de generar alerta." style="cursor:help; opacity:0.8;">ℹ️</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody id="table-branch-stock-body">
-                    <tr><td colspan="6" class="empty-text">Seleccioná una sucursal para ver su stock.</td></tr>
-                  </tbody>
-                </table>
+          <!-- Modal Popup: Ajuste Manual de Stock -->
+          <div id="container-stock-adjust-form" class="modal hidden">
+            <div class="modal-content glass card" style="max-width: 650px; width: 95%; padding: 20px 25px;">
+              <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; padding-bottom: 8px;">
+                <h3 style="font-size: 1.2rem; margin-bottom: 0;">⚖️ Ajuste Manual de Stock</h3>
+                <button type="button" class="close-btn" id="btn-close-stock-adjust-form">&times;</button>
               </div>
-            </div>
-
-            <!-- Ajuste manual de stock -->
-            <div class="card glass form-card">
-              <h3>⚖️ Ajuste Manual de Stock</h3>
               <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem">
                 Usar para correcciones, pérdidas, vencimientos o ingresos directos.
               </p>
-              <form id="form-stock-adjust">
-                <div class="form-group">
+              <form id="form-stock-adjust" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem 1rem;">
+                <div class="form-group" style="margin-bottom: 0;">
                   <label for="adjust-branch">Sucursal <span style="color:var(--color-danger)">*</span></label>
                   <select id="adjust-branch" required>
                     <option value="">— Seleccionar Sucursal —</option>
                   </select>
                 </div>
-                <div class="form-group">
+                <div class="form-group" style="margin-bottom: 0;">
                   <label for="adjust-product">Producto <span style="color:var(--color-danger)">*</span></label>
                   <select id="adjust-product" required>
                     <option value="">— Seleccionar Producto —</option>
                   </select>
                 </div>
-                <div class="form-group">
-                  <label for="adjust-quantity">Cantidad <span style="font-weight:normal; color:var(--text-muted);">(ingresá valores positivos o negativos)</span> <span style="color:var(--color-danger)">*</span></label>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label for="adjust-quantity">Cantidad <span style="font-weight:normal; color:var(--text-muted);">(ingresá + o -)</span> <span style="color:var(--color-danger)">*</span></label>
                   <div style="display: flex; gap: 8px; align-items: center;">
                     <button type="button" class="btn btn-secondary" id="btn-adjust-qty-minus" style="padding: 6px 14px; font-weight: bold; font-size: 1.1rem;">-</button>
                     <input type="number" id="adjust-quantity" placeholder="0" required style="text-align: center; font-weight: 600;">
                     <button type="button" class="btn btn-secondary" id="btn-adjust-qty-plus" style="padding: 6px 14px; font-weight: bold; font-size: 1.1rem;">+</button>
                   </div>
                 </div>
-                <div class="form-group">
+                <div class="form-group" style="margin-bottom: 0;">
                   <label for="adjust-reason-select">Motivo del Ajuste <span style="color:var(--color-danger)">*</span></label>
                   <select id="adjust-reason-select" required>
                     <option value="" disabled selected>— Seleccionar motivo —</option>
@@ -955,12 +717,48 @@
                     <option value="Otro">Otro (Especificar)</option>
                   </select>
                 </div>
-                <div class="form-group hidden" id="adjust-reason-other-group">
+                <div class="form-group hidden" id="adjust-reason-other-group" style="grid-column: span 2; margin-bottom: 0;">
                   <label for="adjust-reason-other">Especificar Otro Motivo <span style="color:var(--color-danger)">*</span></label>
                   <input type="text" id="adjust-reason-other" placeholder="Describí el motivo del ajuste...">
                 </div>
-                <button type="submit" class="btn btn-primary btn-block">Aplicar Ajuste</button>
+                <div style="grid-column: span 2; display: flex; justify-content: flex-end; gap: 10px; margin-top: 1rem;">
+                  <button type="button" class="btn btn-secondary" id="btn-cancel-stock-adjust">Cancelar</button>
+                  <button type="submit" class="btn btn-primary">Aplicar Ajuste</button>
+                </div>
               </form>
+            </div>
+          </div>
+
+          <!-- Tabla de stock (Full Width) -->
+          <div class="card glass table-card" style="margin-bottom: 1.5rem;">
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Producto</th>
+                    <th>Categoría</th>
+                    <th>
+                      Total 
+                      <span class="tooltip-icon" title="Existencia física total registrada en esta sucursal." style="cursor:help; opacity:0.8;">ℹ️</span>
+                    </th>
+                    <th>
+                      Reservado 
+                      <span class="tooltip-icon" title="Unidades comprometidas en pedidos aprobados pendientes de despachar." style="cursor:help; opacity:0.8;">ℹ️</span>
+                    </th>
+                    <th>
+                      Disponible 
+                      <span class="tooltip-icon" title="Unidades aptas para nuevos pedidos (Total - Reservado)." style="cursor:help; opacity:0.8;">ℹ️</span>
+                    </th>
+                    <th>
+                      Mínimo 
+                      <span class="tooltip-icon" title="Nivel mínimo de stock sugerido antes de generar alerta." style="cursor:help; opacity:0.8;">ℹ️</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody id="table-branch-stock-body">
+                  <tr><td colspan="6" class="empty-text">Seleccioná una sucursal para ver su stock.</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -1044,6 +842,68 @@
             </div>
           </div>
         </section>
+
+        <!-- 📦 PANEL CATÁLOGO -->
+        <section id="panel-catalog" class="panel hidden">
+          <div class="panel-header-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 1rem;">
+            <h2>📦 Catálogo de Productos / Insumos</h2>
+            <button id="btn-open-create-product-modal" class="btn btn-primary">➕ Agregar Insumo</button>
+          </div>
+
+          <div class="card glass table-card">
+            <div class="table-toolbar" style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+              <div class="search-box" style="flex: 1; min-width: 200px;">
+                <input type="text" id="catalog-search-input" placeholder="Buscar por nombre o descripción..." style="width:100%; padding: 8px 12px; border-radius: 8px;" />
+              </div>
+              <div class="filter-box">
+                <select id="catalog-filter-category" style="padding: 8px 12px; border-radius: 8px;">
+                  <option value="">Todas las Categorías</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nombre del Insumo</th>
+                    <th>Categoría / Rubro</th>
+                    <th>Descripción Técnica</th>
+                    <th>Stock Mínimo Alerta</th>
+                  </tr>
+                </thead>
+                <tbody id="table-catalog-body">
+                  <tr><td colspan="4" class="empty-text">Cargando catálogo...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 🏷️ PANEL CATEGORÍAS -->
+        <section id="panel-categories" class="panel hidden">
+          <div class="panel-header-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 1rem;">
+            <h2>🏷️ Gestión de Categorías / Rubros</h2>
+            <button id="btn-open-create-category-modal" class="btn btn-primary">➕ Agregar Categoría</button>
+          </div>
+
+          <div class="card glass table-card">
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nombre de Rubro / Categoría</th>
+                    <th>Descripción</th>
+                    <th>Insumos Vinculados</th>
+                  </tr>
+                </thead>
+                <tbody id="table-categories-body">
+                  <tr><td colspan="3" class="empty-text">Cargando categorías...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
   </div>
@@ -1097,6 +957,306 @@
           </form>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Modal Popup: Agregar Insumo al Catálogo -->
+  <div id="modal-create-product" class="modal hidden">
+    <div class="modal-content glass card" style="max-width: 600px; width: 95%; padding: 20px 25px;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px;">
+        <h3 style="font-size: 1.2rem; margin-bottom: 0;">➕ Agregar Nuevo Insumo al Catálogo</h3>
+        <button type="button" class="close-btn" id="btn-close-create-product-modal">&times;</button>
+      </div>
+      <form id="form-create-product" style="display: flex; flex-direction: column; gap: 0.8rem;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="prod-name">Nombre del Insumo <span style="color:var(--color-danger)">*</span></label>
+          <input type="text" id="prod-name" placeholder="Ej: Guantes de Latex Talle M" required>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="prod-category">Categoría / Rubro <span style="color:var(--color-danger)">*</span></label>
+          <select id="prod-category" required>
+            <option value="" disabled selected>Selecciona rubro...</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="prod-description">Descripción Técnica <span style="color:var(--color-danger)">*</span></label>
+          <textarea id="prod-description" rows="3" placeholder="Especificaciones técnicas, talle, marca o características..." required></textarea>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="prod-minstock">
+            Stock Mínimo Alerta <span style="color:var(--color-danger)">*</span>
+            <span class="tooltip-icon" title="Nivel límite configurable. Si el stock total cae debajo de esta cifra, el sistema genera alertas." style="cursor:help; opacity:0.8;">ℹ️</span>
+          </label>
+          <input type="number" id="prod-minstock" min="0" value="10" required>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 0.8rem;">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-create-product-modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Agregar Producto</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Popup: Crear Nueva Categoría -->
+  <div id="modal-create-category" class="modal hidden">
+    <div class="modal-content glass card" style="max-width: 500px; width: 95%; padding: 20px 25px;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px;">
+        <h3 style="font-size: 1.2rem; margin-bottom: 0;">🏷️ Crear Nueva Categoría (Rubro)</h3>
+        <button type="button" class="close-btn" id="btn-close-create-category-modal">&times;</button>
+      </div>
+      <form id="form-create-category" style="display: flex; flex-direction: column; gap: 0.8rem;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="cat-name">Nombre de Rubro / Categoría <span style="color:var(--color-danger)">*</span></label>
+          <input type="text" id="cat-name" placeholder="Ej: Descartables" required>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="cat-description">Descripción</label>
+          <textarea id="cat-description" rows="3" placeholder="Descripción corta..."></textarea>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 0.8rem;">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-create-category-modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Agregar Rubro</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Popup: Crear Nuevo Pedido -->
+  <div id="modal-create-order" class="modal hidden">
+    <div class="modal-content glass card" style="max-width: 700px; width: 95%; padding: 20px 25px;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px;">
+        <h3 style="font-size: 1.2rem; margin-bottom: 0;">🛒 Crear Nuevo Pedido de Insumos</h3>
+        <button type="button" class="close-btn" id="btn-close-create-order-modal">&times;</button>
+      </div>
+      
+      <form id="form-create-order-modal" style="display: flex; flex-direction: column; gap: 1rem;">
+        <!-- Sucursales Origen y Destino -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="order-modal-from-branch">📤 Sucursal que Envía (Origen) <span style="color:var(--color-danger)">*</span></label>
+            <select id="order-modal-from-branch" required>
+              <option value="" disabled selected>Seleccionar sucursal origen...</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="order-modal-to-branch">📥 Sucursal que Recibe (Destino) <span style="color:var(--color-danger)">*</span></label>
+            <select id="order-modal-to-branch" required>
+              <option value="" disabled selected>Seleccionar sucursal destino...</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Selector de Artículo y Cantidad con Botón (+) -->
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); padding: 12px 15px;">
+          <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 8px;">Agregar Insumo al Pedido:</label>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <div style="flex: 2; min-width: 200px;">
+              <select id="order-modal-product-select" style="width: 100%; padding: 8px 12px; font-size: 0.85rem;">
+                <option value="">Selecciona un insumo...</option>
+              </select>
+            </div>
+            <div style="width: 90px;">
+              <input type="number" id="order-modal-product-qty" min="1" value="1" placeholder="Cant." style="width: 100%; padding: 8px 10px; font-size: 0.85rem; text-align: center;">
+            </div>
+            <button type="button" id="btn-order-modal-add-item" class="btn btn-secondary" style="padding: 8px 16px; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; justify-content: center;" title="Agregar Insumo a la Lista">
+              ➕
+            </button>
+          </div>
+        </div>
+
+        <!-- Lista de Insumos Agregados por debajo -->
+        <div class="card glass-light" style="padding: 12px; border-radius: var(--radius-sm);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-weight: 600; font-size: 0.85rem;">Insumos Agregados al Pedido:</span>
+            <span id="order-modal-items-count" class="badge">0 artículos</span>
+          </div>
+          <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+            <table style="font-size: 0.85rem; width: 100%;">
+              <thead>
+                <tr>
+                  <th>Insumo</th>
+                  <th style="width: 80px; text-align: center;">Cantidad</th>
+                  <th style="width: 60px; text-align: center;">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="table-order-modal-items-body">
+                <tr><td colspan="3" class="empty-text" style="padding: 12px;">Aún no agregaste insumos a este pedido.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Notas opcionales -->
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="order-modal-notes" style="font-size: 0.8rem;">Notas u Observaciones del Pedido (opcional)</label>
+          <textarea id="order-modal-notes" rows="2" placeholder="Observaciones o justificación adicional..."></textarea>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 0.5rem;">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-create-order-modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Confirmar y Enviar Pedido</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Popup: Agregar Ingreso de Stock (Provisión Estándar) -->
+  <div id="modal-create-stock-entry" class="modal hidden">
+    <div class="modal-content glass card" style="max-width: 750px; width: 95%; padding: 20px 25px;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px;">
+        <h3 style="font-size: 1.2rem; margin-bottom: 0;">📥 Agregar Ingreso / Provisión de Stock</h3>
+        <button type="button" class="close-btn" id="btn-close-create-stock-entry-modal">&times;</button>
+      </div>
+
+      <form id="form-create-stock-entry-modal" style="display: flex; flex-direction: column; gap: 1rem;">
+        <!-- Sucursal Destino -->
+        <div class="form-group" style="margin-bottom: 0;">
+          <label for="stock-modal-branch">🏢 Sucursal Destino <span style="color:var(--color-danger)">*</span></label>
+          <select id="stock-modal-branch" required style="width: 100%; padding: 8px 12px; font-size: 0.85rem;">
+            <option value="" disabled selected>Seleccionar sucursal destino...</option>
+          </select>
+        </div>
+
+        <!-- Formulario para agregar item a la lista -->
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); padding: 12px 15px;">
+          <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 8px;">Datos del Insumo a Ingresar:</label>
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1.5fr 1.5fr auto; gap: 8px; align-items: end;">
+            <div>
+              <label style="font-size: 0.75rem; display: block; margin-bottom: 2px;">Insumo / Producto <span style="color:var(--color-danger)">*</span></label>
+              <select id="stock-modal-product-select" style="width: 100%; padding: 7px 10px; font-size: 0.85rem;">
+                <option value="">Selecciona insumo...</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 0.75rem; display: block; margin-bottom: 2px;">Cantidad <span style="color:var(--color-danger)">*</span></label>
+              <input type="number" id="stock-modal-product-qty" min="1" value="1" placeholder="Cant." style="width: 100%; padding: 7px 10px; font-size: 0.85rem; text-align: center;">
+            </div>
+            <div>
+              <label style="font-size: 0.75rem; display: block; margin-bottom: 2px;">Lote <span style="color:var(--color-danger)">*</span></label>
+              <input type="text" id="stock-modal-lot-number" placeholder="Ej: LOT-2026-99" style="width: 100%; padding: 7px 10px; font-size: 0.85rem;">
+            </div>
+            <div>
+              <label style="font-size: 0.75rem; display: block; margin-bottom: 2px;">Vencimiento <span style="color:var(--color-danger)">*</span></label>
+              <input type="date" id="stock-modal-expiration-date" style="width: 100%; padding: 7px 10px; font-size: 0.85rem;">
+            </div>
+            <div>
+              <button type="button" id="btn-stock-modal-add-item" class="btn btn-secondary" style="padding: 7px 14px; font-weight: bold; font-size: 1.1rem; min-height: 36px;" title="Agregar Insumo a la Lista">
+                ➕
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista de Insumos que ingresan -->
+        <div class="card glass-light" style="padding: 12px; border-radius: var(--radius-sm);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-weight: 600; font-size: 0.85rem;">Artículos que Ingresarán:</span>
+            <span id="stock-modal-items-count" class="badge">0 artículos</span>
+          </div>
+          <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+            <table style="font-size: 0.85rem; width: 100%;">
+              <thead>
+                <tr>
+                  <th>Insumo / Producto</th>
+                  <th style="width: 80px; text-align: center;">Cantidad</th>
+                  <th>Lote</th>
+                  <th>Fecha Vencimiento</th>
+                  <th style="width: 60px; text-align: center;">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="table-stock-modal-items-body">
+                <tr><td colspan="5" class="empty-text" style="padding: 12px;">Aún no agregaste insumos a la lista de ingreso.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 0.5rem;">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-create-stock-entry-modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Confirmar Ingreso de Stock</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Popup: Ingreso Extraordinario / Extraoficial -->
+  <div id="modal-create-informal-entry" class="modal hidden">
+    <div class="modal-content glass card" style="max-width: 720px; width: 95%; padding: 20px 25px;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px;">
+        <h3 style="font-size: 1.2rem; margin-bottom: 0;">📌 Registrar Ingreso Extraordinario</h3>
+        <button type="button" class="close-btn" id="btn-close-create-informal-entry-modal">&times;</button>
+      </div>
+
+      <form id="form-create-informal-entry-modal" style="display: flex; flex-direction: column; gap: 1rem;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="informal-modal-branch">🏢 Sucursal Destino <span style="color:var(--color-danger)">*</span></label>
+            <select id="informal-modal-branch" required style="width: 100%; padding: 8px 12px; font-size: 0.85rem;">
+              <option value="" disabled selected>Seleccionar sucursal destino...</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="informal-modal-entry-type">Tipo de Ingreso <span style="color:var(--color-danger)">*</span></label>
+            <select id="informal-modal-entry-type" required style="width: 100%; padding: 8px 12px; font-size: 0.85rem;">
+              <option value="ENCONTRADO">🔍 Encontrado en depósito</option>
+              <option value="DONACION">🎁 Donación / Aporte externo</option>
+              <option value="DEVOLUCION">🔄 Devolución de sucursal / sector</option>
+              <option value="EXCEDENTE">⬆️ Excedente de proyecto / obra</option>
+              <option value="SIN_OC">📦 Llegó sin Orden de Compra previa</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="informal-modal-description">Descripción / Motivo <span style="color:var(--color-danger)">*</span></label>
+          <textarea id="informal-modal-description" rows="2" placeholder="Explicación detallada: de dónde proviene, quién lo trajo, condición..." required style="padding: 8px 12px; font-size: 0.85rem;"></textarea>
+        </div>
+
+        <!-- Formulario para agregar item a la lista -->
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); padding: 12px 15px;">
+          <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 8px;">Agregar Artículo al Ingreso Extraordinario:</label>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <div style="flex: 2; min-width: 200px;">
+              <select id="informal-modal-product-select" style="width: 100%; padding: 8px 12px; font-size: 0.85rem;">
+                <option value="">Selecciona un producto...</option>
+              </select>
+            </div>
+            <div style="width: 90px;">
+              <input type="number" id="informal-modal-product-qty" min="1" value="1" placeholder="Cant." style="width: 100%; padding: 8px 10px; font-size: 0.85rem; text-align: center;">
+            </div>
+            <button type="button" id="btn-informal-modal-add-item" class="btn btn-secondary" style="padding: 8px 16px; font-weight: bold; font-size: 1.1rem;" title="Agregar a la Lista">
+              ➕
+            </button>
+          </div>
+        </div>
+
+        <!-- Lista de Insumos que ingresan -->
+        <div class="card glass-light" style="padding: 12px; border-radius: var(--radius-sm);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-weight: 600; font-size: 0.85rem;">Artículos Extraordinarios:</span>
+            <span id="informal-modal-items-count" class="badge">0 artículos</span>
+          </div>
+          <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+            <table style="font-size: 0.85rem; width: 100%;">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th style="width: 80px; text-align: center;">Cantidad</th>
+                  <th style="width: 60px; text-align: center;">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="table-informal-modal-items-body">
+                <tr><td colspan="3" class="empty-text" style="padding: 12px;">Aún no agregaste artículos a este ingreso extraordinario.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 0.5rem;">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-create-informal-entry-modal">Cancelar</button>
+          <button type="submit" class="btn btn-warning">Confirmar Ingreso Extraordinario</button>
+        </div>
+      </form>
     </div>
   </div>
 

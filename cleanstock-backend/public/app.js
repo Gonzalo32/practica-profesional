@@ -204,10 +204,12 @@ function renderNavigation() {
   if (role === 'Administrador') {
     tabs = [
       { id: 'admin', label: '🛡️ Control Administrador' },
+      { id: 'catalog', label: '📦 Catálogo' },
+      { id: 'categories', label: '🏷️ Categorías' },
       { id: 'branches', label: '🏢 Sucursales' },
       { id: 'stock-view', label: '📊 Stock por Sucursal' },
       { id: 'solicitante', label: '🛒 Catálogo y Pedidos' },
-      { id: 'responsable', label: '📦 Gestión de Inventario' },
+      { id: 'responsable', label: '📥 Ingresos o Provisiones' },
       { id: 'despachante', label: '🚚 Panel Despacho' }
     ];
   } else if (role === 'Solicitante') {
@@ -216,7 +218,9 @@ function renderNavigation() {
     ];
   } else if (role === 'Usuario Responsable') {
     tabs = [
-      { id: 'responsable', label: '📦 Gestión de Inventario' }
+      { id: 'responsable', label: '📥 Ingresos o Provisiones' },
+      { id: 'catalog', label: '📦 Catálogo' },
+      { id: 'categories', label: '🏷️ Categorías' }
     ];
   } else if (role === 'Despachante') {
     tabs = [
@@ -275,6 +279,10 @@ function refreshPanelData(panelId) {
     loadAdminUsers();
     loadAdminApprovals();
     loadAdminLogs();
+  } else if (panelId === 'panel-catalog') {
+    loadCatalogPanel();
+  } else if (panelId === 'panel-categories') {
+    loadCategoriesPanel();
   } else if (panelId === 'panel-branches') {
     loadBranchesPanel();
   } else if (panelId === 'panel-stock-view') {
@@ -563,7 +571,7 @@ function renderFilteredUsers() {
 }
 
 window.openViewUserModal = (userId) => {
-  const user = loadedUsersList.find(u => u.id === userId);
+  const user = loadedUsersList.find(u => String(u.id) === String(userId) || String(u._id) === String(userId));
   if (!user) return;
   const content = document.getElementById('view-user-details-content');
   if (content) {
@@ -618,7 +626,7 @@ if (modalEditUser) {
 }
 
 window.openEditUserModal = async (userId) => {
-  const user = loadedUsersList.find(u => u.id === userId);
+  const user = loadedUsersList.find(u => String(u.id) === String(userId) || String(u._id) === String(userId));
   if (!user) return;
 
   // Llenar select de sucursales en edit form
@@ -633,7 +641,7 @@ window.openEditUserModal = async (userId) => {
     });
   }
 
-  document.getElementById('edit-user-id').value = user.id;
+  document.getElementById('edit-user-id').value = user.id || user._id;
   document.getElementById('edit-user-email').value = user.email || user.username || '';
   document.getElementById('edit-user-firstname').value = user.firstName || '';
   document.getElementById('edit-user-lastname').value = user.lastName || '';
@@ -663,8 +671,8 @@ if (formEditUser) {
     const role = document.getElementById('edit-user-role').value;
     const physicalSpaceId = document.getElementById('edit-user-space').value;
 
-    if (!email || !firstName || !lastName || !documentStr || !birthDate || !phone || !address || !zipCode || !role || !physicalSpaceId) {
-      showToast('Todos los campos son obligatorios.', 'error');
+    if (!email || !firstName || !lastName || !role) {
+      showToast('Por favor completa al menos Email, Nombre, Apellido y Rol.', 'error');
       return;
     }
 
@@ -683,7 +691,7 @@ if (formEditUser) {
           address,
           zipCode,
           role,
-          physicalSpaceId
+          physicalSpaceId: physicalSpaceId || null
         })
       });
       showToast('Usuario actualizado exitosamente', 'success');
@@ -1252,46 +1260,293 @@ if (btnSubmitOrder) {
 }
 
 // Load Solicitante orders con Estado Vacío Diseñado
+let loadedSolicitanteOrders = [];
+let solicitanteOrderSearchQuery = '';
+let solicitanteOrderStatusFilter = '';
+
 async function loadSolicitanteOrders() {
   try {
     const orders = await apiFetch('/orders');
-    const container = document.getElementById('solicitante-orders-list');
-    if (!container) return;
-    container.innerHTML = '';
+    loadedSolicitanteOrders = orders;
 
-    if (orders.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state-wrapper" style="padding: 25px 15px;">
-          <div class="empty-state-icon" style="width:46px; height:46px;">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+    setupSolicitanteOrderFilterListeners();
+    renderSolicitanteOrdersTable();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+let solicitanteOrderListenersAttached = false;
+function setupSolicitanteOrderFilterListeners() {
+  if (solicitanteOrderListenersAttached) return;
+  solicitanteOrderListenersAttached = true;
+
+  const searchInput = document.getElementById('solicitante-search-orders');
+  const statusSelect = document.getElementById('solicitante-filter-status');
+
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      solicitanteOrderSearchQuery = e.target.value.toLowerCase().trim();
+      renderSolicitanteOrdersTable();
+    });
+  }
+  if (statusSelect) {
+    statusSelect.addEventListener('change', (e) => {
+      solicitanteOrderStatusFilter = e.target.value;
+      renderSolicitanteOrdersTable();
+    });
+  }
+}
+
+function renderSolicitanteOrdersTable() {
+  const tbody = document.getElementById('table-solicitante-orders-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  const filtered = loadedSolicitanteOrders.filter(o => {
+    const idStr = (o.id || o._id || '').toLowerCase();
+    const fromName = (o.FromBranch?.name || '').toLowerCase();
+    const toName = (o.ToBranch?.name || '').toLowerCase();
+    const itemsStr = (o.OrderItems || []).map(i => (i.Product?.name || '').toLowerCase()).join(' ');
+
+    const matchesSearch = !solicitanteOrderSearchQuery ||
+      idStr.includes(solicitanteOrderSearchQuery) ||
+      fromName.includes(solicitanteOrderSearchQuery) ||
+      toName.includes(solicitanteOrderSearchQuery) ||
+      itemsStr.includes(solicitanteOrderSearchQuery);
+
+    const matchesStatus = !solicitanteOrderStatusFilter || o.status === solicitanteOrderStatusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7">
+          <div class="empty-state-wrapper" style="padding: 25px 15px;">
+            <div class="empty-state-icon" style="width:42px; height:42px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+            </div>
+            <div class="empty-state-title">No hay pedidos creados</div>
+            <div class="empty-state-desc">Tus solicitudes recientes aparecerán aquí con su estado y trazabilidad en tiempo real.</div>
           </div>
-          <div class="empty-state-title" style="font-size:0.95rem;">No has realizado pedidos aún</div>
-          <div class="empty-state-desc" style="font-size:0.8rem;">Tus solicitudes recientes aparecerán aquí con su estado y trazabilidad en tiempo real.</div>
-        </div>
-      `;
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  filtered.forEach(order => {
+    const shortId = (order.id || order._id || '').substring(0, 8).toUpperCase();
+    const fromBranchName = order.FromBranch?.name || '<span style="color:var(--text-muted)">General</span>';
+    const toBranchName = order.ToBranch?.name || '<span style="color:var(--text-muted)">General</span>';
+    const itemsSummary = (order.OrderItems || []).map(i => `<strong>${i.Product?.name || 'Insumo'}</strong> (x${i.quantity})`).join(', ') || 'Sin ítems';
+    const dateStr = order.createdAt ? new Date(order.createdAt).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+    const statusClass = getStatusClass(order.status);
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>#${shortId}</strong></td>
+      <td>${fromBranchName}</td>
+      <td>${toBranchName}</td>
+      <td><span style="font-size:0.85rem">${itemsSummary}</span></td>
+      <td><span class="status-badge status-${statusClass}">${order.status}</span></td>
+      <td><span style="font-size:0.8rem; color:var(--text-muted)">${dateStr}</span></td>
+      <td>
+        <button class="btn btn-secondary btn-sm" onclick="openTimelineModal('${order.id}')">Ver Trazabilidad</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// Modal Popup: Crear Nuevo Pedido
+let draftOrderItems = [];
+
+const modalCreateOrder = document.getElementById('modal-create-order');
+const btnOpenCreateOrderModal = document.getElementById('btn-open-create-order-modal');
+const btnCloseCreateOrderModal = document.getElementById('btn-close-create-order-modal');
+const btnCancelCreateOrderModal = document.getElementById('btn-cancel-create-order-modal');
+const btnOrderModalAddItem = document.getElementById('btn-order-modal-add-item');
+const formCreateOrderModal = document.getElementById('form-create-order-modal');
+
+async function openCreateOrderModal() {
+  if (!state.branches || state.branches.length === 0) {
+    state.branches = await apiFetch('/branches');
+  }
+  if (!state.products || state.products.length === 0) {
+    state.products = await apiFetch('/inventory/products');
+  }
+
+  const fromBranchSelect = document.getElementById('order-modal-from-branch');
+  const toBranchSelect = document.getElementById('order-modal-to-branch');
+  const productSelect = document.getElementById('order-modal-product-select');
+
+  if (fromBranchSelect) {
+    fromBranchSelect.innerHTML = '<option value="" disabled selected>Seleccionar sucursal origen...</option>';
+    state.branches.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.id;
+      opt.textContent = `${b.name} (${capitalize(b.type)})`;
+      fromBranchSelect.appendChild(opt);
+    });
+  }
+
+  if (toBranchSelect) {
+    toBranchSelect.innerHTML = '<option value="" disabled selected>Seleccionar sucursal destino...</option>';
+    const userSpaceId = state.user?.physicalSpaceId || state.user?.EspacioFisico?.id || state.user?.EspacioFisico?._id;
+    state.branches.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.id;
+      opt.textContent = `${b.name} (${capitalize(b.type)})`;
+      if (userSpaceId && String(b.id) === String(userSpaceId)) opt.selected = true;
+      toBranchSelect.appendChild(opt);
+    });
+  }
+
+  if (productSelect) {
+    productSelect.innerHTML = '<option value="">Selecciona un insumo...</option>';
+    state.products.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name;
+      productSelect.appendChild(opt);
+    });
+  }
+
+  draftOrderItems = [];
+  renderOrderModalItemsTable();
+
+  if (modalCreateOrder) modalCreateOrder.classList.remove('hidden');
+}
+
+function closeCreateOrderModal() {
+  if (modalCreateOrder) {
+    modalCreateOrder.classList.add('hidden');
+    if (formCreateOrderModal) formCreateOrderModal.reset();
+    draftOrderItems = [];
+  }
+}
+
+if (btnOpenCreateOrderModal) btnOpenCreateOrderModal.addEventListener('click', openCreateOrderModal);
+if (btnCloseCreateOrderModal) btnCloseCreateOrderModal.addEventListener('click', closeCreateOrderModal);
+if (btnCancelCreateOrderModal) btnCancelCreateOrderModal.addEventListener('click', closeCreateOrderModal);
+if (modalCreateOrder) {
+  modalCreateOrder.addEventListener('click', (e) => {
+    if (e.target === modalCreateOrder) closeCreateOrderModal();
+  });
+}
+
+// Agregar artículo a la lista temporal del pedido
+if (btnOrderModalAddItem) {
+  btnOrderModalAddItem.addEventListener('click', () => {
+    const productSelect = document.getElementById('order-modal-product-select');
+    const qtyInput = document.getElementById('order-modal-product-qty');
+
+    const productId = productSelect ? productSelect.value : '';
+    const quantity = parseInt(qtyInput ? qtyInput.value : '1') || 1;
+
+    if (!productId) {
+      showToast('Seleccioná un insumo para agregar.', 'error');
+      return;
+    }
+    if (quantity <= 0) {
+      showToast('La cantidad debe ser mayor a 0.', 'error');
       return;
     }
 
-    orders.forEach(order => {
-      const itemsText = order.OrderItems.map(i => `${i.Product?.name || 'Insumo'} (x${i.quantity})`).join(', ');
+    const product = state.products.find(p => p.id === productId);
+    if (!product) return;
 
-      const itemEl = document.createElement('div');
-      itemEl.className = 'order-list-item';
-      itemEl.innerHTML = `
-        <div class="order-item-header">
-          <span class="order-item-id">#${order.id.substring(0, 8)}</span>
-          <span class="status-badge status-${getStatusClass(order.status)}">${order.status}</span>
-        </div>
-        <div class="order-item-details">${itemsText}</div>
-        <div class="order-item-footer">
-          <button class="btn btn-secondary btn-sm" onclick="openTimelineModal('${order.id}')">Ver Trazabilidad</button>
-        </div>
-      `;
-      container.appendChild(itemEl);
-    });
-  } catch (err) {
-    console.error(err);
+    const existingIndex = draftOrderItems.findIndex(item => item.productId === productId);
+    if (existingIndex > -1) {
+      draftOrderItems[existingIndex].quantity += quantity;
+    } else {
+      draftOrderItems.push({
+        productId,
+        productName: product.name,
+        quantity
+      });
+    }
+
+    if (qtyInput) qtyInput.value = '1';
+    if (productSelect) productSelect.value = '';
+
+    renderOrderModalItemsTable();
+  });
+}
+
+function renderOrderModalItemsTable() {
+  const tbody = document.getElementById('table-order-modal-items-body');
+  const countBadge = document.getElementById('order-modal-items-count');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  if (countBadge) {
+    countBadge.textContent = `${draftOrderItems.length} insumo${draftOrderItems.length !== 1 ? 's' : ''}`;
   }
+
+  if (draftOrderItems.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" class="empty-text" style="padding:12px;">Aún no agregaste insumos a este pedido.</td></tr>';
+    return;
+  }
+
+  draftOrderItems.forEach((item, index) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${item.productName}</strong></td>
+      <td style="text-align:center;"><span class="badge">${item.quantity}</span></td>
+      <td style="text-align:center;">
+        <button type="button" class="btn-icon btn-icon-danger" title="Eliminar insumo" onclick="removeOrderModalItem(${index})">
+          <svg viewBox="0 0 24 24" width="16" height="16"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+window.removeOrderModalItem = (index) => {
+  draftOrderItems.splice(index, 1);
+  renderOrderModalItemsTable();
+};
+
+if (formCreateOrderModal) {
+  formCreateOrderModal.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fromBranchId = document.getElementById('order-modal-from-branch').value;
+    const toBranchId = document.getElementById('order-modal-to-branch').value;
+    const notes = document.getElementById('order-modal-notes').value.trim();
+
+    if (!fromBranchId || !toBranchId) {
+      showToast('Seleccioná la sucursal de origen y la sucursal de destino.', 'error');
+      return;
+    }
+    if (draftOrderItems.length === 0) {
+      showToast('Agregá al menos un insumo al pedido antes de confirmar.', 'error');
+      return;
+    }
+
+    try {
+      const items = draftOrderItems.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity
+      }));
+
+      const requiresValidation = draftOrderItems.some(item => item.quantity > 50);
+
+      await apiFetch('/orders', {
+        method: 'POST',
+        body: JSON.stringify({ items, requiresValidation, fromBranchId, toBranchId, notes })
+      });
+
+      showToast('¡Pedido creado y enviado exitosamente!', 'success');
+      closeCreateOrderModal();
+      loadSolicitanteOrders();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  });
 }
 
 function getStatusClass(status) {
@@ -1303,107 +1558,292 @@ function getStatusClass(status) {
 }
 
 // ==========================================================================
-// 🟢 PANEL: USUARIO RESPONSABLE CODE (T3.2 / T5.3 / Product catalog creation)
+// 📥 PANEL: INGRESOS Y PROVISIONES DE STOCK CODE
 // ==========================================================================
 async function loadResponsableData() {
-  // Populate products and categories lists for creation select forms
   try {
-    const products = await apiFetch('/inventory/products');
-    const categories = await apiFetch('/inventory/categories');
-
-    // Populate stock entry products list
-    const stockProductSelect = document.getElementById('stock-product');
-    stockProductSelect.innerHTML = '<option value="">Selecciona un insumo...</option>';
-    products.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      opt.textContent = p.name;
-      stockProductSelect.appendChild(opt);
-    });
-
-    // Populate product creation category list
-    const prodCategorySelect = document.getElementById('prod-category');
-    prodCategorySelect.innerHTML = '<option value="">Selecciona...</option>';
-    categories.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.id;
-      opt.textContent = c.name;
-      prodCategorySelect.appendChild(opt);
-    });
+    if (!state.products || state.products.length === 0) {
+      state.products = await apiFetch('/inventory/products');
+    }
+    if (!state.branches || state.branches.length === 0) {
+      state.branches = await apiFetch('/branches');
+    }
 
     loadRecentStockTable();
-    loadResponsableDeliveries();
   } catch (err) {
     console.error(err);
   }
 }
 
-// Load recent stock entries (T3.2 table)
+// Cargar la tabla principal de Ingresos y Provisiones
 async function loadRecentStockTable() {
   try {
-    // There is no specific "/stock" GET endpoint, we can use logs or local data
-    // For this, we fetch audit logs of type REGISTER_STOCK
     const logs = await apiFetch('/users/logs');
     const tbody = document.getElementById('table-resp-recent-stock');
+    if (!tbody) return;
     tbody.innerHTML = '';
 
-    const stockLogs = logs.filter(l => l.action === 'REGISTER_STOCK').slice(0, 10);
+    const entryLogs = (logs || []).filter(l => l.action === 'REGISTER_STOCK' || l.action === 'INFORMAL_ENTRY');
 
-    if (stockLogs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="empty-text">No hay ingresos registrados recientemente.</td></tr>';
+    if (entryLogs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-text">No hay ingresos ni provisiones registrados recientemente.</td></tr>';
       return;
     }
 
-    stockLogs.forEach(log => {
-      const date = new Date(log.timestamp).toLocaleDateString();
-      tbody.innerHTML += `
-  < tr >
-          <td><span style="font-size:0.8rem">${log.details.split('unidades del producto ID')[0] || log.details}</span></td>
-          <td><span class="badge">Nuevo</span></td>
-          <td>${log.details.includes('Lote:') ? log.details.split('Lote: ')[1].replace(')', '') : 'N/A'}</td>
-          <td>${date}</td>
-          <td><strong>${log.User?.username || 'N/A'}</strong></td>
-        </tr >
-  `;
+    entryLogs.forEach(log => {
+      const dateStr = log.timestamp || log.createdAt ? new Date(log.timestamp || log.createdAt).toLocaleString() : '—';
+      const isInformal = log.action === 'INFORMAL_ENTRY';
+      const typeBadge = isInformal ? '<span class="badge badge-warning">📌 Extraordinario</span>' : '<span class="badge badge-solicita">📥 Provisión Estándar</span>';
+      
+      let branchName = '—';
+      let prodName = '—';
+      let qty = '—';
+      let lotStr = '—';
+      let expStr = '—';
+
+      const details = log.details || '';
+
+      if (log.Branch?.name) {
+        branchName = log.Branch.name;
+      } else if (details.includes('sucursal')) {
+        const branchPart = details.split('sucursal')[1];
+        branchName = branchPart ? branchPart.trim() : '—';
+      }
+
+      if (details.includes('unidades')) {
+        const qtyMatch = details.match(/(\d+)\s+unidades/);
+        if (qtyMatch) qty = qtyMatch[1];
+      }
+
+      if (details.includes('Lote:')) {
+        const lotMatch = details.match(/Lote:\s*([^)]+)/);
+        if (lotMatch) lotStr = lotMatch[1];
+      }
+
+      if (details.includes('"')) {
+        const prodMatch = details.match(/"([^"]+)"/);
+        if (prodMatch) prodName = prodMatch[1];
+      } else if (details.includes('producto ID')) {
+        prodName = details.split('producto ID')[1].split('(')[0].trim();
+        const pObj = state.products.find(p => String(p.id) === String(prodName));
+        if (pObj) prodName = pObj.name;
+      } else {
+        prodName = details.split('unidades')[0] || details;
+      }
+
+      const userStr = log.User?.username || log.User?.email || 'Sistema';
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="font-size:0.8rem; color:var(--text-muted)">${dateStr}</td>
+        <td><strong>${branchName}</strong></td>
+        <td><strong>${prodName}</strong></td>
+        <td><span class="stock-qty" style="font-weight:700">${qty}</span></td>
+        <td>${lotStr}</td>
+        <td>${expStr}</td>
+        <td>${typeBadge} <span style="font-size:0.8rem; opacity:0.8">(${userStr})</span></td>
+      `;
+      tbody.appendChild(tr);
     });
   } catch (err) {
-    console.error(err);
+    console.error('Error cargando tabla de ingresos:', err);
   }
 }
 
-// Register Incoming Stock (T3.2) — with branch support
-const formStockEntry = document.getElementById('form-stock-entry');
-if (formStockEntry) {
-  formStockEntry.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const productId = document.getElementById('stock-product').value;
-    const lotNumber = document.getElementById('stock-lot').value.trim();
-    const expirationDate = document.getElementById('stock-expiration').value;
-    const quantity = parseInt(document.getElementById('stock-quantity').value) || 0;
-    const branchIdEl = document.getElementById('stock-entry-branch');
-    const branchId = branchIdEl ? branchIdEl.value || null : null;
+// --------------------------------------------------------------------------
+// 📥 MODAL: AGREGAR INGRESO / PROVISIÓN DE STOCK (ESTÁNDAR)
+// --------------------------------------------------------------------------
+let draftStockEntryItems = [];
 
-    if (expirationDate) {
-      const expDateObj = new Date(expirationDate);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (expDateObj < today) {
-        if (!confirm(`⚠️ Atención: La fecha de vencimiento ingresada (${expirationDate}) ya ha pasado. ¿Deseas registrar este lote vencido de todos modos?`)) {
-          return;
-        }
-      }
+const modalCreateStockEntry = document.getElementById('modal-create-stock-entry');
+const btnOpenStockEntryModal = document.getElementById('btn-open-stock-entry-modal');
+const btnCloseCreateStockEntryModal = document.getElementById('btn-close-create-stock-entry-modal');
+const btnCancelCreateStockEntryModal = document.getElementById('btn-cancel-create-stock-entry-modal');
+const btnStockModalAddItem = document.getElementById('btn-stock-modal-add-item');
+const formCreateStockEntryModal = document.getElementById('form-create-stock-entry-modal');
+
+async function openCreateStockEntryModal() {
+  if (!state.branches || state.branches.length === 0) {
+    state.branches = await apiFetch('/branches');
+  }
+  if (!state.products || state.products.length === 0) {
+    state.products = await apiFetch('/inventory/products');
+  }
+
+  const branchSel = document.getElementById('stock-modal-branch');
+  if (branchSel) {
+    branchSel.innerHTML = '<option value="" disabled selected>Seleccionar sucursal destino...</option>';
+    state.branches.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.id;
+      opt.textContent = `${b.name} (${capitalize(b.type)})`;
+      branchSel.appendChild(opt);
+    });
+    if (state.user?.assignedSpaceId) {
+      branchSel.value = state.user.assignedSpaceId;
+    }
+  }
+
+  const productSel = document.getElementById('stock-modal-product-select');
+  if (productSel) {
+    productSel.innerHTML = '<option value="">Selecciona insumo...</option>';
+    state.products.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name;
+      productSel.appendChild(opt);
+    });
+  }
+
+  draftStockEntryItems = [];
+  document.getElementById('stock-modal-product-qty').value = 1;
+  document.getElementById('stock-modal-lot-number').value = '';
+  document.getElementById('stock-modal-expiration-date').value = '';
+  renderStockModalItemsTable();
+
+  if (modalCreateStockEntry) modalCreateStockEntry.classList.remove('hidden');
+}
+
+function closeCreateStockEntryModal() {
+  if (modalCreateStockEntry) {
+    modalCreateStockEntry.classList.add('hidden');
+    if (formCreateStockEntryModal) formCreateStockEntryModal.reset();
+    draftStockEntryItems = [];
+  }
+}
+
+if (btnOpenStockEntryModal) btnOpenStockEntryModal.addEventListener('click', openCreateStockEntryModal);
+if (btnCloseCreateStockEntryModal) btnCloseCreateStockEntryModal.addEventListener('click', closeCreateStockEntryModal);
+if (btnCancelCreateStockEntryModal) btnCancelCreateStockEntryModal.addEventListener('click', closeCreateStockEntryModal);
+if (modalCreateStockEntry) {
+  modalCreateStockEntry.addEventListener('click', (e) => {
+    if (e.target === modalCreateStockEntry) closeCreateStockEntryModal();
+  });
+}
+
+if (btnStockModalAddItem) {
+  btnStockModalAddItem.addEventListener('click', () => {
+    const productId = document.getElementById('stock-modal-product-select').value;
+    const quantity = parseInt(document.getElementById('stock-modal-product-qty').value) || 0;
+    const lotNumber = document.getElementById('stock-modal-lot-number').value.trim();
+    const expirationDate = document.getElementById('stock-modal-expiration-date').value;
+
+    if (!productId) {
+      showToast('Seleccioná un insumo o producto.', 'error');
+      return;
+    }
+    if (quantity <= 0) {
+      showToast('La cantidad debe ser mayor a 0.', 'error');
+      return;
+    }
+    if (!lotNumber) {
+      showToast('Ingresá el número de lote.', 'error');
+      return;
+    }
+    if (!expirationDate) {
+      showToast('Seleccioná la fecha de vencimiento.', 'error');
+      return;
+    }
+
+    const productObj = state.products.find(p => p.id === productId);
+    const productName = productObj ? productObj.name : 'Insumo';
+
+    const lotClean = lotNumber.toLowerCase();
+    const existingIndex = draftStockEntryItems.findIndex(item =>
+      item.productId === productId &&
+      item.lotNumber.toLowerCase() === lotClean &&
+      item.expirationDate === expirationDate
+    );
+
+    if (existingIndex !== -1) {
+      draftStockEntryItems[existingIndex].quantity += quantity;
+      showToast(`Se sumaron ${quantity} unidades al insumo con el mismo lote y vencimiento.`, 'info');
+    } else {
+      draftStockEntryItems.push({
+        productId,
+        productName,
+        quantity,
+        lotNumber,
+        expirationDate
+      });
+    }
+
+    document.getElementById('stock-modal-product-select').value = '';
+    document.getElementById('stock-modal-product-qty').value = 1;
+    document.getElementById('stock-modal-lot-number').value = '';
+    document.getElementById('stock-modal-expiration-date').value = '';
+
+    renderStockModalItemsTable();
+  });
+}
+
+function renderStockModalItemsTable() {
+  const tbody = document.getElementById('table-stock-modal-items-body');
+  const countEl = document.getElementById('stock-modal-items-count');
+  if (!tbody) return;
+
+  if (countEl) countEl.textContent = `${draftStockEntryItems.length} artículos`;
+
+  if (draftStockEntryItems.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-text" style="padding: 12px;">Aún no agregaste insumos a la lista de ingreso.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = '';
+  draftStockEntryItems.forEach((item, index) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${item.productName}</strong></td>
+      <td style="text-align: center;"><span class="stock-qty" style="font-weight: 700;">${item.quantity}</span></td>
+      <td><span class="badge">${item.lotNumber}</span></td>
+      <td>${item.expirationDate}</td>
+      <td style="text-align: center;">
+        <button type="button" class="btn-icon btn-icon-danger" title="Eliminar de la lista" onclick="removeStockModalItem(${index})">
+          <svg viewBox="0 0 24 24" width="16" height="16"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+window.removeStockModalItem = (index) => {
+  draftStockEntryItems.splice(index, 1);
+  renderStockModalItemsTable();
+};
+
+if (formCreateStockEntryModal) {
+  formCreateStockEntryModal.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const branchId = document.getElementById('stock-modal-branch').value;
+
+    if (!branchId) {
+      showToast('Seleccioná la sucursal destino a la que ingresará el stock.', 'error');
+      return;
+    }
+
+    if (draftStockEntryItems.length === 0) {
+      showToast('Agregá al menos un insumo a la lista de ingreso.', 'error');
+      return;
     }
 
     try {
-      await apiFetch('/inventory/stock', {
-        method: 'POST',
-        body: JSON.stringify({ productId, lotNumber, expirationDate, quantity, branchId })
-      });
+      for (const item of draftStockEntryItems) {
+        await apiFetch('/inventory/stock', {
+          method: 'POST',
+          body: JSON.stringify({
+            productId: item.productId,
+            lotNumber: item.lotNumber,
+            expirationDate: item.expirationDate,
+            quantity: item.quantity,
+            branchId
+          })
+        });
+      }
 
-      showToast('Ingreso de stock registrado exitosamente', 'success');
-      formStockEntry.reset();
+      showToast('¡Ingreso de stock registrado exitosamente!', 'success');
+      closeCreateStockEntryModal();
       loadResponsableData();
-      // Refresh stock view if on that panel
       if (state.currentTab === 'panel-stock-view') loadBranchStockPanel();
     } catch (err) {
       showToast(err.message, 'error');
@@ -1411,20 +1851,319 @@ if (formStockEntry) {
   });
 }
 
-// Shortcut link from product category select to category creation
-const linkFocusCreateCat = document.getElementById('link-focus-create-cat');
-if (linkFocusCreateCat) {
-  linkFocusCreateCat.addEventListener('click', (e) => {
+// --------------------------------------------------------------------------
+// 📌 MODAL: REGISTRAR INGRESO EXTRAORDINARIO
+// --------------------------------------------------------------------------
+let draftInformalEntryItems = [];
+
+const modalCreateInformalEntry = document.getElementById('modal-create-informal-entry');
+const btnOpenInformalEntryModal = document.getElementById('btn-open-informal-entry-modal');
+const btnCloseCreateInformalEntryModal = document.getElementById('btn-close-create-informal-entry-modal');
+const btnCancelCreateInformalEntryModal = document.getElementById('btn-cancel-create-informal-entry-modal');
+const btnInformalModalAddItem = document.getElementById('btn-informal-modal-add-item');
+const formCreateInformalEntryModal = document.getElementById('form-create-informal-entry-modal');
+
+async function openCreateInformalEntryModal() {
+  if (!state.branches || state.branches.length === 0) {
+    state.branches = await apiFetch('/branches');
+  }
+  if (!state.products || state.products.length === 0) {
+    state.products = await apiFetch('/inventory/products');
+  }
+
+  const branchSel = document.getElementById('informal-modal-branch');
+  if (branchSel) {
+    branchSel.innerHTML = '<option value="" disabled selected>Seleccionar sucursal destino...</option>';
+    state.branches.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.id;
+      opt.textContent = `${b.name} (${capitalize(b.type)})`;
+      branchSel.appendChild(opt);
+    });
+    if (state.user?.assignedSpaceId) {
+      branchSel.value = state.user.assignedSpaceId;
+    }
+  }
+
+  const productSel = document.getElementById('informal-modal-product-select');
+  if (productSel) {
+    productSel.innerHTML = '<option value="">Selecciona un producto...</option>';
+    state.products.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name;
+      productSel.appendChild(opt);
+    });
+  }
+
+  draftInformalEntryItems = [];
+  document.getElementById('informal-modal-description').value = '';
+  document.getElementById('informal-modal-product-qty').value = 1;
+  renderInformalModalItemsTable();
+
+  if (modalCreateInformalEntry) modalCreateInformalEntry.classList.remove('hidden');
+}
+
+function closeCreateInformalEntryModal() {
+  if (modalCreateInformalEntry) {
+    modalCreateInformalEntry.classList.add('hidden');
+    if (formCreateInformalEntryModal) formCreateInformalEntryModal.reset();
+    draftInformalEntryItems = [];
+  }
+}
+
+if (btnOpenInformalEntryModal) btnOpenInformalEntryModal.addEventListener('click', openCreateInformalEntryModal);
+if (btnCloseCreateInformalEntryModal) btnCloseCreateInformalEntryModal.addEventListener('click', closeCreateInformalEntryModal);
+if (btnCancelCreateInformalEntryModal) btnCancelCreateInformalEntryModal.addEventListener('click', closeCreateInformalEntryModal);
+if (modalCreateInformalEntry) {
+  modalCreateInformalEntry.addEventListener('click', (e) => {
+    if (e.target === modalCreateInformalEntry) closeCreateInformalEntryModal();
+  });
+}
+
+if (btnInformalModalAddItem) {
+  btnInformalModalAddItem.addEventListener('click', () => {
+    const productId = document.getElementById('informal-modal-product-select').value;
+    const quantity = parseInt(document.getElementById('informal-modal-product-qty').value) || 0;
+
+    if (!productId) {
+      showToast('Seleccioná un producto.', 'error');
+      return;
+    }
+    if (quantity <= 0) {
+      showToast('La cantidad debe ser mayor a 0.', 'error');
+      return;
+    }
+
+    const productObj = state.products.find(p => p.id === productId);
+    const productName = productObj ? productObj.name : 'Producto';
+
+    const existingIndex = draftInformalEntryItems.findIndex(item => item.productId === productId);
+    if (existingIndex !== -1) {
+      draftInformalEntryItems[existingIndex].quantity += quantity;
+      showToast(`Se sumaron ${quantity} unidades a ${productName}.`, 'info');
+    } else {
+      draftInformalEntryItems.push({
+        productId,
+        productName,
+        quantity
+      });
+    }
+
+    document.getElementById('informal-modal-product-select').value = '';
+    document.getElementById('informal-modal-product-qty').value = 1;
+
+    renderInformalModalItemsTable();
+  });
+}
+
+function renderInformalModalItemsTable() {
+  const tbody = document.getElementById('table-informal-modal-items-body');
+  const countEl = document.getElementById('informal-modal-items-count');
+  if (!tbody) return;
+
+  if (countEl) countEl.textContent = `${draftInformalEntryItems.length} artículos`;
+
+  if (draftInformalEntryItems.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" class="empty-text" style="padding: 12px;">Aún no agregaste artículos a este ingreso extraordinario.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = '';
+  draftInformalEntryItems.forEach((item, index) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${item.productName}</strong></td>
+      <td style="text-align: center;"><span class="stock-qty" style="font-weight: 700;">${item.quantity}</span></td>
+      <td style="text-align: center;">
+        <button type="button" class="btn-icon btn-icon-danger" title="Eliminar de la lista" onclick="removeInformalModalItem(${index})">
+          <svg viewBox="0 0 24 24" width="16" height="16"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+window.removeInformalModalItem = (index) => {
+  draftInformalEntryItems.splice(index, 1);
+  renderInformalModalItemsTable();
+};
+
+if (formCreateInformalEntryModal) {
+  formCreateInformalEntryModal.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const catNameInput = document.getElementById('cat-name');
-    if (catNameInput) {
-      catNameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      catNameInput.focus();
+    const branchId = document.getElementById('informal-modal-branch').value;
+    const entryType = document.getElementById('informal-modal-entry-type').value;
+    const description = document.getElementById('informal-modal-description').value.trim();
+
+    if (!branchId || !entryType || !description) {
+      showToast('Completá la sucursal destino, tipo de ingreso y descripción obligatoria.', 'error');
+      return;
+    }
+
+    if (draftInformalEntryItems.length === 0) {
+      showToast('Agregá al menos un artículo a la lista del ingreso extraordinario.', 'error');
+      return;
+    }
+
+    try {
+      for (const item of draftInformalEntryItems) {
+        await apiFetch('/inventory/informal-entry', {
+          method: 'POST',
+          body: JSON.stringify({
+            productId: item.productId,
+            quantity: item.quantity,
+            branchId,
+            entryType,
+            description
+          })
+        });
+      }
+
+      showToast('¡Ingreso extraordinario registrado correctamente!', 'success');
+      closeCreateInformalEntryModal();
+      loadResponsableData();
+      if (state.currentTab === 'panel-stock-view') loadBranchStockPanel();
+    } catch (err) {
+      showToast(err.message, 'error');
     }
   });
 }
 
-// Create product in catalog
+// ==========================================================================
+// 📦 PANEL: CATÁLOGO DE PRODUCTOS
+// ==========================================================================
+let loadedCatalogProducts = [];
+let catalogSearchQuery = '';
+let catalogCategoryFilter = '';
+
+async function loadCatalogPanel() {
+  try {
+    const products = await apiFetch('/inventory/products');
+    const categories = await apiFetch('/inventory/categories');
+    state.products = products;
+    state.categories = categories;
+    loadedCatalogProducts = products;
+
+    // Popular select de filtro de categoría en panel catálogo
+    const filterSelect = document.getElementById('catalog-filter-category');
+    if (filterSelect) {
+      const currentVal = filterSelect.value;
+      filterSelect.innerHTML = '<option value="">Todas las Categorías</option>';
+      categories.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        if (c.id === currentVal) opt.selected = true;
+        filterSelect.appendChild(opt);
+      });
+    }
+
+    setupCatalogFilterListeners();
+    renderCatalogTable();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+let catalogListenersAttached = false;
+function setupCatalogFilterListeners() {
+  if (catalogListenersAttached) return;
+  catalogListenersAttached = true;
+
+  const searchInput = document.getElementById('catalog-search-input');
+  const filterSelect = document.getElementById('catalog-filter-category');
+
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      catalogSearchQuery = e.target.value.toLowerCase().trim();
+      renderCatalogTable();
+    });
+  }
+  if (filterSelect) {
+    filterSelect.addEventListener('change', (e) => {
+      catalogCategoryFilter = e.target.value;
+      renderCatalogTable();
+    });
+  }
+}
+
+function renderCatalogTable() {
+  const tbody = document.getElementById('table-catalog-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  const filtered = loadedCatalogProducts.filter(p => {
+    const nameStr = (p.name || '').toLowerCase();
+    const descStr = (p.description || '').toLowerCase();
+    const matchesSearch = !catalogSearchQuery || nameStr.includes(catalogSearchQuery) || descStr.includes(catalogSearchQuery);
+    const catId = p.categoryId || p.Category?.id || p.Category?._id;
+    const matchesCategory = !catalogCategoryFilter || String(catId) === String(catalogCategoryFilter);
+    return matchesSearch && matchesCategory;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-text">No se encontraron productos en el catálogo.</td></tr>';
+    return;
+  }
+
+  filtered.forEach(p => {
+    const catName = p.Category?.name || 'Sin categoría';
+    const desc = p.description || 'Sin descripción';
+    const minStock = p.minimumStock || 0;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${p.name}</strong></td>
+      <td><span class="badge">${catName}</span></td>
+      <td><span style="font-size:0.85rem; color:var(--text-muted);">${desc}</span></td>
+      <td><span style="font-weight:600;">${minStock} unidades</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// Modal Popup: Crear Producto
+const modalCreateProduct = document.getElementById('modal-create-product');
+const btnOpenCreateProductModal = document.getElementById('btn-open-create-product-modal');
+const btnCloseCreateProductModal = document.getElementById('btn-close-create-product-modal');
+const btnCancelCreateProductModal = document.getElementById('btn-cancel-create-product-modal');
+
+async function openCreateProductModal() {
+  if (!state.categories || state.categories.length === 0) {
+    state.categories = await apiFetch('/inventory/categories');
+  }
+  const prodCategorySelect = document.getElementById('prod-category');
+  if (prodCategorySelect) {
+    prodCategorySelect.innerHTML = '<option value="" disabled selected>Selecciona rubro...</option>';
+    state.categories.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.name;
+      prodCategorySelect.appendChild(opt);
+    });
+  }
+  if (modalCreateProduct) modalCreateProduct.classList.remove('hidden');
+}
+
+function closeCreateProductModal() {
+  if (modalCreateProduct) {
+    modalCreateProduct.classList.add('hidden');
+    const form = document.getElementById('form-create-product');
+    if (form) form.reset();
+  }
+}
+
+if (btnOpenCreateProductModal) btnOpenCreateProductModal.addEventListener('click', openCreateProductModal);
+if (btnCloseCreateProductModal) btnCloseCreateProductModal.addEventListener('click', closeCreateProductModal);
+if (btnCancelCreateProductModal) btnCancelCreateProductModal.addEventListener('click', closeCreateProductModal);
+if (modalCreateProduct) {
+  modalCreateProduct.addEventListener('click', (e) => {
+    if (e.target === modalCreateProduct) closeCreateProductModal();
+  });
+}
+
 const formCreateProduct = document.getElementById('form-create-product');
 if (formCreateProduct) {
   formCreateProduct.addEventListener('submit', async (e) => {
@@ -1441,15 +2180,77 @@ if (formCreateProduct) {
       });
 
       showToast('Producto agregado al catálogo correctamente.', 'success');
-      formCreateProduct.reset();
-      loadResponsableData();
+      closeCreateProductModal();
+      loadBaseData();
+      if (state.currentTab === 'panel-catalog') loadCatalogPanel();
+      else if (state.currentTab === 'panel-responsable') loadResponsableData();
     } catch (err) {
       showToast(err.message, 'error');
     }
   });
 }
 
-// Create category
+// ==========================================================================
+// 🏷️ PANEL: CATEGORÍAS / RUBROS
+// ==========================================================================
+async function loadCategoriesPanel() {
+  try {
+    const categories = await apiFetch('/inventory/categories');
+    const products = await apiFetch('/inventory/products');
+    state.categories = categories;
+    state.products = products;
+
+    const tbody = document.getElementById('table-categories-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (categories.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" class="empty-text">No hay categorías registradas aún.</td></tr>';
+      return;
+    }
+
+    categories.forEach(cat => {
+      const linkedCount = products.filter(p => String(p.categoryId || p.Category?.id || p.Category?._id) === String(cat.id)).length;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${cat.name}</strong></td>
+        <td><span style="font-size:0.85rem; color:var(--text-muted);">${cat.description || 'Sin descripción'}</span></td>
+        <td><span class="badge" style="background:var(--color-surface); border:1px solid var(--border-glass);">${linkedCount} insumos</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+// Modal Popup: Crear Categoría
+const modalCreateCategory = document.getElementById('modal-create-category');
+const btnOpenCreateCategoryModal = document.getElementById('btn-open-create-category-modal');
+const btnCloseCreateCategoryModal = document.getElementById('btn-close-create-category-modal');
+const btnCancelCreateCategoryModal = document.getElementById('btn-cancel-create-category-modal');
+
+function openCreateCategoryModal() {
+  if (modalCreateCategory) modalCreateCategory.classList.remove('hidden');
+}
+
+function closeCreateCategoryModal() {
+  if (modalCreateCategory) {
+    modalCreateCategory.classList.add('hidden');
+    const form = document.getElementById('form-create-category');
+    if (form) form.reset();
+  }
+}
+
+if (btnOpenCreateCategoryModal) btnOpenCreateCategoryModal.addEventListener('click', openCreateCategoryModal);
+if (btnCloseCreateCategoryModal) btnCloseCreateCategoryModal.addEventListener('click', closeCreateCategoryModal);
+if (btnCancelCreateCategoryModal) btnCancelCreateCategoryModal.addEventListener('click', closeCreateCategoryModal);
+if (modalCreateCategory) {
+  modalCreateCategory.addEventListener('click', (e) => {
+    if (e.target === modalCreateCategory) closeCreateCategoryModal();
+  });
+}
+
 const formCreateCategory = document.getElementById('form-create-category');
 if (formCreateCategory) {
   formCreateCategory.addEventListener('submit', async (e) => {
@@ -1464,8 +2265,10 @@ if (formCreateCategory) {
       });
 
       showToast('Categoría creada correctamente.', 'success');
-      formCreateCategory.reset();
-      loadResponsableData();
+      closeCreateCategoryModal();
+      loadBaseData();
+      if (state.currentTab === 'panel-categories') loadCategoriesPanel();
+      else if (state.currentTab === 'panel-responsable') loadResponsableData();
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -2006,7 +2809,6 @@ async function loadBranchStockPanel() {
       branches.forEach(b => {
         const opt = document.createElement('option');
         opt.value = b.id;
-        // Evitar concatenaciones redundantes: Si b.name ya arranca con b.type, mostrar solo b.name
         const typeCapitalized = capitalize(b.type);
         const displayName = b.name.toLowerCase().startsWith(b.type.toLowerCase()) ? b.name : `${b.name} · ${typeCapitalized}`;
         opt.textContent = displayName;
@@ -2043,15 +2845,30 @@ async function loadBranchStockPanel() {
       });
     }
 
-    // Vincular listeners de cantidad y motivo si no fueron vinculados aún
+    // Vincular listeners del formulario y botón desplegable
     setupStockAdjustFormControls();
 
-    const currentVal = sel ? sel.value : '';
-    if (currentVal) {
-      await loadStockForBranch(currentVal);
+    // Determinar sucursal a mostrar por defecto:
+    // 1) Si ya hay valor en el select, usar ese.
+    // 2) Si no, usar la sucursal asignada al usuario logueado.
+    // 3) Si el usuario no tiene sucursal, usar la primera de la lista.
+    let targetBranchId = sel ? sel.value : '';
+    if (!targetBranchId) {
+      const userSpaceId = state.user?.physicalSpaceId || state.user?.EspacioFisico?.id || state.user?.EspacioFisico?._id;
+      if (userSpaceId && branches.some(b => String(b.id) === String(userSpaceId))) {
+        targetBranchId = String(userSpaceId);
+      } else if (branches.length > 0) {
+        targetBranchId = String(branches[0].id);
+      }
+    }
+
+    if (targetBranchId) {
+      if (sel) sel.value = targetBranchId;
+      if (adjBranch) adjBranch.value = targetBranchId;
+      await loadStockForBranch(targetBranchId);
     } else {
       const tbody = document.getElementById('table-branch-stock-body');
-      if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty-text">Seleccioná una sucursal para ver su stock.</td></tr>';
+      if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="empty-text">No hay sucursales disponibles.</td></tr>';
     }
 
     // Cargar automáticamente el Historial de Movimientos al ingresar al panel
@@ -2066,6 +2883,34 @@ let stockAdjustControlsAttached = false;
 function setupStockAdjustFormControls() {
   if (stockAdjustControlsAttached) return;
   stockAdjustControlsAttached = true;
+
+  const btnToggle = document.getElementById('btn-toggle-stock-adjust');
+  const containerForm = document.getElementById('container-stock-adjust-form');
+  const btnClose = document.getElementById('btn-close-stock-adjust-form');
+  const btnCancel = document.getElementById('btn-cancel-stock-adjust');
+
+  if (btnToggle && containerForm) {
+    btnToggle.addEventListener('click', () => {
+      containerForm.classList.toggle('hidden');
+      if (!containerForm.classList.contains('hidden')) {
+        const currentSelVal = document.getElementById('stock-view-branch-select')?.value;
+        const adjBranch = document.getElementById('adjust-branch');
+        if (adjBranch && currentSelVal) adjBranch.value = currentSelVal;
+        containerForm.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+  }
+
+  const closeForm = () => {
+    if (containerForm) containerForm.classList.add('hidden');
+  };
+  if (btnClose) btnClose.addEventListener('click', closeForm);
+  if (btnCancel) btnCancel.addEventListener('click', closeForm);
+  if (containerForm) {
+    containerForm.addEventListener('click', (e) => {
+      if (e.target === containerForm) closeForm();
+    });
+  }
 
   const btnMinus = document.getElementById('btn-adjust-qty-minus');
   const btnPlus = document.getElementById('btn-adjust-qty-plus');
