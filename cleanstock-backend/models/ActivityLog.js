@@ -1,33 +1,25 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
-const User = require('./User');
+const { mongoose } = require('../config/database');
 
-const ActivityLog = sequelize.define('ActivityLog', {
-  id: {
-    type: DataTypes.UUID,
-    defaultValue: DataTypes.UUIDV4,
-    primaryKey: true
+const activityLogSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
   },
-  action: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  details: {
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
-  timestamp: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW
-  },
+  action: { type: String, required: true },
+  details: { type: String, default: null },
+  timestamp: { type: Date, default: Date.now },
   orderId: {
-    type: DataTypes.UUID,
-    allowNull: true
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Order',
+    default: null
   }
+}, {
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
 
-// Relationships
-ActivityLog.belongsTo(User, { foreignKey: 'userId' });
-User.hasMany(ActivityLog, { foreignKey: 'userId' });
+const ActivityLog = mongoose.models.ActivityLog || mongoose.model('ActivityLog', activityLogSchema);
 
 module.exports = ActivityLog;

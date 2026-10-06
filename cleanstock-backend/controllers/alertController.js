@@ -1,5 +1,4 @@
 const { BranchStock, Product, Category, PhysicalSpace, ActivityLog, User, Order } = require('../models');
-const { Op } = require('sequelize');
 
 // ─── Módulo 1: Sistema de Alertas de Stock Bajo ───────────────────────────────
 
@@ -21,42 +20,40 @@ const getStockAlerts = async (req, res) => {
       whereClause.branchId = user.branchId;
     }
 
-    const allStock = await BranchStock.findAll({
-      where: whereClause,
-      include: [
-        {
-          model: Product,
-          as: 'Producto',
-          include: [{ model: Category }]
-        },
-        {
-          model: PhysicalSpace,
-          as: 'Sucursal',
-          attributes: ['id', 'name', 'type']
-        }
-      ]
-    });
+    const allStock = await BranchStock.find(whereClause)
+      .populate({
+        path: 'productId',
+        populate: { path: 'categoryId' }
+      })
+      .populate('branchId', 'name type')
+      .lean();
 
     // Filtrar items donde quantity <= mínimo efectivo
     const alerts = allStock
       .filter(item => {
-        const effectiveMin = item.branchMinStock !== null
+        const prod = item.productId && typeof item.productId === 'object' ? item.productId : null;
+        const effectiveMin = item.branchMinStock !== null && item.branchMinStock !== undefined
           ? item.branchMinStock
-          : (item.Producto?.minimumStock || 0);
+          : (prod?.minimumStock || 0);
         return item.quantity <= effectiveMin;
       })
       .map(item => {
-        const effectiveMin = item.branchMinStock !== null
+        const prod = item.productId && typeof item.productId === 'object' ? item.productId : null;
+        const branch = item.branchId && typeof item.branchId === 'object' ? item.branchId : null;
+        const category = prod && prod.categoryId && typeof prod.categoryId === 'object' ? prod.categoryId : null;
+
+        const effectiveMin = item.branchMinStock !== null && item.branchMinStock !== undefined
           ? item.branchMinStock
-          : (item.Producto?.minimumStock || 0);
+          : (prod?.minimumStock || 0);
         const severity = item.quantity === 0 ? 'CRITICO' : 'BAJO';
+
         return {
-          branchId: item.branchId,
-          branchName: item.Sucursal?.name || 'Sin nombre',
-          branchType: item.Sucursal?.type || '',
-          productId: item.productId,
-          productName: item.Producto?.name || 'N/A',
-          categoryName: item.Producto?.Category?.name || '—',
+          branchId: branch ? branch._id.toString() : (item.branchId ? item.branchId.toString() : 'N/A'),
+          branchName: branch?.name || 'Sin nombre',
+          branchType: branch?.type || '',
+          productId: prod ? prod._id.toString() : (item.productId ? item.productId.toString() : 'N/A'),
+          productName: prod?.name || 'N/A',
+          categoryName: category?.name || '—',
           currentQuantity: item.quantity,
           reservedQuantity: item.reservedQuantity || 0,
           availableQuantity: item.quantity - (item.reservedQuantity || 0),
@@ -78,35 +75,31 @@ const getStockAlerts = async (req, res) => {
  */
 const getKPIs = async (req, res) => {
   try {
-    // Contar alertas activas (todos los pares por debajo del mínimo)
-    const allStock = await BranchStock.findAll({
-      include: [{ model: Product, as: 'Producto' }]
-    });
+    const allStock = await BranchStock.find()
+      .populate('productId')
+      .lean();
 
     const activeAlerts = allStock.filter(item => {
-      const effectiveMin = item.branchMinStock !== null
+      const prod = item.productId && typeof item.productId === 'object' ? item.productId : null;
+      const effectiveMin = item.branchMinStock !== null && item.branchMinStock !== undefined
         ? item.branchMinStock
-        : (item.Producto?.minimumStock || 0);
+        : (prod?.minimumStock || 0);
       return item.quantity <= effectiveMin;
     }).length;
 
     const criticalAlerts = allStock.filter(item => item.quantity === 0).length;
 
     // Pedidos en tránsito
-    const inTransitOrders = await Order.count({
-      where: {
-        status: { [Op.in]: ['PENDIENTE', 'EN_PREPARACION', 'DESPACHADO'] }
-      }
+    const inTransitOrders = await Order.countDocuments({
+      status: { $in: ['PENDIENTE', 'EN_PREPARACION', 'DESPACHADO'] }
     });
 
     // Ingresos de stock registrados hoy
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayLogs = await ActivityLog.count({
-      where: {
-        action: { [Op.in]: ['REGISTER_STOCK', 'STOCK_ENTRY', 'INFORMAL_ENTRY'] },
-        createdAt: { [Op.gte]: today }
-      }
+    const todayLogs = await ActivityLog.countDocuments({
+      action: { $in: ['REGISTER_STOCK', 'STOCK_ENTRY', 'INFORMAL_ENTRY'] },
+      createdAt: { $gte: today }
     });
 
     res.json({
@@ -132,10 +125,10 @@ const setBranchMinStock = async (req, res) => {
       return res.status(400).json({ message: 'branchId y productId son obligatorios' });
     }
 
-    const [stockRecord] = await BranchStock.findOrCreate({
-      where: { branchId, productId },
-      defaults: { quantity: 0, reservedQuantity: 0 }
-    });
+    let stockRecord = await BranchStock.findOne({ branchId, productId });
+    if (!stockRecord) {
+      stockRecord = new BranchStock({ branchId, productId, quantity: 0, reservedQuantity: 0 });
+    }
 
     stockRecord.branchMinStock = branchMinStock !== undefined ? branchMinStock : null;
     await stockRecord.save();

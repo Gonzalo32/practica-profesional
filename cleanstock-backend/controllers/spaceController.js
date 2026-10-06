@@ -14,7 +14,7 @@ const createSpace = async (req, res) => {
       return res.status(400).json({ message: `Tipo inválido. Debe ser uno de: ${validTypes.join(', ')}` });
     }
 
-    const spaceExists = await PhysicalSpace.findOne({ where: { name } });
+    const spaceExists = await PhysicalSpace.findOne({ name });
     if (spaceExists) {
       return res.status(400).json({ message: 'Ya existe un espacio físico con ese nombre' });
     }
@@ -36,10 +36,12 @@ const createSpace = async (req, res) => {
 // Obtener todos los Espacios Físicos
 const getSpaces = async (req, res) => {
   try {
-    const spaces = await PhysicalSpace.findAll({
-      order: [['name', 'ASC']]
-    });
-    res.json(spaces);
+    const spaces = await PhysicalSpace.find().sort({ name: 1 }).lean();
+    const formatted = spaces.map(s => ({
+      ...s,
+      id: s._id.toString()
+    }));
+    res.json(formatted);
   } catch (error) {
     res.status(500).json({ message: 'Error obteniendo espacios físicos', error: error.message });
   }
@@ -51,7 +53,7 @@ const updateSpace = async (req, res) => {
     const { id } = req.params;
     const { name, description, type } = req.body;
 
-    const space = await PhysicalSpace.findByPk(id);
+    const space = await PhysicalSpace.findById(id);
     if (!space) {
       return res.status(404).json({ message: 'Espacio físico no encontrado' });
     }
@@ -65,8 +67,8 @@ const updateSpace = async (req, res) => {
     }
 
     if (name) {
-      const nameExists = await PhysicalSpace.findOne({ where: { name } });
-      if (nameExists && nameExists.id !== id) {
+      const nameExists = await PhysicalSpace.findOne({ name });
+      if (nameExists && nameExists._id.toString() !== id) {
         return res.status(400).json({ message: 'Ya existe otro espacio físico con ese nombre' });
       }
       space.name = name;
@@ -95,13 +97,13 @@ const deleteSpace = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const space = await PhysicalSpace.findByPk(id);
+    const space = await PhysicalSpace.findById(id);
     if (!space) {
       return res.status(404).json({ message: 'Espacio físico no encontrado' });
     }
 
     const spaceName = space.name;
-    await space.destroy();
+    await PhysicalSpace.findByIdAndDelete(id);
 
     await ActivityLog.create({
       userId: req.user.id,

@@ -3,10 +3,12 @@ const { PhysicalSpace, BranchStock, Product, Category, User, ActivityLog } = req
 // Obtener todas las sucursales
 const getBranches = async (req, res) => {
   try {
-    const branches = await PhysicalSpace.findAll({
-      order: [['name', 'ASC']]
-    });
-    res.json(branches);
+    const branches = await PhysicalSpace.find().sort({ name: 1 }).lean();
+    const formatted = branches.map(b => ({
+      ...b,
+      id: b._id.toString()
+    }));
+    res.json(formatted);
   } catch (error) {
     res.status(500).json({ message: 'Error obteniendo sucursales', error: error.message });
   }
@@ -37,7 +39,7 @@ const createBranch = async (req, res) => {
 
     res.status(201).json(branch);
   } catch (error) {
-    if (error.name === 'SequelizeUniqueConstraintError') {
+    if (error.code === 11000 || error.name === 'SequelizeUniqueConstraintError') {
       return res.status(400).json({ message: 'Ya existe una sucursal con ese nombre.' });
     }
     console.error('Error creando sucursal:', error);
@@ -49,20 +51,20 @@ const createBranch = async (req, res) => {
 const deleteBranch = async (req, res) => {
   try {
     const { id } = req.params;
-    const branch = await PhysicalSpace.findByPk(id);
+    const branch = await PhysicalSpace.findById(id);
 
     if (!branch) {
       return res.status(404).json({ message: 'Sucursal no encontrada' });
     }
 
     // Desasociar usuarios antes de eliminar
-    await User.update({ physicalSpaceId: null }, { where: { physicalSpaceId: id } });
+    await User.updateMany({ physicalSpaceId: id }, { physicalSpaceId: null });
 
     // Eliminar stock asociado
-    await BranchStock.destroy({ where: { branchId: id } });
+    await BranchStock.deleteMany({ branchId: id });
 
     const branchName = branch.name;
-    await branch.destroy();
+    await PhysicalSpace.findByIdAndDelete(id);
 
     await ActivityLog.create({
       userId: req.user.id,
@@ -82,14 +84,14 @@ const updateBranch = async (req, res) => {
     const { id } = req.params;
     const { name, description, address, type } = req.body;
 
-    const branch = await PhysicalSpace.findByPk(id);
+    const branch = await PhysicalSpace.findById(id);
     if (!branch) {
       return res.status(404).json({ message: 'Sucursal no encontrada' });
     }
 
     if (name) {
-      const nameExists = await PhysicalSpace.findOne({ where: { name } });
-      if (nameExists && nameExists.id !== id) {
+      const nameExists = await PhysicalSpace.findOne({ name });
+      if (nameExists && nameExists._id.toString() !== id) {
         return res.status(400).json({ message: 'Ya existe otra sucursal con ese nombre' });
       }
       branch.name = name;
@@ -119,40 +121,65 @@ const getBranchStock = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const branch = await PhysicalSpace.findByPk(id);
+    const branch = await PhysicalSpace.findById(id);
     if (!branch) {
       return res.status(404).json({ message: 'Sucursal no encontrada' });
     }
 
-    const stockItems = await BranchStock.findAll({
-      where: { branchId: id },
-      include: [
-        {
-          model: Product,
-          as: 'Producto',
-          include: [{ model: Category }]
-        }
-      ],
-      order: [[{ model: Product, as: 'Producto' }, 'name', 'ASC']]
-    });
+    const stockItems = await BranchStock.find({ branchId: id })
+      .populate({
+        path: 'productId',
+        populate: { path: 'categoryId' }
+      })
+      .lean();
 
     // Enriquecer con cantidad disponible y mínimo efectivo
     const enrichedItems = stockItems.map(item => {
-      const effectiveMin = item.branchMinStock !== null
+      const productObj = item.productId && typeof item.productId === 'object' ? item.productId : null;
+      const categoryObj = productObj && productObj.categoryId && typeof productObj.categoryId === 'object' ? productObj.categoryId : null;
+
+      const effectiveMin = item.branchMinStock !== null && item.branchMinStock !== undefined
         ? item.branchMinStock
-        : (item.Producto?.minimumStock || 0);
+        : (productObj?.minimumStock || 0);
       const reserved = item.reservedQuantity || 0;
       const available = Math.max(0, item.quantity - reserved);
+
       return {
-        ...item.toJSON(),
+        id: item._id.toString(),
+        _id: item._id.toString(),
+        branchId: item.branchId.toString(),
+        productId: productObj ? productObj._id.toString() : item.productId,
+        quantity: item.quantity,
+        reservedQuantity: reserved,
+        branchMinStock: item.branchMinStock,
         availableQuantity: available,
         effectiveMinStock: effectiveMin,
         isLow: item.quantity <= effectiveMin && effectiveMin > 0,
-        isCritical: item.quantity === 0
+        isCritical: item.quantity === 0,
+        Producto: productObj ? {
+          id: productObj._id.toString(),
+          _id: productObj._id.toString(),
+          name: productObj.name,
+          description: productObj.description,
+          minimumStock: productObj.minimumStock,
+          Category: categoryObj ? {
+            id: categoryObj._id.toString(),
+            name: categoryObj.name
+          } : null
+        } : null
       };
     });
 
-    res.json({ branch, stockItems: enrichedItems });
+    res.json({
+      branch: {
+        id: branch._id.toString(),
+        name: branch.name,
+        type: branch.type,
+        address: branch.address,
+        phone: branch.phone
+      },
+      stockItems: enrichedItems
+    });
   } catch (error) {
     res.status(500).json({ message: 'Error obteniendo stock de sucursal', error: error.message });
   }
@@ -168,17 +195,16 @@ const adjustBranchStock = async (req, res) => {
       return res.status(400).json({ message: 'productId y quantity son obligatorios' });
     }
 
-    const branch = await PhysicalSpace.findByPk(id);
+    const branch = await PhysicalSpace.findById(id);
     if (!branch) return res.status(404).json({ message: 'Sucursal no encontrada' });
 
-    const product = await Product.findByPk(productId);
+    const product = await Product.findById(productId);
     if (!product) return res.status(404).json({ message: 'Producto no encontrado' });
 
-    // Buscar o crear el registro de stock para (sucursal, producto)
-    let [stockRecord, created] = await BranchStock.findOrCreate({
-      where: { branchId: id, productId },
-      defaults: { quantity: 0, reservedQuantity: 0 }
-    });
+    let stockRecord = await BranchStock.findOne({ branchId: id, productId });
+    if (!stockRecord) {
+      stockRecord = new BranchStock({ branchId: id, productId, quantity: 0, reservedQuantity: 0 });
+    }
 
     const newQuantity = stockRecord.quantity + parseInt(quantity);
     if (newQuantity < 0) {
@@ -207,32 +233,36 @@ const getStockMovements = async (req, res) => {
   try {
     const { branchId, productId, limit = 100 } = req.query;
 
-    // Filtrar logs relevantes a movimientos de stock
     const stockActions = ['STOCK_ENTRY', 'STOCK_EXIT', 'STOCK_MOVEMENT', 'REGISTER_STOCK'];
+    const filter = { action: { $in: stockActions } };
 
-    const { Op } = require('sequelize');
-    const { User: UserModel } = require('../models');
-
-    let whereClause = {
-      action: { [Op.in]: stockActions }
-    };
-
-    // Si se filtra por producto, buscar en el campo details
     if (productId) {
-      const product = await Product.findByPk(productId);
+      const product = await Product.findById(productId);
       if (product) {
-        whereClause.details = { [Op.like]: `%"${product.name}"%` };
+        filter.details = { $regex: product.name, $options: 'i' };
       }
     }
 
-    const logs = await ActivityLog.findAll({
-      where: whereClause,
-      include: [{ model: UserModel, attributes: ['username', 'role'] }],
-      order: [['createdAt', 'DESC']],
-      limit: parseInt(limit)
-    });
+    const logs = await ActivityLog.find(filter)
+      .populate('userId', 'username role')
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .lean();
 
-    res.json(logs);
+    const formattedLogs = logs.map(l => ({
+      id: l._id.toString(),
+      _id: l._id.toString(),
+      action: l.action,
+      details: l.details,
+      timestamp: l.timestamp || l.createdAt,
+      createdAt: l.createdAt,
+      User: l.userId && typeof l.userId === 'object' ? {
+        username: l.userId.username,
+        role: l.userId.role
+      } : null
+    }));
+
+    res.json(formattedLogs);
   } catch (error) {
     res.status(500).json({ message: 'Error obteniendo movimientos', error: error.message });
   }
@@ -247,4 +277,3 @@ module.exports = {
   adjustBranchStock,
   getStockMovements
 };
-

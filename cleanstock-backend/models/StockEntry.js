@@ -1,40 +1,30 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
-const Product = require('./Product');
-const User = require('./User');
+const { mongoose } = require('../config/database');
 
-const StockEntry = sequelize.define('StockEntry', {
-  id: {
-    type: DataTypes.UUID,
-    defaultValue: DataTypes.UUIDV4,
-    primaryKey: true
-  },
-  lotNumber: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  expirationDate: {
-    type: DataTypes.DATEONLY,
-    allowNull: false
-  },
-  quantity: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    validate: {
-      min: 1
-    }
-  },
+const stockEntrySchema = new mongoose.Schema({
+  lotNumber: { type: String, required: true },
+  expirationDate: { type: String, required: true },
+  quantity: { type: Number, required: true, min: 1 },
   status: {
-    type: DataTypes.ENUM('DISPONIBLE', 'AGOTADO', 'VENCIDO'),
-    defaultValue: 'DISPONIBLE'
+    type: String,
+    enum: ['DISPONIBLE', 'AGOTADO', 'VENCIDO'],
+    default: 'DISPONIBLE'
+  },
+  productId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product',
+    required: true
+  },
+  registeredBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   }
+}, {
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
 
-// Relationships
-Product.hasMany(StockEntry, { foreignKey: 'productId' });
-StockEntry.belongsTo(Product, { foreignKey: 'productId' });
-
-User.hasMany(StockEntry, { foreignKey: 'registeredBy' });
-StockEntry.belongsTo(User, { foreignKey: 'registeredBy' });
+const StockEntry = mongoose.models.StockEntry || mongoose.model('StockEntry', stockEntrySchema);
 
 module.exports = StockEntry;

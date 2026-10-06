@@ -9,15 +9,13 @@ const login = async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    const { Op } = require('sequelize');
     const user = await User.findOne({
-      where: {
-        [Op.or]: [
-          { username: username },
-          { email: username }
-        ]
-      }
+      $or: [
+        { username: username },
+        { email: username }
+      ]
     });
+
     if (!user || !user.isActive) {
       return res.status(401).json({ message: 'Credenciales inválidas o usuario inactivo' });
     }
@@ -29,17 +27,17 @@ const login = async (req, res) => {
 
     // T1.2: Incluir rol + sucursal del usuario en el payload (Módulo 4)
     const payload = {
-      id: user.id,
+      id: user._id.toString(),
       username: user.username,
       role: user.role,
-      branchId: user.physicalSpaceId || null   // sucursal asignada al usuario
+      branchId: user.physicalSpaceId ? user.physicalSpaceId.toString() : null
     };
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '8h' });
 
     // T1.5: Registro de Actividad
     await ActivityLog.create({
-      userId: user.id,
+      userId: user._id,
       action: 'LOGIN',
       details: 'El usuario inició sesión exitosamente'
     });
@@ -56,16 +54,13 @@ const registerInitialAdmin = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash('admin123', salt);
     
-    const { Op } = require('sequelize');
     let admin = await User.findOne({
-      where: {
-        [Op.or]: [
-          { email: 'admin@cleanstock.com' },
-          { username: 'admin@cleanstock.com' },
-          { username: 'admin' },
-          { role: 'Administrador' }
-        ]
-      }
+      $or: [
+        { email: 'admin@cleanstock.com' },
+        { username: 'admin@cleanstock.com' },
+        { username: 'admin' },
+        { role: 'Administrador' }
+      ]
     });
 
     if (!admin) {
@@ -109,7 +104,6 @@ const registerInitialAdmin = async (req, res) => {
 // T1.4: Sistema de tokens para validaciones específicas
 const generateValidationToken = async (req, res) => {
   try {
-    // Solo un admin podría generar esto para una orden específica, etc.
     const { orderId, action } = req.body;
     
     const payload = {
@@ -119,10 +113,8 @@ const generateValidationToken = async (req, res) => {
       type: 'validation_token'
     };
     
-    // Token de corta duración (ej. 15 minutos)
     const validationToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '15m' });
     
-    // Log the generation
     await ActivityLog.create({
       userId: req.user.id,
       action: 'GENERATE_VALIDATION_TOKEN',

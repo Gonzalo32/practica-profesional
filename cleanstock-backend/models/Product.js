@@ -1,35 +1,25 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
-const Category = require('./Category');
+const { mongoose } = require('../config/database');
 
-const Product = sequelize.define('Product', {
-  id: {
-    type: DataTypes.UUID,
-    defaultValue: DataTypes.UUIDV4,
-    primaryKey: true
-  },
-  // T3.3 Control de duplicados: el nombre debe ser único para estandarizar el catálogo
+const productSchema = new mongoose.Schema({
   name: {
-    type: DataTypes.STRING,
-    allowNull: false,
+    type: String,
+    required: true,
     unique: true,
-    set(val) {
-      // Estandarización de nombre: mayúsculas para evitar duplicados ambiguos
-      this.setDataValue('name', val.toUpperCase().trim());
-    }
+    set: val => (val ? val.toUpperCase().trim() : val)
   },
-  description: {
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
-  minimumStock: {
-    type: DataTypes.INTEGER,
-    defaultValue: 0
+  description: { type: String, default: null },
+  minimumStock: { type: Number, default: 0 },
+  categoryId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Category',
+    default: null
   }
+}, {
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
 
-// Relationships
-Category.hasMany(Product, { foreignKey: 'categoryId' });
-Product.belongsTo(Category, { foreignKey: 'categoryId' });
+const Product = mongoose.models.Product || mongoose.model('Product', productSchema);
 
 module.exports = Product;

@@ -1,9 +1,10 @@
+require('dotenv').config();
 const bcrypt = require('bcryptjs');
-const { sequelize, User } = require('./models');
+const { connectDB, User } = require('./models');
 
 async function seedAdmin() {
   try {
-    await sequelize.sync();
+    await connectDB();
 
     const username = 'admin@cleanstock.com';
     const email = 'admin@cleanstock.com';
@@ -11,9 +12,9 @@ async function seedAdmin() {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    let user = await User.findOne({ where: { username } });
+    let user = await User.findOne({ username });
     if (!user) {
-      user = await User.findOne({ where: { role: 'Administrador' } });
+      user = await User.findOne({ role: 'Administrador' });
     }
 
     if (user) {
@@ -58,4 +59,3 @@ async function seedAdmin() {
 }
 
 seedAdmin();
-

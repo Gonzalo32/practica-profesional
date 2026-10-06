@@ -1,48 +1,27 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const { mongoose } = require('../config/database');
 
-// BranchStock: stock de cada producto en cada sucursal
-const BranchStock = sequelize.define('BranchStock', {
-  id: {
-    type: DataTypes.UUID,
-    defaultValue: DataTypes.UUIDV4,
-    primaryKey: true
-  },
+const branchStockSchema = new mongoose.Schema({
   branchId: {
-    type: DataTypes.UUID,
-    allowNull: false
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PhysicalSpace',
+    required: true
   },
   productId: {
-    type: DataTypes.UUID,
-    allowNull: false
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product',
+    required: true
   },
-  quantity: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 0,
-    validate: { min: 0 }
-  },
-  // Cantidad reservada por pedidos pendientes/en preparación (Módulo 5)
-  reservedQuantity: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 0,
-    validate: { min: 0 }
-  },
-  // Stock mínimo específico para esta sucursal (sobreescribe el global del producto)
-  branchMinStock: {
-    type: DataTypes.INTEGER,
-    allowNull: true,
-    defaultValue: null
-  }
+  quantity: { type: Number, required: true, default: 0, min: 0 },
+  reservedQuantity: { type: Number, required: true, default: 0, min: 0 },
+  branchMinStock: { type: Number, default: null }
 }, {
-  // Clave única compuesta: cada par (sucursal, producto) es único
-  indexes: [
-    {
-      unique: true,
-      fields: ['branchId', 'productId']
-    }
-  ]
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
+
+branchStockSchema.index({ branchId: 1, productId: 1 }, { unique: true });
+
+const BranchStock = mongoose.models.BranchStock || mongoose.model('BranchStock', branchStockSchema);
 
 module.exports = BranchStock;

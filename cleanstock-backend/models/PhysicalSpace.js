@@ -1,34 +1,26 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
+const { mongoose } = require('../config/database');
 
-const PhysicalSpace = sequelize.define('PhysicalSpace', {
-  id: {
-    type: DataTypes.UUID,
-    defaultValue: DataTypes.UUIDV4,
-    primaryKey: true
-  },
+const physicalSpaceSchema = new mongoose.Schema({
   name: {
-    type: DataTypes.STRING,
-    allowNull: false,
-    unique: true
+    type: String,
+    required: true,
+    unique: true,
+    trim: true
   },
-  description: {
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
-  address: {
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  phone: {
-    type: DataTypes.STRING,
-    allowNull: true
-  },
+  description: { type: String, default: null },
+  address: { type: String, default: null },
+  phone: { type: String, default: null },
   type: {
-    type: DataTypes.ENUM('filial', 'Zona', 'sucursal', 'dependencia', 'sector'),
-    allowNull: false,
-    defaultValue: 'sucursal'
+    type: String,
+    enum: ['filial', 'Zona', 'sucursal', 'dependencia', 'sector'],
+    default: 'sucursal'
   }
+}, {
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
+
+const PhysicalSpace = mongoose.models.PhysicalSpace || mongoose.model('PhysicalSpace', physicalSpaceSchema);
 
 module.exports = PhysicalSpace;

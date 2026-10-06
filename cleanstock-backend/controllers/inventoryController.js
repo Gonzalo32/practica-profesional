@@ -7,14 +7,21 @@ const createCategory = async (req, res) => {
     const category = await Category.create({ name, description });
     res.status(201).json(category);
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'Ya existe una categoría con ese nombre.' });
+    }
     res.status(500).json({ message: 'Error creando categoría', error: error.message });
   }
 };
 
 const getCategories = async (req, res) => {
   try {
-    const categories = await Category.findAll();
-    res.json(categories);
+    const categories = await Category.find().lean();
+    const formatted = categories.map(c => ({
+      ...c,
+      id: c._id.toString()
+    }));
+    res.json(formatted);
   } catch (error) {
     res.status(500).json({ message: 'Error obteniendo categorías' });
   }
@@ -25,18 +32,16 @@ const createProduct = async (req, res) => {
   try {
     const { name, categoryId, description, minimumStock } = req.body;
 
-    // T3.3 Estandarizar nombre - El modelo Product ya tiene un 'setter' que hace toUpperCase y trim.
-    // Además, el unique constraint evitará duplicados exactos.
     const product = await Product.create({
       name,
-      categoryId,
+      categoryId: categoryId || null,
       description,
       minimumStock
     });
 
     res.status(201).json(product);
   } catch (error) {
-    if (error.name === 'SequelizeUniqueConstraintError') {
+    if (error.code === 11000 || error.name === 'SequelizeUniqueConstraintError') {
       return res.status(400).json({ message: 'Ya existe un producto con ese nombre estandarizado.' });
     }
     res.status(500).json({ message: 'Error creando producto', error: error.message });
@@ -45,8 +50,25 @@ const createProduct = async (req, res) => {
 
 const getProducts = async (req, res) => {
   try {
-    const products = await Product.findAll({ include: [Category] });
-    res.json(products);
+    const products = await Product.find()
+      .populate('categoryId')
+      .lean();
+
+    const formatted = products.map(p => ({
+      id: p._id.toString(),
+      _id: p._id.toString(),
+      name: p.name,
+      description: p.description,
+      minimumStock: p.minimumStock,
+      categoryId: p.categoryId ? (p.categoryId._id ? p.categoryId._id.toString() : p.categoryId) : null,
+      Category: p.categoryId && typeof p.categoryId === 'object' ? {
+        id: p.categoryId._id.toString(),
+        name: p.categoryId.name,
+        description: p.categoryId.description
+      } : null
+    }));
+
+    res.json(formatted);
   } catch (error) {
     res.status(500).json({ message: 'Error obteniendo productos' });
   }
@@ -57,13 +79,18 @@ const updateProduct = async (req, res) => {
     const { id } = req.params;
     const { name, categoryId, description, minimumStock } = req.body;
 
-    const product = await Product.findByPk(id);
+    const product = await Product.findById(id);
     if (!product) return res.status(404).json({ message: 'Producto no encontrado' });
 
-    await product.update({ name, categoryId, description, minimumStock });
+    if (name) product.name = name;
+    if (categoryId !== undefined) product.categoryId = categoryId || null;
+    if (description !== undefined) product.description = description;
+    if (minimumStock !== undefined) product.minimumStock = minimumStock;
+
+    await product.save();
     res.json(product);
   } catch (error) {
-    if (error.name === 'SequelizeUniqueConstraintError') {
+    if (error.code === 11000 || error.name === 'SequelizeUniqueConstraintError') {
       return res.status(400).json({ message: 'Ya existe un producto con ese nombre.' });
     }
     res.status(500).json({ message: 'Error actualizando producto', error: error.message });
@@ -73,7 +100,6 @@ const updateProduct = async (req, res) => {
 // --- Ingresos de Stock (T3.2) ---
 const registerStockEntry = async (req, res) => {
   try {
-    // Validar atributos críticos
     const { productId, lotNumber, expirationDate, quantity, branchId } = req.body;
 
     if (!productId || !lotNumber || !expirationDate || !quantity) {
@@ -88,12 +114,11 @@ const registerStockEntry = async (req, res) => {
       registeredBy: req.user.id
     });
 
-    // Si se especifica sucursal, actualizar BranchStock
     if (branchId) {
-      const [branchStock] = await BranchStock.findOrCreate({
-        where: { branchId, productId },
-        defaults: { quantity: 0 }
-      });
+      let branchStock = await BranchStock.findOne({ branchId, productId });
+      if (!branchStock) {
+        branchStock = new BranchStock({ branchId, productId, quantity: 0, reservedQuantity: 0 });
+      }
       branchStock.quantity += parseInt(quantity);
       await branchStock.save();
     }
@@ -133,18 +158,16 @@ const registerInformalEntry = async (req, res) => {
       return res.status(400).json({ message: 'La cantidad debe ser mayor a 0' });
     }
 
-    const product = await Product.findByPk(productId);
+    const product = await Product.findById(productId);
     if (!product) return res.status(404).json({ message: 'Producto no encontrado' });
 
-    // Actualizar BranchStock
-    const [branchStock] = await BranchStock.findOrCreate({
-      where: { branchId, productId },
-      defaults: { quantity: 0, reservedQuantity: 0 }
-    });
+    let branchStock = await BranchStock.findOne({ branchId, productId });
+    if (!branchStock) {
+      branchStock = new BranchStock({ branchId, productId, quantity: 0, reservedQuantity: 0 });
+    }
     branchStock.quantity += parseInt(quantity);
     await branchStock.save();
 
-    // Registrar como ingreso extraordinario en el log
     await ActivityLog.create({
       userId: req.user.id,
       action: 'INFORMAL_ENTRY',
@@ -172,4 +195,3 @@ module.exports = {
   registerStockEntry,
   registerInformalEntry
 };
-

@@ -1,53 +1,39 @@
-const { DataTypes } = require('sequelize');
-const sequelize = require('../config/database');
-const User = require('./User');
+const { mongoose } = require('../config/database');
 
-const Order = sequelize.define('Order', {
-  id: {
-    type: DataTypes.UUID,
-    defaultValue: DataTypes.UUIDV4,
-    primaryKey: true
-  },
+const orderSchema = new mongoose.Schema({
   status: {
-    type: DataTypes.ENUM('PENDIENTE_VALIDACION', 'PENDIENTE', 'EN_PREPARACION', 'DESPACHADO', 'ENTREGADO', 'RECHAZADO'),
-    defaultValue: 'PENDIENTE'
+    type: String,
+    enum: ['PENDIENTE_VALIDACION', 'PENDIENTE', 'EN_PREPARACION', 'DESPACHADO', 'ENTREGADO', 'RECHAZADO'],
+    default: 'PENDIENTE'
   },
-  requiresValidation: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false
-  },
-  // Who requested it
+  requiresValidation: { type: Boolean, default: false },
   solicitanteId: {
-    type: DataTypes.UUID,
-    allowNull: false
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
-  // Who approved it (if required)
   validatorId: {
-    type: DataTypes.UUID,
-    allowNull: true
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
   },
-  // Sucursal que despacha / tiene el stock de origen
   fromBranchId: {
-    type: DataTypes.UUID,
-    allowNull: true
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PhysicalSpace',
+    default: null
   },
-  // Sucursal que recibe los artículos
   toBranchId: {
-    type: DataTypes.UUID,
-    allowNull: true
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PhysicalSpace',
+    default: null
   },
-  notes: {
-    type: DataTypes.TEXT,
-    allowNull: true
-  }
+  notes: { type: String, default: null }
+}, {
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
 
-// Relationships
-User.hasMany(Order, { foreignKey: 'solicitanteId', as: 'Pedidos' });
-Order.belongsTo(User, { foreignKey: 'solicitanteId', as: 'Solicitante' });
-
-User.hasMany(Order, { foreignKey: 'validatorId', as: 'Validaciones' });
-Order.belongsTo(User, { foreignKey: 'validatorId', as: 'Validador' });
+const Order = mongoose.models.Order || mongoose.model('Order', orderSchema);
 
 module.exports = Order;
-
