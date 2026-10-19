@@ -40,6 +40,103 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+// Helper: obtener nombre amigable de sucursal
+function getBranchName(branchIdOrObj) {
+  if (!branchIdOrObj) return 'Sin sucursal';
+  if (typeof branchIdOrObj === 'object' && branchIdOrObj.name) return branchIdOrObj.name;
+  const idStr = String(branchIdOrObj);
+  const found = (state.branches || []).find(b => String(b.id) === idStr || String(b._id) === idStr);
+  return found ? found.name : idStr;
+}
+
+// Helper: obtener nombre amigable de producto
+function getProductName(productIdOrObj) {
+  if (!productIdOrObj) return 'Sin producto';
+  if (typeof productIdOrObj === 'object' && productIdOrObj.name) return productIdOrObj.name;
+  const idStr = String(productIdOrObj);
+  const found = (state.products || []).find(p => String(p.id) === idStr || String(p._id) === idStr);
+  return found ? found.name : idStr;
+}
+
+// Helper: formatear Apellido y Nombre de usuario
+function getUserDisplayName(userOrObj) {
+  if (!userOrObj) return 'Sistema';
+  if (typeof userOrObj === 'string') return userOrObj;
+  if (userOrObj.lastName && userOrObj.firstName) {
+    return `${userOrObj.lastName} ${userOrObj.firstName}`;
+  }
+  if (userOrObj.lastName) return userOrObj.lastName;
+  if (userOrObj.firstName) return userOrObj.firstName;
+  return userOrObj.username || userOrObj.email || 'Usuario';
+}
+
+// Helper: formatear detalles de logs para sustituir cualquier ObjectId por el nombre real
+function formatLogDetails(details) {
+  if (!details) return '';
+  let text = String(details);
+
+  // Reemplazar IDs de productos
+  (state.products || []).forEach(p => {
+    const id = p.id || p._id;
+    if (id) {
+      text = text.replaceAll(`producto ID ${id}`, `producto "${p.name}"`);
+      text = text.replaceAll(`ID ${id}`, `"${p.name}"`);
+      text = text.replaceAll(id, `"${p.name}"`);
+    }
+  });
+
+  // Reemplazar IDs de sucursales
+  (state.branches || []).forEach(b => {
+    const id = b.id || b._id;
+    if (id) {
+      text = text.replaceAll(`sucursal ${id}`, `sucursal "${b.name}"`);
+      text = text.replaceAll(id, `"${b.name}"`);
+    }
+  });
+
+  return text;
+}
+
+// Helper: actualizar tarjeta de usuario en el menú lateral
+function updateSidebarUserProfile() {
+  if (!state.user) return;
+
+  const usernameEl = document.getElementById('profile-username');
+  const roleEl = document.getElementById('profile-role');
+  const avatarEl = document.getElementById('profile-avatar');
+
+  // "en el menu lateral cambia el correo por el apellido y el nombre del usuario"
+  const displayName = getUserDisplayName(state.user);
+
+  if (usernameEl) {
+    usernameEl.textContent = displayName;
+    usernameEl.title = `${displayName} (${state.user.email || state.user.username || ''})`;
+  }
+
+  if (roleEl) {
+    roleEl.textContent = state.user.role || 'Usuario';
+    roleEl.className = 'user-role badge';
+    if (state.user.role === 'Administrador') roleEl.classList.add('badge-admin');
+    else if (state.user.role === 'Solicitante') roleEl.classList.add('badge-solicita');
+    else if (state.user.role === 'Despachante') roleEl.classList.add('badge-primary');
+    else if (state.user.role === 'Usuario Responsable') roleEl.classList.add('badge-warning');
+  }
+
+  if (avatarEl) {
+    let initials = '';
+    if (state.user.lastName && state.user.firstName) {
+      initials = `${state.user.lastName.charAt(0)}${state.user.firstName.charAt(0)}`.toUpperCase();
+    } else if (state.user.firstName) {
+      initials = state.user.firstName.substring(0, 2).toUpperCase();
+    } else if (state.user.lastName) {
+      initials = state.user.lastName.substring(0, 2).toUpperCase();
+    } else {
+      initials = (state.user.username || 'U').charAt(0).toUpperCase();
+    }
+    avatarEl.textContent = initials;
+  }
+}
+
 // ==========================================================================
 // 🛡️ API UTILITY FUNCTION
 // ==========================================================================
@@ -111,7 +208,8 @@ if (loginForm) {
       localStorage.setItem('cleanstock_token', data.token);
       localStorage.setItem('cleanstock_user', JSON.stringify(data.user));
 
-      showToast(`¡Bienvenido, ${state.user.username}!`, 'success');
+      const welcomeName = getUserDisplayName(state.user);
+      showToast(`¡Bienvenido, ${welcomeName}!`, 'success');
 
       // Ocultar login, mostrar dashboard
       const loginView = document.getElementById('login-view');
@@ -177,14 +275,17 @@ function initApp() {
   document.getElementById('login-view').classList.add('hidden');
   document.getElementById('main-view').classList.remove('hidden');
 
-  // Populate header profile
-  document.getElementById('profile-username').textContent = state.user.username;
+  // Populate header profile with last name and first name
+  updateSidebarUserProfile();
 
-  const roleBadge = document.getElementById('profile-role');
-  roleBadge.textContent = state.user.role;
-  roleBadge.className = 'user-role badge';
-  if (state.user.role === 'Administrador') roleBadge.classList.add('badge-admin');
-  else if (state.user.role === 'Solicitante') roleBadge.classList.add('badge-solicita');
+  // Refrescar perfil completo para asegurar que se muestre Apellido y Nombre
+  apiFetch('/auth/me').then(freshUser => {
+    if (freshUser) {
+      state.user = { ...state.user, ...freshUser };
+      localStorage.setItem('cleanstock_user', JSON.stringify(state.user));
+      updateSidebarUserProfile();
+    }
+  }).catch(() => {});
 
   // Render navigation tabs based on user role
   renderNavigation();
@@ -515,7 +616,7 @@ function renderFilteredUsers() {
     `;
   } else {
     paginatedUsers.forEach(user => {
-      const spaceName = user.EspacioFisico?.name || '<span style="color:var(--text-muted)">Sin asignar</span>';
+      const spaceName = user.EspacioFisico?.name || (user.physicalSpaceId ? getBranchName(user.physicalSpaceId) : null) || '<span style="color:var(--text-muted)">Sin asignar</span>';
       const doc = user.document || user.cuil || 'Sin registrar';
       const phone = user.phone || 'Sin registrar';
       const firstName = user.firstName || 'Sin nombre';
@@ -585,7 +686,7 @@ window.openViewUserModal = (userId) => {
       <div><strong>Dirección:</strong> ${user.address || '-'}</div>
       <div><strong>Código Postal:</strong> ${user.zipCode || '-'}</div>
       <div><strong>Rol:</strong> ${user.role}</div>
-      <div><strong>Sucursal:</strong> ${user.EspacioFisico?.name || 'Sin asignar'}</div>
+      <div><strong>Sucursal:</strong> ${user.EspacioFisico?.name || (user.physicalSpaceId ? getBranchName(user.physicalSpaceId) : 'Sin asignar')}</div>
     `;
   }
   const modal = document.getElementById('modal-view-user');
@@ -848,12 +949,14 @@ async function loadAdminApprovals() {
 
     orders.forEach(order => {
       const date = new Date(order.createdAt).toLocaleString();
-      const itemsText = order.OrderItems.map(i => `${i.Product.name} (x${i.quantity})`).join(', ');
+      const itemsText = order.OrderItems ? order.OrderItems.map(i => `${i.Product?.name || 'Insumo'} (x${i.quantity})`).join(', ') : 'Sin artículos';
+      const solicitanteName = getUserDisplayName(order.Solicitante);
+      const shortId = (order.id || order._id || '').substring(0, 8).toUpperCase();
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td><span class="order-item-id">${order.id.substring(0, 8)}</span></td>
-        <td><strong>${order.Solicitante?.username || 'N/A'}</strong></td>
+        <td><span class="order-item-id">#${shortId}</span></td>
+        <td><strong>${solicitanteName}</strong></td>
         <td>${date}</td>
         <td><div class="order-item-details">${itemsText}</div></td>
         <td>
@@ -934,13 +1037,16 @@ async function loadAdminLogs() {
     tbody.innerHTML = '';
 
     logs.forEach(log => {
-      const date = new Date(log.timestamp).toLocaleString();
+      const date = new Date(log.timestamp || log.createdAt).toLocaleString();
+      const userStr = getUserDisplayName(log.User);
+      const formatted = formatLogDetails(log.details);
+
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td><span style="font-size:0.8rem; color:var(--text-muted)">${date}</span></td>
-        <td><strong>${log.User?.username || 'Sistema'}</strong> <span class="badge" style="font-size:0.65rem">${log.User?.role || 'System'}</span></td>
+        <td><strong>${userStr}</strong> <span class="badge" style="font-size:0.65rem">${log.User?.role || 'System'}</span></td>
         <td><span class="status-badge status-preparacion">${log.action}</span></td>
-        <td><span style="font-size:0.85rem">${log.details}</span></td>
+        <td><span style="font-size:0.85rem">${formatted}</span></td>
       `;
       tbody.appendChild(tr);
     });
@@ -1338,8 +1444,8 @@ function renderSolicitanteOrdersTable() {
 
   filtered.forEach(order => {
     const shortId = (order.id || order._id || '').substring(0, 8).toUpperCase();
-    const fromBranchName = order.FromBranch?.name || '<span style="color:var(--text-muted)">General</span>';
-    const toBranchName = order.ToBranch?.name || '<span style="color:var(--text-muted)">General</span>';
+    const fromBranchName = order.FromBranch?.name || order.SucursalOrigen?.name || (order.fromBranchId ? getBranchName(order.fromBranchId) : null) || '<span style="color:var(--text-muted)">General</span>';
+    const toBranchName = order.ToBranch?.name || order.SucursalDestino?.name || (order.toBranchId ? getBranchName(order.toBranchId) : null) || '<span style="color:var(--text-muted)">General</span>';
     const itemsSummary = (order.OrderItems || []).map(i => `<strong>${i.Product?.name || 'Insumo'}</strong> (x${i.quantity})`).join(', ') || 'Sin ítems';
     const dateStr = order.createdAt ? new Date(order.createdAt).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
     const statusClass = getStatusClass(order.status);
@@ -1605,9 +1711,15 @@ async function loadRecentStockTable() {
 
       if (log.Branch?.name) {
         branchName = log.Branch.name;
-      } else if (details.includes('sucursal')) {
-        const branchPart = details.split('sucursal')[1];
-        branchName = branchPart ? branchPart.trim() : '—';
+      } else {
+        const foundBranch = (state.branches || []).find(b => details.includes(b.id) || (b.name && details.includes(`"${b.name}"`)));
+        if (foundBranch) {
+          branchName = foundBranch.name;
+        } else if (details.includes('sucursal')) {
+          const rawPart = details.split('sucursal')[1]?.split('.')[0]?.split('—')[0]?.replace(/["']/g, '').trim();
+          const lookup = (state.branches || []).find(b => b.id === rawPart);
+          branchName = lookup ? lookup.name : (rawPart || '—');
+        }
       }
 
       if (details.includes('unidades')) {
@@ -1620,18 +1732,21 @@ async function loadRecentStockTable() {
         if (lotMatch) lotStr = lotMatch[1];
       }
 
-      if (details.includes('"')) {
+      const foundProd = (state.products || []).find(p => details.includes(p.id) || (p.name && details.includes(`"${p.name}"`)));
+      if (foundProd) {
+        prodName = foundProd.name;
+      } else if (details.includes('"')) {
         const prodMatch = details.match(/"([^"]+)"/);
         if (prodMatch) prodName = prodMatch[1];
       } else if (details.includes('producto ID')) {
-        prodName = details.split('producto ID')[1].split('(')[0].trim();
-        const pObj = state.products.find(p => String(p.id) === String(prodName));
-        if (pObj) prodName = pObj.name;
+        const rawId = details.split('producto ID')[1]?.split('(')[0]?.trim();
+        const pObj = (state.products || []).find(p => String(p.id) === String(rawId));
+        prodName = pObj ? pObj.name : rawId;
       } else {
         prodName = details.split('unidades')[0] || details;
       }
 
-      const userStr = log.User?.username || log.User?.email || 'Sistema';
+      const userStr = getUserDisplayName(log.User);
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -2295,13 +2410,15 @@ async function loadResponsableDeliveries() {
     }
 
     orders.forEach(order => {
-      const date = new Date(order.updatedAt).toLocaleString();
-      const itemsText = order.OrderItems.map(i => `${i.Product.name} (x${i.quantity})`).join(', ');
+      const date = new Date(order.updatedAt || order.createdAt).toLocaleString();
+      const itemsText = order.OrderItems ? order.OrderItems.map(i => `${i.Product?.name || 'Insumo'} (x${i.quantity})`).join(', ') : 'Sin artículos';
+      const solicitanteName = getUserDisplayName(order.Solicitante);
+      const shortId = (order.id || order._id || '').substring(0, 8).toUpperCase();
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td><span class="order-item-id">#${order.id.substring(0, 8)}</span></td>
-        <td><strong>${order.Solicitante?.username || 'N/A'}</strong></td>
+        <td><span class="order-item-id">#${shortId}</span></td>
+        <td><strong>${solicitanteName}</strong></td>
         <td><div class="order-item-details">${itemsText}</div></td>
         <td>${date}</td>
         <td>
@@ -2374,15 +2491,12 @@ async function loadDespachanteOrders() {
       const shortId = `#PED-${order.id.substring(0, 4).toUpperCase()}`;
 
       // 2. Solicitante name & email
-      const applicantName = (order.Solicitante?.firstName && order.Solicitante?.lastName) 
-        ? `${order.Solicitante.firstName} ${order.Solicitante.lastName}` 
-        : (order.Solicitante?.username || 'N/A');
+      const applicantName = getUserDisplayName(order.Solicitante);
       const applicantHtml = `<strong>${applicantName}</strong><br><small style="color:var(--text-muted); font-size:0.75rem;">${order.Solicitante?.email || ''}</small>`;
 
       // 3. Destination Branch
-      const branchHtml = order.ToBranch 
-        ? `🏢 <strong>${order.ToBranch.name}</strong>` 
-        : `<span style="color:var(--text-muted)">Sede Central</span>`;
+      const branchDestName = order.ToBranch?.name || order.SucursalDestino?.name || (order.toBranchId ? getBranchName(order.toBranchId) : null) || 'Sede Central';
+      const branchHtml = `🏢 <strong>${branchDestName}</strong>`;
 
       // 4. Action Buttons for status progression
       let actionButtons = '';
@@ -2454,8 +2568,9 @@ window.openTimelineModal = async (orderId) => {
     }
 
     history.forEach(item => {
-      const timeStr = new Date(item.timestamp).toLocaleString();
-      const userStr = item.User ? `${item.User.username} (${item.User.role})` : 'Sistema';
+      const timeStr = new Date(item.timestamp || item.createdAt).toLocaleString();
+      const userStr = getUserDisplayName(item.User);
+      const formattedDetails = formatLogDetails(item.details);
 
       const itemEl = document.createElement('div');
       itemEl.className = 'timeline-item';
@@ -2464,7 +2579,7 @@ window.openTimelineModal = async (orderId) => {
         <div class="timeline-content">
           <span class="timeline-time">${timeStr}</span>
           <span class="timeline-action">${item.action}</span>
-          <span class="timeline-details">${item.details} (por ${userStr})</span>
+          <span class="timeline-details">${formattedDetails} (por ${userStr})</span>
         </div>
       `;
       container.appendChild(itemEl);
@@ -2952,7 +3067,9 @@ async function loadStockForBranch(branchId) {
     const tbody = document.getElementById('table-branch-stock-body');
     const titleEl = document.getElementById('stock-view-branch-title');
 
-    const displayName = branch.name.toLowerCase().startsWith(branch.type.toLowerCase()) ? branch.name : `${branch.name} (${capitalize(branch.type)})`;
+    const branchName = branch?.name || getBranchName(branchId);
+    const branchType = branch?.type || 'sucursal';
+    const displayName = branchName.toLowerCase().startsWith(branchType.toLowerCase()) ? branchName : `${branchName} (${capitalize(branchType)})`;
     if (titleEl) titleEl.textContent = `Stock — ${displayName}`;
     if (!tbody) return;
     tbody.innerHTML = '';
@@ -3069,8 +3186,8 @@ if (formStockAdjust) {
     if (summaryEl) {
       const actionText = quantity > 0 ? `<span style="color:var(--color-success); font-weight:700;">+${quantity} unidades (Ingreso / Incremento)</span>` : `<span style="color:var(--color-danger); font-weight:700;">${quantity} unidades (Egreso / Descuento)</span>`;
       summaryEl.innerHTML = `
-        <div><strong>Sucursal:</strong> ${branch ? branch.name : 'N/A'}</div>
-        <div><strong>Producto:</strong> ${product ? product.name : 'N/A'}</div>
+        <div><strong>Sucursal:</strong> ${branch ? branch.name : getBranchName(branchId)}</div>
+        <div><strong>Producto:</strong> ${product ? product.name : getProductName(productId)}</div>
         <div><strong>Ajuste:</strong> ${actionText}</div>
         <div><strong>Motivo:</strong> ${finalReason}</div>
       `;
@@ -3187,12 +3304,15 @@ async function loadMovementsTraceability() {
       const typeLabel = isEntry ? '📥 Entrada' : isExit ? '📤 Salida' : isMove ? '🔄 Movimiento' : log.action;
       const typeClass = isEntry ? 'status-entregado' : isExit ? 'status-rechazado' : 'status-preparacion';
 
+      const formattedDetails = formatLogDetails(log.details);
+      const userStr = getUserDisplayName(log.User);
+
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td style="font-size:0.8rem; color:var(--text-muted)">${date}</td>
         <td><span class="status-badge ${typeClass}">${typeLabel}</span></td>
-        <td style="font-size:0.85rem">${log.details}</td>
-        <td><strong>${log.User?.username || 'Sistema'}</strong></td>
+        <td style="font-size:0.85rem">${formattedDetails}</td>
+        <td><strong>${userStr}</strong></td>
       `;
       tbody.appendChild(tr);
     });
@@ -3200,6 +3320,51 @@ async function loadMovementsTraceability() {
     console.error('Error cargando movimientos:', err);
   }
 }
+
+// ==========================================================================
+// 🔔 ALERTAS DE STOCK BAJO O CRÍTICO
+// ==========================================================================
+async function loadAlerts() {
+  const tbody = document.getElementById('table-alerts-body');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="8" class="empty-text">Cargando alertas de stock...</td></tr>';
+
+  try {
+    const alerts = await apiFetch('/alerts');
+    tbody.innerHTML = '';
+
+    if (!alerts || alerts.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-text" style="color:var(--color-success)">✅ No hay alertas de stock bajo ni crítico. Todos los niveles son óptimos.</td></tr>';
+      return;
+    }
+
+    alerts.forEach(a => {
+      const isCritical = a.severity === 'CRITICO' || a.currentQuantity === 0;
+      const statusBadge = isCritical 
+        ? '<span class="status-badge status-rechazado">🚨 Crítico (Sin stock)</span>' 
+        : '<span class="status-badge status-warning">⚠️ Stock Bajo</span>';
+
+      const branchDisplay = a.branchName || getBranchName(a.branchId);
+      const productDisplay = a.productName || getProductName(a.productId);
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${branchDisplay}</strong></td>
+        <td><strong>${productDisplay}</strong></td>
+        <td><span class="badge">${a.categoryName || '—'}</span></td>
+        <td><span class="stock-qty ${isCritical ? 'stock-critical' : 'stock-low'}">${a.currentQuantity}</span></td>
+        <td><span style="color:var(--color-warning); font-weight:600">${a.reservedQuantity || 0}</span></td>
+        <td><span class="stock-qty ${isCritical ? 'stock-critical' : 'stock-low'}">${a.availableQuantity}</span></td>
+        <td><span style="color:var(--text-muted)">${a.minimumStock}</span></td>
+        <td>${statusBadge}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="8" class="empty-text" style="color:var(--color-danger)">Error cargando alertas: ${err.message}</td></tr>`;
+  }
+}
+window.loadAlerts = loadAlerts;
 
 // ==========================================================================
 // 🚩 START APP

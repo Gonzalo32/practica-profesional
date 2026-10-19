@@ -397,30 +397,145 @@ textarea:focus {
   color: var(--color-primary);
 }
 
-.user-profile {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
 .sidebar-footer {
   margin-top: auto;
   border-top: 1px solid var(--glass-border);
-  padding-top: 20px;
+  padding: 16px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(10, 15, 28, 0.4);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.user-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  transition: all 0.25s ease;
+}
+
+.user-profile-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.user-avatar-circle {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, hsl(200, 85%, 52%), hsl(265, 80%, 60%));
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.88rem;
+  letter-spacing: 0.05em;
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.25);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  user-select: none;
 }
 
 .profile-info {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  gap: 3px;
+  overflow: hidden;
+  flex: 1;
+}
+
+.user-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+
+/* 🚪 Botón de Deslogueo Moderno y Elegante */
+.btn-logout-sleek {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 14px;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(185, 28, 28, 0.18));
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-logout-sleek::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(220, 38, 38, 0.4));
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  z-index: 1;
+}
+
+.btn-logout-sleek:hover {
+  color: #ffffff;
+  border-color: rgba(239, 68, 68, 0.6);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+}
+
+.btn-logout-sleek:hover::before {
+  opacity: 1;
+}
+
+.btn-logout-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+  transition: transform 0.2s ease;
+}
+
+.btn-logout-sleek:hover .btn-logout-icon {
+  transform: translateX(3px);
+}
+
+.btn-logout-text {
+  position: relative;
+  z-index: 2;
+  letter-spacing: 0.02em;
+}
+
+.btn-logout-sleek:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.2);
 }
 
 .user-role {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 3px 8px;
+  padding: 2px 6px;
   border-radius: 4px;
 }
 

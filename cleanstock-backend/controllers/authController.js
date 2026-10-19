@@ -29,6 +29,9 @@ const login = async (req, res) => {
     const payload = {
       id: user._id.toString(),
       username: user.username,
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+      email: user.email || '',
       role: user.role,
       branchId: user.physicalSpaceId ? user.physicalSpaceId.toString() : null
     };
@@ -127,8 +130,35 @@ const generateValidationToken = async (req, res) => {
   }
 };
 
+const getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).populate('physicalSpaceId', 'name type');
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+    res.json({
+      id: user._id.toString(),
+      username: user.username,
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+      email: user.email || '',
+      role: user.role,
+      phone: user.phone || '',
+      document: user.document || '',
+      cuil: user.cuil || '',
+      branchId: user.physicalSpaceId ? (user.physicalSpaceId._id ? user.physicalSpaceId._id.toString() : user.physicalSpaceId) : null,
+      EspacioFisico: user.physicalSpaceId && typeof user.physicalSpaceId === 'object' ? {
+        id: user.physicalSpaceId._id.toString(),
+        name: user.physicalSpaceId.name,
+        type: user.physicalSpaceId.type
+      } : null
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error obteniendo perfil', error: error.message });
+  }
+};
+
 module.exports = {
   login,
   registerInitialAdmin,
-  generateValidationToken
+  generateValidationToken,
+  getMe
 };

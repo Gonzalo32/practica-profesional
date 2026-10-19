@@ -66,12 +66,14 @@ const createOrder = async (req, res) => {
     const toBranch   = toBranchId   ? await PhysicalSpace.findById(toBranchId)   : null;
     const branchInfo = fromBranch && toBranch
       ? ` (${fromBranch.name} → ${toBranch.name})`
-      : '';
+      : fromBranch ? ` (${fromBranch.name})` : toBranch ? ` (${toBranch.name})` : '';
+
+    const shortId = order._id.toString().substring(0, 8).toUpperCase();
 
     await ActivityLog.create({
       userId: req.user.id,
       action: 'CREATE_ORDER',
-      details: `Generó la orden ${order._id}. Estado: ${order.status}${branchInfo}`,
+      details: `Generó la orden #${shortId}. Estado: ${order.status}${branchInfo}`,
       orderId: order._id
     });
 
@@ -104,7 +106,7 @@ const getOrders = async (req, res) => {
     }
 
     const rawOrders = await Order.find(query)
-      .populate('solicitanteId', 'username')
+      .populate('solicitanteId', 'username firstName lastName email')
       .populate('fromBranchId', 'name type')
       .populate('toBranchId', 'name type')
       .sort({ createdAt: -1 })
@@ -114,6 +116,16 @@ const getOrders = async (req, res) => {
       const items = await OrderItem.find({ orderId: o._id })
         .populate('productId', 'name')
         .lean();
+
+      const fromObj = o.fromBranchId && typeof o.fromBranchId === 'object' ? { id: o.fromBranchId._id.toString(), name: o.fromBranchId.name, type: o.fromBranchId.type } : null;
+      const toObj = o.toBranchId && typeof o.toBranchId === 'object' ? { id: o.toBranchId._id.toString(), name: o.toBranchId.name, type: o.toBranchId.type } : null;
+      const solObj = o.solicitanteId && typeof o.solicitanteId === 'object' ? {
+        id: o.solicitanteId._id ? o.solicitanteId._id.toString() : o.solicitanteId,
+        username: o.solicitanteId.username,
+        firstName: o.solicitanteId.firstName,
+        lastName: o.solicitanteId.lastName,
+        email: o.solicitanteId.email
+      } : null;
 
       return {
         id: o._id.toString(),
@@ -126,16 +138,18 @@ const getOrders = async (req, res) => {
         notes: o.notes,
         createdAt: o.createdAt,
         updatedAt: o.updatedAt,
-        Solicitante: o.solicitanteId && typeof o.solicitanteId === 'object' ? { username: o.solicitanteId.username } : null,
-        SucursalOrigen: o.fromBranchId && typeof o.fromBranchId === 'object' ? { id: o.fromBranchId._id.toString(), name: o.fromBranchId.name, type: o.fromBranchId.type } : null,
-        SucursalDestino: o.toBranchId && typeof o.toBranchId === 'object' ? { id: o.toBranchId._id.toString(), name: o.toBranchId.name, type: o.toBranchId.type } : null,
+        Solicitante: solObj,
+        FromBranch: fromObj,
+        ToBranch: toObj,
+        SucursalOrigen: fromObj,
+        SucursalDestino: toObj,
         OrderItems: items.map(it => ({
           id: it._id.toString(),
           _id: it._id.toString(),
           orderId: it.orderId.toString(),
           productId: it.productId ? (it.productId._id ? it.productId._id.toString() : it.productId) : null,
           quantity: it.quantity,
-          Product: it.productId && typeof it.productId === 'object' ? { name: it.productId.name } : null
+          Product: it.productId && typeof it.productId === 'object' ? { id: it.productId._id.toString(), name: it.productId.name } : null
         }))
       };
     }));
@@ -174,10 +188,12 @@ const approveOrder = async (req, res) => {
     order.validatorId = decoded.adminId;
     await order.save();
 
+    const shortOrderCode = order._id.toString().substring(0, 8).toUpperCase();
+
     await ActivityLog.create({
       userId: decoded.adminId,
       action: 'APPROVE_ORDER',
-      details: `Administrador aprobó la orden ${order._id} mediante token`,
+      details: `Administrador aprobó la orden #${shortOrderCode} mediante token`,
       orderId: order._id
     });
 
@@ -235,10 +251,12 @@ const updateOrderStatus = async (req, res) => {
     order.status = status;
     await order.save();
 
+    const shortId = order._id.toString().substring(0, 8).toUpperCase();
+
     await ActivityLog.create({
       userId: req.user.id,
       action: 'UPDATE_STATUS',
-      details: `Usuario ${req.user.username} (${userRole}) cambió el estado de la orden a ${status}`,
+      details: `Usuario ${req.user.username} (${userRole}) cambió el estado de la orden #${shortId} a ${status}`,
       orderId: order._id
     });
 
@@ -257,10 +275,13 @@ const updateOrderStatus = async (req, res) => {
           await stockRecord.save();
         }
       }
+      const branchFromObj = await PhysicalSpace.findById(order.fromBranchId);
+      const branchName = branchFromObj ? branchFromObj.name : 'Central';
+
       await ActivityLog.create({
         userId: req.user.id,
         action: 'RESERVATION_RELEASED',
-        details: `Reserva liberada por rechazo de orden ${order._id} en sucursal ${order.fromBranchId}`,
+        details: `Reserva liberada por rechazo de orden #${shortId} en sucursal "${branchName}"`,
         orderId: order._id
       });
     }
@@ -268,6 +289,11 @@ const updateOrderStatus = async (req, res) => {
 
     // ─── MOVIMIENTO AUTOMÁTICO DE STOCK al entregar ──────────────────────────
     if (status === 'ENTREGADO' && (order.fromBranchId || order.toBranchId)) {
+      const fromSpace = order.fromBranchId ? await PhysicalSpace.findById(order.fromBranchId) : null;
+      const toSpace = order.toBranchId ? await PhysicalSpace.findById(order.toBranchId) : null;
+      const fromName = fromSpace ? fromSpace.name : 'Central';
+      const toName = toSpace ? toSpace.name : 'General';
+
       for (const item of orderItems) {
         const qty = item.quantity;
         const prodId = item.productId ? (item.productId._id || item.productId) : null;
@@ -304,7 +330,7 @@ const updateOrderStatus = async (req, res) => {
         await ActivityLog.create({
           userId: req.user.id,
           action: 'STOCK_MOVEMENT',
-          details: `Movimiento por entrega de orden ${order._id}: -${qty} en sucursal ${order.fromBranchId || 'N/A'} → +${qty} en sucursal ${order.toBranchId || 'N/A'} — Producto: "${productName}"`,
+          details: `Movimiento por entrega de orden #${shortId}: -${qty} en sucursal "${fromName}" → +${qty} en sucursal "${toName}" — Producto: "${productName}"`,
           orderId: order._id
         });
       }

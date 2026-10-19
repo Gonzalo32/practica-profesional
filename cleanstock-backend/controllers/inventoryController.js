@@ -1,4 +1,4 @@
-const { Category, Product, StockEntry, ActivityLog, BranchStock } = require('../models');
+const { Category, Product, StockEntry, ActivityLog, BranchStock, PhysicalSpace } = require('../models');
 
 // --- Categorías ---
 const createCategory = async (req, res) => {
@@ -123,10 +123,15 @@ const registerStockEntry = async (req, res) => {
       await branchStock.save();
     }
 
+    const prod = await Product.findById(productId);
+    const branch = branchId ? await PhysicalSpace.findById(branchId) : null;
+    const prodName = prod ? prod.name : 'Insumo';
+    const branchName = branch ? branch.name : '';
+
     await ActivityLog.create({
       userId: req.user.id,
       action: 'REGISTER_STOCK',
-      details: `Registró ${quantity} unidades del producto ID ${productId} (Lote: ${lotNumber})${branchId ? ` en sucursal ${branchId}` : ''}`
+      details: `Registró ${quantity} unidades de "${prodName}" (Lote: ${lotNumber})${branchName ? ` en sucursal "${branchName}"` : ''}`
     });
 
     res.status(201).json(stockEntry);
@@ -168,10 +173,13 @@ const registerInformalEntry = async (req, res) => {
     branchStock.quantity += parseInt(quantity);
     await branchStock.save();
 
+    const informalBranch = await PhysicalSpace.findById(branchId);
+    const informalBranchName = informalBranch ? informalBranch.name : '';
+
     await ActivityLog.create({
       userId: req.user.id,
       action: 'INFORMAL_ENTRY',
-      details: `Ingreso extraoficial [${entryType}]: ${quantity} unidades de "${product.name}" en sucursal ${branchId}. Descripción: ${description}`
+      details: `Ingreso extraoficial [${entryType}]: ${quantity} unidades de "${product.name}"${informalBranchName ? ` en sucursal "${informalBranchName}"` : ''}. Descripción: ${description}`
     });
 
     res.status(201).json({
