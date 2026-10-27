@@ -441,8 +441,6 @@ async function loadSettings() {
 // Oculta lo que no se usa con un solo local (elementos con class="multi-only")
 function applySettingsToUI() {
   document.body.classList.toggle('single-branch', isSingleBranch());
-  const name = document.getElementById('sidebar-business-name');
-  if (name) name.textContent = state.settings?.businessName || '';
 }
 
 // ==========================================================================

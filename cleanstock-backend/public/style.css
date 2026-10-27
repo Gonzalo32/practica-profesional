@@ -2118,15 +2118,6 @@ tr:hover td {
    ========================================================================== */
 body.single-branch .multi-only { display: none !important; }
 
-.business-name {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  margin: -18px 0 18px 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.business-name:empty { display: none; }
 
 /* ==========================================================================
    PANTALLA DE INICIO
@@ -2280,7 +2271,6 @@ body.single-branch .multi-only { display: none !important; }
 @media (max-width: 860px) {
   .home-lists, .quick-sale-layout, .mode-options { grid-template-columns: 1fr; }
   .home-tile { min-height: 0; }
-  .business-name { margin: 6px 0 10px; }
 }
 
 /* ==========================================================================
