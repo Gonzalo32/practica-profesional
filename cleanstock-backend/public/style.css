@@ -2282,3 +2282,35 @@ body.single-branch .multi-only { display: none !important; }
   .home-tile { min-height: 0; }
   .business-name { margin: 6px 0 10px; }
 }
+
+/* ==========================================================================
+   PIE DEL MENÚ: PERFIL, TEMA Y CERRAR SESIÓN
+   ========================================================================== */
+.footer-actions { display: flex; gap: 8px; align-items: stretch; }
+.footer-actions .btn-logout-sleek { flex: 1; width: auto; }
+.btn-theme-footer { width: 40px; height: auto; min-height: 38px; border-radius: var(--radius-md); flex-shrink: 0; }
+
+/* El nombre puede ocupar dos líneas y el rol entra completo en una */
+.user-profile-card { align-items: center; }
+.profile-info { overflow: visible; min-width: 0; }
+.user-name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+.user-role {
+  white-space: nowrap;
+  font-size: 0.6rem;
+  letter-spacing: 0.03em;
+  padding: 2px 6px;
+}
+/* Avisos que llegaron desde la última vez que se abrió la campanita */
+.notif-item.notif-new { border-color: var(--color-primary); }
+.notif-item.notif-new strong::after {
+  content: 'Nuevo';
+  margin-left: 6px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}

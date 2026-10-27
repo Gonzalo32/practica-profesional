@@ -19,14 +19,47 @@ function notificationTarget(kind) {
   return null;
 }
 
+// Avisos ya vistos: se guardan por usuario para que el número de la campanita
+// desaparezca al abrirla y solo vuelva a aparecer si llega algo nuevo.
+let currentNotificationKeys = [];
+
+// Un aviso se identifica por el producto y el lugar (lo que va antes de ":"), no por la
+// cantidad: si solo cambian las unidades no se vuelve a contar como nuevo.
+// Sí cuenta como nuevo si empeora (por ejemplo, de "Stock bajo" a "Sin stock").
+const notificationKey = (item) => `${item.kind}|${item.severity}|${item.text.split(':')[0]}`;
+const seenStorageKey = () => `cleanstock_notif_seen_${state.user?.id || ''}`;
+
+function getSeenNotifications() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(seenStorageKey()) || '[]'));
+  } catch (err) {
+    return new Set();
+  }
+}
+
+function markNotificationsAsSeen() {
+  try {
+    localStorage.setItem(seenStorageKey(), JSON.stringify(currentNotificationKeys));
+  } catch (err) { /* sin almacenamiento */ }
+  updateBellCount(0);
+}
+
+function updateBellCount(unseen) {
+  const count = document.getElementById('notif-count');
+  count.textContent = unseen > 99 ? '99+' : unseen;
+  count.classList.toggle('hidden', !unseen);
+  bellBtn.classList.toggle('has-notifications', unseen > 0);
+}
+
 async function refreshNotifications() {
   if (!state.token) return;
   try {
     const summary = await apiFetch('/alerts/summary');
-    const count = document.getElementById('notif-count');
-    count.textContent = summary.total > 99 ? '99+' : summary.total;
-    count.classList.toggle('hidden', !summary.total);
-    bellBtn.classList.toggle('has-notifications', summary.total > 0);
+    const seen = getSeenNotifications();
+    currentNotificationKeys = summary.items.map(notificationKey);
+    const isOpen = !bellDropdown.classList.contains('hidden');
+    if (isOpen) markNotificationsAsSeen();
+    else updateBellCount(currentNotificationKeys.filter(k => !seen.has(k)).length);
 
     const list = document.getElementById('notif-list');
     if (!summary.items.length) {
@@ -34,7 +67,7 @@ async function refreshNotifications() {
       return;
     }
     list.innerHTML = summary.items.map(item => `
-      <button type="button" class="notif-item notif-${escapeHtml(item.severity)}" data-kind="${escapeHtml(item.kind)}">
+      <button type="button" class="notif-item notif-${escapeHtml(item.severity)} ${seen.has(notificationKey(item)) ? '' : 'notif-new'}" data-kind="${escapeHtml(item.kind)}">
         <span class="notif-dot"></span>
         <span class="notif-body">
           <strong>${escapeHtml(item.title)}</strong>
@@ -61,7 +94,12 @@ function stopNotificationPolling() {
 bellBtn?.addEventListener('click', (e) => {
   e.stopPropagation();
   bellDropdown.classList.toggle('hidden');
-  if (!bellDropdown.classList.contains('hidden')) refreshNotifications();
+  // Al abrir la campanita el número desaparece; la recarga marca la lista como vista
+  // (y antes de eso señala con "Nuevo" lo que no se había visto)
+  if (!bellDropdown.classList.contains('hidden')) {
+    updateBellCount(0);
+    refreshNotifications();
+  }
 });
 
 document.getElementById('btn-notif-refresh')?.addEventListener('click', (e) => {
