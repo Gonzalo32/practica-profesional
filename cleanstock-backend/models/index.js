@@ -13,6 +13,7 @@ const PurchaseOrder = require('./PurchaseOrder');
 const StockMovement = require('./StockMovement');
 const InventoryCount = require('./InventoryCount');
 const { Counter, nextSequence } = require('./Counter');
+const Settings = require('./Settings');
 
 const syncDatabase = async () => {
   await connectDB();
@@ -36,5 +37,6 @@ module.exports = {
   StockMovement,
   InventoryCount,
   Counter,
-  nextSequence
+  nextSequence,
+  Settings
 };

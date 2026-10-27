@@ -12,6 +12,7 @@ const spaceRoutes = require('./routes/spaceRoutes');
 const supplierRoutes = require('./routes/supplierRoutes');
 const countRoutes = require('./routes/countRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
 
 // La aplicación Express se arma acá y server.js solo la levanta.
 // Así los tests pueden usarla sin abrir un puerto.
@@ -48,6 +49,7 @@ app.use('/api/spaces', spaceRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/counts', countRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Test Route
 app.get('/api/ping', (req, res) => {

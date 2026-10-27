@@ -17,7 +17,7 @@ const STOCK_ROLES = ['Administrador', 'Usuario Responsable'];
 router.get('/categories', getCategories);
 router.post('/categories', requireRole(STOCK_ROLES), v.category, createCategory);
 
-// Productos (?q= búsqueda, ?code= SKU o código de barras)
+// Productos (?q= búsqueda por nombre, descripción o código interno)
 router.get('/products', getProducts);
 router.post('/products', requireRole(STOCK_ROLES), v.createProduct, createProduct);
 router.put('/products/:id', requireRole(STOCK_ROLES), v.updateProduct, updateProduct);

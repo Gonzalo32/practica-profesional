@@ -1,5 +1,6 @@
 const { Category, Product, StockEntry, ActivityLog, PhysicalSpace, Supplier } = require('../models');
 const { canAccessBranch } = require('../middlewares/authMiddleware');
+const { effectiveBranchId } = require('../services/settingsService');
 const stock = require('../services/stockService');
 const { toId, escapeRegex } = require('../utils/format');
 
@@ -33,14 +34,13 @@ const getCategories = async (req, res) => {
 // --- Productos ---
 const duplicateProductMessage = (error) => {
   const field = Object.keys(error.keyPattern || {})[0];
-  if (field === 'sku') return 'Ya existe un producto con ese SKU.';
-  if (field === 'barcode') return 'Ya existe un producto con ese código de barras.';
+  if (field === 'sku') return 'Ya existe un producto con ese código interno.';
   return 'Ya existe un producto con ese nombre estandarizado.';
 };
 
 const createProduct = async (req, res) => {
   try {
-    const { name, categoryId, description, minimumStock, sku, barcode, costPrice } = req.body;
+    const { name, categoryId, description, minimumStock, sku, costPrice, perishable } = req.body;
 
     const product = await Product.create({
       name,
@@ -48,8 +48,8 @@ const createProduct = async (req, res) => {
       description,
       minimumStock,
       sku: sku || null,
-      barcode: barcode || null,
-      costPrice: costPrice || 0
+      costPrice: costPrice || 0,
+      perishable: perishable !== undefined ? perishable : true
     });
 
     await ActivityLog.create({
@@ -74,8 +74,8 @@ const formatProduct = (p) => ({
   description: p.description,
   minimumStock: p.minimumStock,
   sku: p.sku || null,
-  barcode: p.barcode || null,
   costPrice: p.costPrice || 0,
+  perishable: p.perishable !== false,
   categoryId: p.categoryId ? toId(p.categoryId) : null,
   Category: p.categoryId && typeof p.categoryId === 'object' ? {
     id: p.categoryId._id.toString(),
@@ -84,17 +84,13 @@ const formatProduct = (p) => ({
   } : null
 });
 
-// ?code= busca por SKU o código de barras exacto (lector de código de barras)
-// ?q= busca por nombre, descripción, SKU o código
+// ?q= busca por nombre, descripción o código interno (SKU)
 const getProducts = async (req, res) => {
   try {
     const filter = {};
-    if (req.query.code) {
-      const code = String(req.query.code).trim();
-      filter.$or = [{ barcode: code }, { sku: code.toUpperCase() }];
-    } else if (req.query.q) {
+    if (req.query.q) {
       const regex = new RegExp(escapeRegex(req.query.q), 'i');
-      filter.$or = [{ name: regex }, { description: regex }, { sku: regex }, { barcode: regex }];
+      filter.$or = [{ name: regex }, { description: regex }, { sku: regex }];
     }
 
     const products = await Product.find(filter)
@@ -111,7 +107,7 @@ const getProducts = async (req, res) => {
 const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, categoryId, description, minimumStock, sku, barcode, costPrice } = req.body;
+    const { name, categoryId, description, minimumStock, sku, costPrice, perishable } = req.body;
 
     const product = await Product.findById(id);
     if (!product) return res.status(404).json({ message: 'Producto no encontrado' });
@@ -121,8 +117,8 @@ const updateProduct = async (req, res) => {
     if (description !== undefined) product.description = description;
     if (minimumStock !== undefined) product.minimumStock = minimumStock;
     if (sku !== undefined) product.sku = sku || null;
-    if (barcode !== undefined) product.barcode = barcode || null;
     if (costPrice !== undefined) product.costPrice = costPrice || 0;
+    if (perishable !== undefined) product.perishable = perishable;
 
     await product.save();
 
@@ -159,18 +155,27 @@ const registerStockEntry = async (req, res) => {
     if (!branch) return res.status(404).json({ message: 'Sucursal no encontrada' });
     if (supplierId && !supplier) return res.status(404).json({ message: 'Proveedor no encontrado' });
 
-    const stockEntry = await stock.createLot({
-      productId,
-      branchId,
-      lotNumber,
-      expirationDate,
-      quantity,
-      supplierId: supplierId || null,
-      unitCost,
-      registeredBy: req.user.id
-    });
+    // Lote y vencimiento son obligatorios solo para productos perecederos
+    const hasLot = !!(lotNumber && expirationDate);
+    if (prod.perishable !== false && !hasLot) {
+      return res.status(400).json({ message: `"${prod.name}" tiene vencimiento: indicá el número de lote y la fecha de vencimiento.` });
+    }
 
-    await stock.increaseStock(branchId, productId, quantity);
+    // Sin lote no se crea registro de lote: el stock se suma igual
+    const stockEntry = hasLot
+      ? await stock.createLot({
+        productId,
+        branchId,
+        lotNumber,
+        expirationDate,
+        quantity,
+        supplierId: supplierId || null,
+        unitCost,
+        registeredBy: req.user.id
+      })
+      : null;
+
+    const branchStock = await stock.increaseStock(branchId, productId, quantity);
 
     // El último costo de compra pasa a ser el costo de referencia del producto
     if (unitCost !== null) {
@@ -183,8 +188,8 @@ const registerStockEntry = async (req, res) => {
       branchId,
       productId,
       quantity,
-      lotNumber,
-      expirationDate,
+      lotNumber: hasLot ? lotNumber : null,
+      expirationDate: hasLot ? expirationDate : null,
       supplierId: supplierId || null,
       unitCost,
       userId: req.user.id
@@ -193,10 +198,10 @@ const registerStockEntry = async (req, res) => {
     await ActivityLog.create({
       userId: req.user.id,
       action: 'REGISTER_STOCK',
-      details: `Registró ${quantity} unidades de "${prod.name}" (Lote: ${lotNumber}) en sucursal "${branch.name}"${supplier ? ` del proveedor "${supplier.name}"` : ''}`
+      details: `Registró ${quantity} unidades de "${prod.name}"${hasLot ? ` (Lote: ${lotNumber})` : ''} en sucursal "${branch.name}"${supplier ? ` del proveedor "${supplier.name}"` : ''}`
     });
 
-    res.status(201).json(stockEntry);
+    res.status(201).json(stockEntry || { productId, branchId, quantity, newStock: branchStock.quantity });
   } catch (error) {
     res.status(500).json({ message: 'Error registrando stock', error: error.message });
   }
@@ -255,7 +260,7 @@ const registerExit = async (req, res) => {
     const { productId, branchId, exitType, description } = req.body;
     const quantity = parseInt(req.body.quantity, 10);
 
-    if (!canAccessBranch(req.user, branchId)) {
+    if (!(await canAccessBranch(req.user, branchId))) {
       return res.status(403).json({ message: 'Solo podés registrar egresos de tu sucursal.' });
     }
 
@@ -315,8 +320,9 @@ const getLots = async (req, res) => {
     if (req.query.withStock === 'true') filter.remaining = { $gt: 0 };
 
     if (req.user.role !== 'Administrador') {
-      if (!req.user.branchId) return res.json([]);
-      filter.branchId = req.user.branchId;
+      const ownBranch = await effectiveBranchId(req.user);
+      if (!ownBranch) return res.json([]);
+      filter.branchId = ownBranch;
     }
 
     const lots = await StockEntry.find(filter)

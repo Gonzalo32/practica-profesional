@@ -30,6 +30,7 @@ const state = {
   categories: [],
   branches: [],
   suppliers: [],
+  settings: null,
   currentTab: ''
 };
 
@@ -58,6 +59,7 @@ function hasRole(...roles) {
 }
 
 function userBranchId() {
+  if (isSingleBranch()) return state.settings.mainBranchId;
   return state.user?.branchId || state.user?.EspacioFisico?.id || null;
 }
 
@@ -405,46 +407,43 @@ function fillSelect(select, items, { placeholder = null, placeholderDisabled = f
   else if (placeholder !== null) select.selectedIndex = 0;
 }
 
-// Sucursales que puede operar el usuario: el admin todas, el resto solo la propia
+// Sucursales que puede operar el usuario: el admin todas, el resto solo la propia.
+// En modo de un solo local, todos operan únicamente en el local principal.
 function operableBranches() {
+  if (isSingleBranch()) return state.branches.filter(b => String(b.id) === String(state.settings.mainBranchId));
   if (hasRole('Administrador')) return state.branches;
   const own = userBranchId();
   return state.branches.filter(b => String(b.id) === String(own));
 }
 
+// Sucursales donde se puede ingresar mercadería (cualquiera, salvo en modo de un solo local)
+function entryBranches() {
+  return isSingleBranch() ? operableBranches() : state.branches;
+}
+
 // ==========================================================================
-// LECTOR DE CÓDIGO DE BARRAS
-// Los lectores USB escriben el código y envían Enter, como un teclado.
-// Cualquier input con class="scan-input" y data-scan-target="<id del select>"
-// busca el producto y lo selecciona.
+// CONFIGURACIÓN DEL NEGOCIO (nombre y modo de un solo local)
 // ==========================================================================
-document.addEventListener('keydown', async (e) => {
-  const input = e.target;
-  if (e.key !== 'Enter' || !input.classList || !input.classList.contains('scan-input')) return;
-  e.preventDefault();
-  const code = input.value.trim();
-  if (!code) return;
+function isSingleBranch() {
+  return !!state.settings?.singleBranchMode && !!state.settings?.mainBranchId;
+}
+
+async function loadSettings() {
   try {
-    const found = await apiFetch(`/inventory/products?code=${encodeURIComponent(code)}`);
-    if (!found.length) {
-      showToast(`No hay ningún producto con el código ${code}`, 'error');
-      input.select();
-      return;
-    }
-    const select = document.getElementById(input.dataset.scanTarget);
-    if (select) {
-      select.value = found[0].id;
-      select.dispatchEvent(new Event('change'));
-    }
-    input.value = '';
-    showToast(`Producto encontrado: ${found[0].name}`, 'success', 2000);
-    // Pasa el foco a la cantidad para seguir cargando rápido
-    const qty = select?.closest('.picker-row, .picker-grid')?.querySelector('input[type=number]');
-    if (qty) qty.select();
+    state.settings = await apiFetch('/settings');
   } catch (err) {
-    showToast(err.message, 'error');
+    state.settings = { businessName: '', singleBranchMode: false, mainBranchId: null };
   }
-});
+  applySettingsToUI();
+  return state.settings;
+}
+
+// Oculta lo que no se usa con un solo local (elementos con class="multi-only")
+function applySettingsToUI() {
+  document.body.classList.toggle('single-branch', isSingleBranch());
+  const name = document.getElementById('sidebar-business-name');
+  if (name) name.textContent = state.settings?.businessName || '';
+}
 
 // ==========================================================================
 // TEMA CLARO / OSCURO

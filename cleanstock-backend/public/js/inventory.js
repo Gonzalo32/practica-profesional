@@ -8,7 +8,7 @@ const respMovementFilters = { page: 1, type: 'INGRESO,INGRESO_EXTRAORDINARIO,EGR
 
 async function loadResponsablePanel() {
   await ensureBaseData();
-  loadResponsableDeliveries();
+  if (!isSingleBranch()) loadResponsableDeliveries();
   loadRecentStockTable();
 }
 
@@ -123,10 +123,11 @@ let draftStockEntryItems = [];
 async function openCreateStockEntryModal() {
   await ensureBaseData();
   const suppliers = await loadSuppliers().catch(() => []);
-  fillSelect(document.getElementById('stock-modal-branch'), state.branches, { placeholder: 'Seleccionar sucursal destino...', placeholderDisabled: true, getLabel: branchLabel, value: userBranchId() });
+  fillSelect(document.getElementById('stock-modal-branch'), entryBranches(), { placeholder: 'Seleccionar sucursal destino...', placeholderDisabled: true, getLabel: branchLabel, value: userBranchId() });
   fillSelect(document.getElementById('stock-modal-supplier'), suppliers, { placeholder: 'Sin proveedor' });
   fillSelect(document.getElementById('stock-modal-product-select'), state.products, { placeholder: 'Seleccioná insumo...' });
   draftStockEntryItems = [];
+  updateLotFields(null);
   ['stock-modal-lot-number', 'stock-modal-expiration-date', 'stock-modal-unit-cost'].forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('stock-modal-product-qty').value = 1;
   renderStockModalItemsTable();
@@ -134,11 +135,24 @@ async function openCreateStockEntryModal() {
 }
 document.getElementById('btn-open-stock-entry-modal')?.addEventListener('click', openCreateStockEntryModal);
 
+// Los productos que no vencen no piden lote ni fecha: esos campos se desactivan
+function updateLotFields(product) {
+  const needsLot = !product || product.perishable !== false;
+  ['stock-modal-lot-number', 'stock-modal-expiration-date'].forEach(id => {
+    const input = document.getElementById(id);
+    input.disabled = !needsLot;
+    if (!needsLot) input.value = '';
+  });
+  document.getElementById('stock-modal-lot-number').placeholder = needsLot ? 'Ej: LOT-2026-99' : 'No vence';
+  document.querySelectorAll('#modal-create-stock-entry .lot-req').forEach(el => el.classList.toggle('hidden', !needsLot));
+}
+
 // Al elegir un producto se sugiere su costo actual
 document.getElementById('stock-modal-product-select')?.addEventListener('change', (e) => {
   const product = state.products.find(p => p.id === e.target.value);
   const costInput = document.getElementById('stock-modal-unit-cost');
   if (product && product.costPrice && !costInput.value) costInput.value = product.costPrice;
+  updateLotFields(product);
 });
 
 document.getElementById('btn-stock-modal-add-item')?.addEventListener('click', () => {
@@ -150,9 +164,10 @@ document.getElementById('btn-stock-modal-add-item')?.addEventListener('click', (
 
   if (!productId) return showToast('Seleccioná un insumo o producto.', 'error');
   if (quantity <= 0) return showToast('La cantidad debe ser mayor a 0.', 'error');
-  if (!lotNumber) return showToast('Ingresá el número de lote.', 'error');
-  if (!expirationDate) return showToast('Seleccioná la fecha de vencimiento.', 'error');
-  if (expirationDate < new Date().toISOString().slice(0, 10)) {
+  const needsLot = state.products.find(p => p.id === productId)?.perishable !== false;
+  if (needsLot && !lotNumber) return showToast('Este producto tiene vencimiento: ingresá el número de lote.', 'error');
+  if (needsLot && !expirationDate) return showToast('Este producto tiene vencimiento: seleccioná la fecha.', 'error');
+  if (expirationDate && expirationDate < new Date().toISOString().slice(0, 10)) {
     showToast('Atención: la fecha de vencimiento ya pasó. El lote quedará marcado como vencido.', 'info');
   }
 
@@ -170,13 +185,14 @@ document.getElementById('btn-stock-modal-add-item')?.addEventListener('click', (
   document.getElementById('stock-modal-product-select').value = '';
   document.getElementById('stock-modal-product-qty').value = 1;
   ['stock-modal-lot-number', 'stock-modal-expiration-date', 'stock-modal-unit-cost'].forEach(id => { document.getElementById(id).value = ''; });
+  updateLotFields(null);
   renderStockModalItemsTable();
 });
 
 function renderStockModalItemsTable() {
   renderDraftItems('table-stock-modal-items-body', 'stock-modal-items-count', draftStockEntryItems, 'removeStockModalItem',
     'Aún no agregaste insumos a la lista de ingreso.',
-    item => `<td><span class="badge">${escapeHtml(item.lotNumber)}</span></td><td>${formatDateOnly(item.expirationDate)}</td><td>${item.unitCost === null ? '—' : formatMoney(item.unitCost)}</td>`);
+    item => `<td>${item.lotNumber ? `<span class="badge">${escapeHtml(item.lotNumber)}</span>` : '<span class="muted">No vence</span>'}</td><td>${formatDateOnly(item.expirationDate)}</td><td>${item.unitCost === null ? '—' : formatMoney(item.unitCost)}</td>`);
 }
 
 window.removeStockModalItem = (index) => {
@@ -229,7 +245,7 @@ let draftInformalEntryItems = [];
 
 async function openCreateInformalEntryModal() {
   await ensureBaseData();
-  fillSelect(document.getElementById('informal-modal-branch'), state.branches, { placeholder: 'Seleccionar sucursal destino...', placeholderDisabled: true, getLabel: branchLabel, value: userBranchId() });
+  fillSelect(document.getElementById('informal-modal-branch'), entryBranches(), { placeholder: 'Seleccionar sucursal destino...', placeholderDisabled: true, getLabel: branchLabel, value: userBranchId() });
   fillSelect(document.getElementById('informal-modal-product-select'), state.products, { placeholder: 'Seleccioná un producto...' });
   draftInformalEntryItems = [];
   document.getElementById('informal-modal-description').value = '';

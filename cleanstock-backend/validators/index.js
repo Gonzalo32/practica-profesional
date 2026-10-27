@@ -25,7 +25,6 @@ const optionalText = (field, label, max = 500) => body(field)
   .isString().withMessage(`${label} debe ser texto`)
   .trim()
   .isLength({ max }).withMessage(`${label} no puede superar ${max} caracteres`);
-const isoDate = (field, label) => body(field).isISO8601().withMessage(`${label} debe ser una fecha válida`);
 
 const login = [
   requiredText('username', 'El usuario'),
@@ -100,7 +99,7 @@ const productFields = [
   optionalText('description', 'La descripción', 500),
   body('minimumStock').optional().isInt({ min: 0 }).withMessage('El stock mínimo debe ser un número entero mayor o igual a 0').toInt(),
   body('sku').optional({ values: 'falsy' }).isString().trim().isLength({ max: 40 }).withMessage('El SKU no puede superar 40 caracteres'),
-  body('barcode').optional({ values: 'falsy' }).isString().trim().isLength({ max: 40 }).withMessage('El código de barras no puede superar 40 caracteres'),
+  body('perishable').optional().isBoolean().withMessage('Indicá si el producto tiene vencimiento').toBoolean(),
   optionalMoney('costPrice', 'El costo')
 ];
 
@@ -121,8 +120,9 @@ const stockEntry = [
   mongoId('productId', 'Producto'),
   mongoId('branchId', 'Sucursal'),
   positiveInt('quantity', 'La cantidad'),
-  requiredText('lotNumber', 'El número de lote', 60),
-  isoDate('expirationDate', 'El vencimiento'),
+  // Lote y vencimiento: el controlador los exige solo si el producto es perecedero
+  optionalText('lotNumber', 'El número de lote', 60),
+  body('expirationDate').optional({ values: 'falsy' }).isISO8601().withMessage('El vencimiento debe ser una fecha válida'),
   optionalMongoId('supplierId', 'Proveedor'),
   optionalMoney('unitCost', 'El costo unitario'),
   validate
@@ -204,10 +204,10 @@ const purchaseOrder = [
 
 const receivePurchaseOrder = [
   idParam(),
-  body('lots').isArray({ min: 1 }).withMessage('Indicá lote y vencimiento de cada producto'),
+  body('lots').optional().isArray().withMessage('Lotes inválidos'),
   body('lots.*.productId').isMongoId().withMessage('Producto inválido'),
-  body('lots.*.lotNumber').isString().trim().notEmpty().withMessage('Indicá el número de lote de cada producto'),
-  body('lots.*.expirationDate').isISO8601().withMessage('Indicá una fecha de vencimiento válida para cada producto'),
+  body('lots.*.lotNumber').optional({ values: 'falsy' }).isString().trim(),
+  body('lots.*.expirationDate').optional({ values: 'falsy' }).isISO8601().withMessage('Indicá una fecha de vencimiento válida'),
   validate
 ];
 
@@ -232,6 +232,13 @@ const listQuery = [
   query('productId').optional({ values: 'falsy' }).isMongoId().withMessage('Producto inválido'),
   query('from').optional({ values: 'falsy' }).isISO8601().withMessage('Fecha desde inválida'),
   query('to').optional({ values: 'falsy' }).isISO8601().withMessage('Fecha hasta inválida'),
+  validate
+];
+
+const settings = [
+  body('businessName').optional().isString().trim().notEmpty().withMessage('El nombre del negocio no puede quedar vacío').isLength({ max: 80 }),
+  body('singleBranchMode').optional().isBoolean().withMessage('Modo de trabajo inválido').toBoolean(),
+  optionalMongoId('mainBranchId', 'Local principal'),
   validate
 ];
 
@@ -262,5 +269,6 @@ module.exports = {
   createCount,
   updateCount,
   listQuery,
+  settings,
   onlyId
 };

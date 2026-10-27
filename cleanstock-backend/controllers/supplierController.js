@@ -115,6 +115,7 @@ const formatPurchaseOrder = (po) => ({
   items: (po.items || []).map(i => ({
     productId: toId(i.productId),
     productName: i.productId?.name || null,
+    perishable: i.productId?.perishable !== false,
     quantity: i.quantity,
     unitCost: i.unitCost
   })),
@@ -124,7 +125,7 @@ const formatPurchaseOrder = (po) => ({
 const populatePurchaseOrder = (query) => query
   .populate('supplierId', 'name')
   .populate('branchId', 'name')
-  .populate('items.productId', 'name')
+  .populate('items.productId', 'name perishable')
   .populate('createdBy', 'firstName lastName username');
 
 // GET /api/suppliers/purchase-orders  (?status &supplierId)
@@ -185,19 +186,23 @@ const createPurchaseOrder = async (req, res) => {
 };
 
 // POST /api/suppliers/purchase-orders/:id/receive
-// body: { lots: [{ productId, lotNumber, expirationDate }] } — un lote por producto recibido
+// body: { lots: [{ productId, lotNumber, expirationDate }] } — lote y vencimiento por producto.
+// Solo son obligatorios para los productos perecederos.
 const receivePurchaseOrder = async (req, res) => {
   try {
     const lots = req.body.lots || [];
+    const lotFor = (productId) => {
+      const lot = lots.find(l => String(l.productId) === String(productId));
+      return lot && lot.lotNumber && lot.expirationDate ? lot : null;
+    };
 
-    const pending = await PurchaseOrder.findById(req.params.id);
+    const pending = await PurchaseOrder.findById(req.params.id).populate('items.productId', 'name perishable');
     if (!pending) return res.status(404).json({ message: 'Orden de compra no encontrada' });
     if (pending.status !== 'PENDIENTE') return res.status(400).json({ message: `La orden ya está ${pending.status.toLowerCase()}` });
 
     for (const item of pending.items) {
-      const lot = lots.find(l => String(l.productId) === String(item.productId));
-      if (!lot || !lot.lotNumber || !lot.expirationDate) {
-        return res.status(400).json({ message: 'Indicá lote y vencimiento para cada producto recibido.' });
+      if (item.productId?.perishable !== false && !lotFor(item.productId?._id)) {
+        return res.status(400).json({ message: `"${item.productId?.name || 'Producto'}" tiene vencimiento: indicá el lote y la fecha de vencimiento.` });
       }
     }
 
@@ -211,17 +216,19 @@ const receivePurchaseOrder = async (req, res) => {
 
     const code = formatPurchaseOrderCode(po);
     for (const item of po.items) {
-      const lot = lots.find(l => String(l.productId) === String(item.productId));
-      await stock.createLot({
-        productId: item.productId,
-        branchId: po.branchId._id,
-        lotNumber: lot.lotNumber,
-        expirationDate: lot.expirationDate,
-        quantity: item.quantity,
-        supplierId: po.supplierId._id,
-        unitCost: item.unitCost,
-        registeredBy: req.user.id
-      });
+      const lot = lotFor(item.productId);
+      if (lot) {
+        await stock.createLot({
+          productId: item.productId,
+          branchId: po.branchId._id,
+          lotNumber: lot.lotNumber,
+          expirationDate: lot.expirationDate,
+          quantity: item.quantity,
+          supplierId: po.supplierId._id,
+          unitCost: item.unitCost,
+          registeredBy: req.user.id
+        });
+      }
       await stock.increaseStock(po.branchId._id, item.productId, item.quantity);
       if (item.unitCost !== null && item.unitCost !== undefined) {
         await Product.updateOne({ _id: item.productId }, { costPrice: item.unitCost });
@@ -232,8 +239,8 @@ const receivePurchaseOrder = async (req, res) => {
         branchId: po.branchId._id,
         productId: item.productId,
         quantity: item.quantity,
-        lotNumber: lot.lotNumber,
-        expirationDate: lot.expirationDate,
+        lotNumber: lot ? lot.lotNumber : null,
+        expirationDate: lot ? lot.expirationDate : null,
         supplierId: po.supplierId._id,
         unitCost: item.unitCost,
         purchaseOrderId: po._id,

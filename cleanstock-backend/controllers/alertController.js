@@ -1,5 +1,6 @@
 const { BranchStock, Product, PhysicalSpace, ActivityLog, Order, StockEntry } = require('../models');
 const { toId, startOfDay, todayAsUTCDate, daysUntil } = require('../utils/format');
+const { effectiveBranchId } = require('../services/settingsService');
 
 // ─── Módulo 1: Sistema de Alertas de Stock Bajo ───────────────────────────────
 
@@ -9,13 +10,14 @@ const effectiveMinFor = (item, prod) => (
     : (prod?.minimumStock || 0)
 );
 
-const branchScope = (user) => {
+const branchScope = async (user) => {
   if (user.role === 'Administrador') return {};
-  return user.branchId ? { branchId: user.branchId } : null;
+  const ownBranch = await effectiveBranchId(user);
+  return ownBranch ? { branchId: ownBranch } : null;
 };
 
 const buildStockAlerts = async (user) => {
-  const scope = branchScope(user);
+  const scope = await branchScope(user);
   if (!scope) return [];
 
   const allStock = await BranchStock.find(scope)
@@ -72,7 +74,7 @@ const getStockAlerts = async (req, res) => {
  * Lotes con stock que vencen dentro de `days` días (o ya vencidos).
  */
 const buildExpirationAlerts = async (user, days = 30) => {
-  const scope = branchScope(user);
+  const scope = await branchScope(user);
   if (!scope) return [];
 
   const limitDate = todayAsUTCDate();
@@ -141,8 +143,8 @@ const getAlertSummary = async (req, res) => {
     let toReceive = 0;
     if (user.role === 'Solicitante') {
       toReceive = await Order.countDocuments({ status: 'DESPACHADO', solicitanteId: user.id });
-    } else if (user.role === 'Usuario Responsable' && user.branchId) {
-      toReceive = await Order.countDocuments({ status: 'DESPACHADO', toBranchId: user.branchId });
+    } else if (user.role === 'Usuario Responsable' && await effectiveBranchId(user)) {
+      toReceive = await Order.countDocuments({ status: 'DESPACHADO', toBranchId: await effectiveBranchId(user) });
     } else if (user.role === 'Administrador') {
       toReceive = await Order.countDocuments({ status: 'DESPACHADO' });
     }

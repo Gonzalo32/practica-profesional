@@ -101,16 +101,32 @@ describe('Ingresos, egresos y lotes', () => {
     expect(res.body[1].severity).toBe('URGENTE');
   });
 
-  test('busca productos por SKU o código de barras', async () => {
-    await request(app).put(`/api/inventory/products/${s.product._id}`).set(auth(s.tokens.admin)).send({ sku: 'lav-001', barcode: '7790001112223' });
-    const bySku = await request(app).get('/api/inventory/products?code=LAV-001').set(auth(s.tokens.admin));
-    const byBarcode = await request(app).get('/api/inventory/products?code=7790001112223').set(auth(s.tokens.admin));
+  test('busca productos por código interno y no permite códigos repetidos', async () => {
+    await request(app).put(`/api/inventory/products/${s.product._id}`).set(auth(s.tokens.admin)).send({ sku: 'lav-001' });
+    const bySku = await request(app).get('/api/inventory/products?q=LAV-001').set(auth(s.tokens.admin));
     expect(bySku.body).toHaveLength(1);
-    expect(byBarcode.body[0].sku).toBe('LAV-001');
+    expect(bySku.body[0].sku).toBe('LAV-001');
 
-    const other = await request(app).post('/api/inventory/products').set(auth(s.tokens.admin)).send({ name: 'Otro', barcode: '7790001112223' });
+    const other = await request(app).post('/api/inventory/products').set(auth(s.tokens.admin)).send({ name: 'Otro', sku: 'LAV-001' });
     expect(other.status).toBe(400);
-    expect(other.body.message).toMatch(/código de barras/);
+    expect(other.body.message).toMatch(/código interno/);
+  });
+
+  test('un producto que no vence se ingresa sin lote ni vencimiento', async () => {
+    const created = await request(app).post('/api/inventory/products').set(auth(s.tokens.admin)).send({ name: 'Fideos 500g', perishable: false });
+    expect(created.status).toBe(201);
+    const res = await request(app).post('/api/inventory/stock').set(auth(s.tokens.responsable)).send({
+      productId: created.body._id, branchId: s.central._id, quantity: 12
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.newStock).toBe(12);
+    expect(await StockEntry.countDocuments({ productId: created.body._id })).toBe(0);
+  });
+
+  test('un producto perecedero exige lote y vencimiento', async () => {
+    const res = await addEntry(s.tokens.admin, { lotNumber: '', expirationDate: '' });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/tiene vencimiento/);
   });
 
   test('el historial de movimientos se pagina y filtra por sucursal', async () => {

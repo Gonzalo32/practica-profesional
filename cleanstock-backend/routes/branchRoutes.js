@@ -27,8 +27,8 @@ router.delete('/:id', requireRole(['Administrador']), v.onlyId, deleteBranch);
 router.get('/movements', requireRole(['Administrador', 'Usuario Responsable', 'Despachante']), v.listQuery, getStockMovements);
 
 // Stock de una sucursal (con control de visibilidad por rol — Módulo 3).
-// "my-branch" lo resuelve el middleware con el branchId del token.
-router.get('/my-branch/stock', requireBranchAccess, getBranchStock);
+// /my-branch/stock también entra acá (id = "my-branch") y el middleware lo
+// reemplaza por la sucursal del usuario.
 router.get('/:id/stock', requireBranchAccess, getBranchStock);
 
 // Ajustar stock manualmente (Responsable o Admin, solo su sucursal)

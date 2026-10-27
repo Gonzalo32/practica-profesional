@@ -12,7 +12,7 @@
 - HTML + CSS + JavaScript vanilla
 - SPA manual: una sola página (`index.html`) con la lógica dividida en módulos dentro de `public/js/`:
   `core.js` (API, helpers, modales), `auth.js` (sesión y navegación), `admin.js`, `orders.js`, `dispatch.js`,
-  `inventory.js`, `catalog.js`, `branches.js`, `expirations.js`, `counts.js`, `suppliers.js`, `export.js`, `notifications.js`
+  `inventory.js`, `catalog.js`, `branches.js`, `expirations.js`, `counts.js`, `suppliers.js`, `home.js` (inicio y venta rápida), `export.js`, `notifications.js`
 - Modo claro / oscuro con variables CSS
 - Librerías por CDN (cdnjs): **Chart.js** (gráficos), **SheetJS** y **jsPDF** (exportar a Excel y PDF, se cargan al exportar)
 - Servido estáticamente por Express desde la carpeta `public/`
@@ -42,7 +42,7 @@
 - `User`
 - `PhysicalSpace`
 - `Category`
-- `Product` (con SKU, código de barras y costo)
+- `Product` (con código interno, costo y marca de perecedero)
 - `StockEntry` (lotes con vencimiento y saldo)
 - `StockMovement` (registro de cada ingreso, egreso, ajuste, transferencia y conteo)
 - `Order`
@@ -53,6 +53,7 @@
 - `PurchaseOrder`
 - `InventoryCount`
 - `Counter` (números correlativos: PED-0001, OC-0001)
+- `Settings` (nombre del negocio y modo de trabajo: un solo local o varias sucursales)
 
 ## Rutas API (`/api/...`)
 | Prefijo           | Archivo              |
@@ -67,6 +68,7 @@
 | `/api/suppliers`  | supplierRoutes.js    |
 | `/api/counts`     | countRoutes.js       |
 | `/api/reports`    | reportRoutes.js      |
+| `/api/settings`   | settingsRoutes.js    |
 
 ## Puerto por defecto
 - `3000` (configurable por variable de entorno `PORT`)
@@ -74,3 +76,8 @@
 ## Usuario administrador inicial
 - Si la base no tiene ningún administrador, al iniciar se crea `admin@cleanstock.com`
   con la contraseña de `ADMIN_INITIAL_PASSWORD` (o `admin123` si no está definida). Conviene cambiarla al ingresar.
+
+## Modos de trabajo
+- **Varias sucursales**: empresas con más de un local o depósito (pedidos, transferencias y despacho entre sucursales).
+- **Un solo local**: despensas y comercios minoristas. Se activa en Control Administrador > Configuración del Negocio; oculta sucursales, pedidos y despacho, y todas las operaciones se registran en el local principal.
+- Los productos marcados como perecederos piden lote y vencimiento al ingresar; el resto se carga solo con la cantidad.

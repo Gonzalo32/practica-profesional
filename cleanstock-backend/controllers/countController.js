@@ -1,5 +1,6 @@
 const { InventoryCount, BranchStock, Product, PhysicalSpace, ActivityLog } = require('../models');
 const { canAccessBranch } = require('../middlewares/authMiddleware');
+const { effectiveBranchId } = require('../services/settingsService');
 const stock = require('../services/stockService');
 const { toId } = require('../utils/format');
 
@@ -42,8 +43,9 @@ const getCounts = async (req, res) => {
     const filter = {};
     if (req.query.branchId) filter.branchId = req.query.branchId;
     if (req.user.role !== 'Administrador') {
-      if (!req.user.branchId) return res.json([]);
-      filter.branchId = req.user.branchId;
+      const ownBranch = await effectiveBranchId(req.user);
+      if (!ownBranch) return res.json([]);
+      filter.branchId = ownBranch;
     }
     const counts = await InventoryCount.find(filter)
       .populate('branchId', 'name')
@@ -61,7 +63,7 @@ const getCount = async (req, res) => {
   try {
     const count = await loadCount(req.params.id).lean();
     if (!count) return res.status(404).json({ message: 'Conteo no encontrado' });
-    if (!canAccessBranch(req.user, toId(count.branchId))) {
+    if (!(await canAccessBranch(req.user, toId(count.branchId)))) {
       return res.status(403).json({ message: 'No tenés acceso a esta sucursal' });
     }
     res.json(formatCount(count));
@@ -73,7 +75,7 @@ const getCount = async (req, res) => {
 const createCount = async (req, res) => {
   try {
     const { branchId, notes } = req.body;
-    if (!canAccessBranch(req.user, branchId)) {
+    if (!(await canAccessBranch(req.user, branchId))) {
       return res.status(403).json({ message: 'Solo podés contar el stock de tu sucursal' });
     }
     const branch = await PhysicalSpace.findById(branchId);
@@ -117,7 +119,7 @@ const updateCountItems = async (req, res) => {
   try {
     const count = await InventoryCount.findById(req.params.id);
     if (!count) return res.status(404).json({ message: 'Conteo no encontrado' });
-    if (!canAccessBranch(req.user, count.branchId)) return res.status(403).json({ message: 'No tenés acceso a esta sucursal' });
+    if (!(await canAccessBranch(req.user, count.branchId))) return res.status(403).json({ message: 'No tenés acceso a esta sucursal' });
     if (count.status !== 'ABIERTO') return res.status(400).json({ message: 'El conteo ya está cerrado' });
 
     for (const entry of req.body.items) {
@@ -138,7 +140,7 @@ const closeCount = async (req, res) => {
   try {
     const pending = await InventoryCount.findById(req.params.id);
     if (!pending) return res.status(404).json({ message: 'Conteo no encontrado' });
-    if (!canAccessBranch(req.user, pending.branchId)) return res.status(403).json({ message: 'No tenés acceso a esta sucursal' });
+    if (!(await canAccessBranch(req.user, pending.branchId))) return res.status(403).json({ message: 'No tenés acceso a esta sucursal' });
 
     // Cierre atómico: si dos personas lo cierran a la vez, solo una aplica los ajustes
     const count = await InventoryCount.findOneAndUpdate(
@@ -190,7 +192,7 @@ const cancelCount = async (req, res) => {
   try {
     const pending = await InventoryCount.findById(req.params.id);
     if (!pending) return res.status(404).json({ message: 'Conteo no encontrado' });
-    if (!canAccessBranch(req.user, pending.branchId)) return res.status(403).json({ message: 'No tenés acceso a esta sucursal' });
+    if (!(await canAccessBranch(req.user, pending.branchId))) return res.status(403).json({ message: 'No tenés acceso a esta sucursal' });
 
     const count = await InventoryCount.findOneAndUpdate(
       { _id: req.params.id, status: 'ABIERTO' },

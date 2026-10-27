@@ -49,6 +49,26 @@ describe('Proveedores y órdenes de compra', () => {
     expect((await Product.findById(s.product._id)).costPrice).toBe(210);
   });
 
+  test('al recibir una orden, los productos que no vencen no necesitan lote', async () => {
+    const fideos = (await request(app).post('/api/inventory/products').set(auth(s.tokens.admin)).send({ name: 'Fideos 500g', perishable: false })).body;
+    const supplier = (await request(app).post('/api/suppliers').set(auth(s.tokens.admin)).send({ name: 'Mayorista' })).body;
+    const po = (await request(app).post('/api/suppliers/purchase-orders').set(auth(s.tokens.admin)).send({
+      supplierId: supplier.id, branchId: s.central._id,
+      items: [{ productId: fideos._id, quantity: 20 }, { productId: s.product._id, quantity: 5 }]
+    })).body;
+
+    const missingLot = await request(app).post(`/api/suppliers/purchase-orders/${po.id}/receive`).set(auth(s.tokens.admin)).send({ lots: [] });
+    expect(missingLot.status).toBe(400);
+    expect(missingLot.body.message).toMatch(/LAVANDINA/);
+
+    const ok = await request(app).post(`/api/suppliers/purchase-orders/${po.id}/receive`).set(auth(s.tokens.admin)).send({
+      lots: [{ productId: s.product._id, lotNumber: 'L9', expirationDate: '2031-01-01' }]
+    });
+    expect(ok.status).toBe(200);
+    const fideosStock = await BranchStock.findOne({ branchId: s.central._id, productId: fideos._id }).lean();
+    expect(fideosStock.quantity).toBe(20);
+  });
+
   test('un usuario Proveedor solo ve las órdenes de su empresa', async () => {
     const a = (await request(app).post('/api/suppliers').set(auth(s.tokens.admin)).send({ name: 'Proveedor A' })).body;
     const b = (await request(app).post('/api/suppliers').set(auth(s.tokens.admin)).send({ name: 'Proveedor B' })).body;

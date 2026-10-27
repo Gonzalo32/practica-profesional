@@ -1,6 +1,7 @@
 const { PhysicalSpace, BranchStock, Product, User, ActivityLog, StockEntry, StockMovement } = require('../models');
 const stock = require('../services/stockService');
 const { toId, parsePagination, startOfDay } = require('../utils/format');
+const { getSettings } = require('../services/settingsService');
 
 // Obtener todas las sucursales
 const getBranches = async (req, res) => {
@@ -57,6 +58,11 @@ const deleteBranch = async (req, res) => {
 
     if (!branch) {
       return res.status(404).json({ message: 'Sucursal no encontrada' });
+    }
+
+    const settings = await getSettings();
+    if (settings.singleBranchMode && String(settings.mainBranchId) === String(id)) {
+      return res.status(400).json({ message: 'No se puede eliminar el local principal mientras el negocio trabaja en modo de un solo local.' });
     }
 
     // Desasociar usuarios antes de eliminar
@@ -176,7 +182,7 @@ const getBranchStock = async (req, res) => {
           _id: productObj._id.toString(),
           name: productObj.name,
           sku: productObj.sku || null,
-          barcode: productObj.barcode || null,
+          perishable: productObj.perishable !== false,
           description: productObj.description,
           minimumStock: productObj.minimumStock,
           Category: categoryObj ? {

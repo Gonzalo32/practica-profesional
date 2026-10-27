@@ -92,6 +92,8 @@
           </div>
         </div>
 
+        <div class="business-name" id="sidebar-business-name"></div>
+
         <!-- NAVIGATION TABS -->
         <nav class="nav-tabs sidebar-nav" id="main-navigation">
           <!-- Generado dinámicamente según el rol -->
@@ -120,6 +122,48 @@
 
       <!-- VIEW PANELS -->
       <main class="content-container">
+        <!-- PANEL INICIO: accesos directos para las tareas de todos los días -->
+        <section id="panel-home" class="panel hidden">
+          <div class="home-header">
+            <h2 id="home-greeting">Inicio</h2>
+            <p class="home-subtitle" id="home-subtitle"></p>
+          </div>
+
+          <div class="home-actions">
+            <button type="button" class="home-tile home-tile-sale" id="home-btn-sale">
+              <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+              <span class="home-tile-title">Registrar venta</span>
+              <span class="home-tile-desc">Descontar del stock los productos vendidos</span>
+            </button>
+            <button type="button" class="home-tile home-tile-entry" id="home-btn-entry">
+              <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              <span class="home-tile-title">Cargar mercadería</span>
+              <span class="home-tile-desc">Registrar los productos que ingresan al local</span>
+            </button>
+            <button type="button" class="home-tile home-tile-low" id="home-btn-low">
+              <span class="home-tile-count" id="home-count-low">0</span>
+              <span class="home-tile-title">Productos con stock bajo</span>
+              <span class="home-tile-desc">Están en el mínimo o por debajo</span>
+            </button>
+            <button type="button" class="home-tile home-tile-exp" id="home-btn-exp">
+              <span class="home-tile-count" id="home-count-exp">0</span>
+              <span class="home-tile-title">Productos próximos a vencer</span>
+              <span class="home-tile-desc">Vencidos o con vencimiento en los próximos 30 días</span>
+            </button>
+          </div>
+
+          <div class="home-lists">
+            <div class="card glass table-card">
+              <h3>Stock bajo</h3>
+              <ul class="home-list" id="home-list-low"></ul>
+            </div>
+            <div class="card glass table-card">
+              <h3>Próximos a vencer</h3>
+              <ul class="home-list" id="home-list-exp"></ul>
+            </div>
+          </div>
+        </section>
+
         <!-- PANEL ADMINISTRADOR -->
         <section id="panel-admin" class="panel hidden">
           <div class="grid-dashboard">
@@ -131,7 +175,7 @@
               <h3>Productos</h3>
               <p class="stat-number" id="admin-stat-products">0</p>
             </div>
-            <div class="card glass stat-card">
+            <div class="card glass stat-card multi-only">
               <h3>Pedidos Realizados</h3>
               <p class="stat-number" id="admin-stat-orders">0</p>
             </div>
@@ -140,7 +184,7 @@
               <p class="stat-number" id="admin-stat-alerts">0</p>
               <span class="stat-sub" id="admin-stat-critical">0 críticas</span>
             </div>
-            <div class="card glass stat-card stat-card-transit">
+            <div class="card glass stat-card stat-card-transit multi-only">
               <h3>En Tránsito</h3>
               <p class="stat-number" id="admin-stat-transit">0</p>
             </div>
@@ -161,7 +205,7 @@
 
           <!-- Gráficos -->
           <div class="charts-grid">
-            <div class="card glass chart-card">
+            <div class="card glass chart-card multi-only">
               <h3>Stock por sucursal</h3>
               <div class="chart-box"><canvas id="chart-stock-branch"></canvas></div>
             </div>
@@ -169,7 +213,7 @@
               <h3>Productos con más faltante</h3>
               <div class="chart-box"><canvas id="chart-shortages"></canvas></div>
             </div>
-            <div class="card glass chart-card">
+            <div class="card glass chart-card multi-only">
               <h3>Pedidos por estado</h3>
               <div class="chart-box"><canvas id="chart-orders-status"></canvas></div>
             </div>
@@ -182,9 +226,50 @@
           <!-- Admin Sub-tabs -->
           <div class="sub-nav">
             <button class="btn btn-tab active" data-sub="admin-users">Gestión de Usuarios</button>
-            <button class="btn btn-tab" data-sub="admin-approvals">Aprobación de Pedidos</button>
+            <button class="btn btn-tab multi-only" data-sub="admin-approvals">Aprobación de Pedidos</button>
             <button class="btn btn-tab" data-sub="admin-alerts">Alertas de Stock</button>
             <button class="btn btn-tab" data-sub="admin-logs">Historial de Auditoría</button>
+            <button class="btn btn-tab" data-sub="admin-settings">Configuración del Negocio</button>
+          </div>
+
+          <!-- Subpanel: Configuración del negocio -->
+          <div id="subpanel-admin-settings" class="subpanel hidden">
+            <div class="card glass table-card">
+              <h3>Configuración del Negocio</h3>
+              <form id="form-settings" class="form-stack settings-form">
+                <div class="form-group">
+                  <label for="settings-business-name">Nombre del negocio</label>
+                  <input type="text" id="settings-business-name" maxlength="80" required>
+                </div>
+                <div class="form-group">
+                  <label>Modo de trabajo</label>
+                  <div class="mode-options">
+                    <label class="mode-option">
+                      <input type="radio" name="settings-mode" value="single">
+                      <span class="mode-option-body">
+                        <strong>Un solo local</strong>
+                        <span>Para despensas, almacenes y comercios con un único punto de venta. Se ocultan las sucursales, los pedidos entre sucursales y el despacho.</span>
+                      </span>
+                    </label>
+                    <label class="mode-option">
+                      <input type="radio" name="settings-mode" value="multi">
+                      <span class="mode-option-body">
+                        <strong>Varias sucursales</strong>
+                        <span>Para empresas con más de un local o depósito. Incluye pedidos y transferencias entre sucursales.</span>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+                <div class="form-group" id="settings-main-branch-group">
+                  <label for="settings-main-branch">Local principal</label>
+                  <select id="settings-main-branch"></select>
+                  <p class="hint-text" id="settings-main-branch-hint">Todas las operaciones se registran en este local.</p>
+                </div>
+                <div class="modal-actions">
+                  <button type="submit" class="btn btn-primary">Guardar configuración</button>
+                </div>
+              </form>
+            </div>
           </div>
 
           <!-- Subpanel: Users CRUD -->
@@ -209,7 +294,7 @@
                     <option value="Despachante">Despachante</option>
                     <option value="Proveedor">Proveedor</option>
                   </select>
-                  <select id="user-filter-branch">
+                  <select id="user-filter-branch" class="multi-only">
                     <option value="">Todas las Sucursales</option>
                   </select>
                 </div>
@@ -381,6 +466,7 @@
           <div class="panel-header-row">
             <h2>Ingresos y Egresos de Stock</h2>
             <div class="btn-row">
+              <button id="btn-open-quick-sale" class="btn btn-success">Registrar Venta</button>
               <button id="btn-open-stock-entry-modal" class="btn btn-primary">Agregar Ingreso</button>
               <button id="btn-open-informal-entry-modal" class="btn btn-secondary">Ingreso Extraordinario</button>
               <button id="btn-open-exit-modal" class="btn btn-danger-soft">Registrar Egreso</button>
@@ -388,7 +474,7 @@
           </div>
 
           <!-- Pedidos despachados que llegan a la sucursal -->
-          <div class="card glass table-card" id="card-deliveries">
+          <div class="card glass table-card multi-only" id="card-deliveries">
             <h3>Pedidos por Recibir</h3>
             <div class="table-responsive">
               <table>
@@ -495,14 +581,18 @@
 
           <div class="card glass filter-card">
             <div class="filter-row">
-              <label for="stock-view-branch-select" class="inline-label">Sucursal:</label>
-              <select id="stock-view-branch-select" class="select-md">
+              <label for="stock-view-branch-select" class="inline-label multi-only">Sucursal:</label>
+              <select id="stock-view-branch-select" class="select-md multi-only">
                 <option value="">— Seleccionar sucursal —</option>
               </select>
               <div class="search-box search-box-sm">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                <input type="text" id="stock-view-search" placeholder="Buscar producto, SKU o código..." />
+                <input type="text" id="stock-view-search" placeholder="Buscar producto o código interno..." />
               </div>
+              <select id="stock-view-filter" class="select-auto" title="Filtrar">
+                <option value="">Todos los productos</option>
+                <option value="low">Solo stock bajo</option>
+              </select>
               <span class="stock-total-value" id="stock-view-total-value"></span>
             </div>
           </div>
@@ -514,7 +604,7 @@
                 <thead>
                   <tr>
                     <th>Producto</th>
-                    <th>SKU</th>
+                    <th>Código</th>
                     <th>Categoría</th>
                     <th title="Existencia física total registrada en esta sucursal.">Total</th>
                     <th title="Unidades comprometidas en pedidos pendientes de entregar.">Reservado</th>
@@ -601,7 +691,7 @@
                   <option value="60">60 días</option>
                   <option value="90">90 días</option>
                 </select>
-                <select id="exp-filter-branch"><option value="">Todas las sucursales</option></select>
+                <select id="exp-filter-branch" class="multi-only"><option value="">Todas las sucursales</option></select>
               </div>
             </div>
             <p class="hint-text">Los lotes se descuentan en orden FEFO: lo que vence primero, sale primero. Los vencidos siguen contando en el stock hasta que se den de baja.</p>
@@ -633,8 +723,8 @@
 
           <div class="card glass filter-card">
             <div class="filter-row">
-              <label for="count-branch-select" class="inline-label">Sucursal:</label>
-              <select id="count-branch-select" class="select-md"></select>
+              <label for="count-branch-select" class="inline-label multi-only">Sucursal:</label>
+              <select id="count-branch-select" class="select-md multi-only"></select>
               <button class="btn btn-primary" id="btn-start-count">Iniciar Conteo</button>
             </div>
             <p class="hint-text">El sistema toma una foto del stock actual. Cargá lo que contaste en el depósito y, al cerrar, se ajustan las diferencias y quedan registradas.</p>
@@ -662,7 +752,7 @@
                 <thead>
                   <tr>
                     <th>Producto</th>
-                    <th>SKU</th>
+                    <th>Código</th>
                     <th>Según sistema</th>
                     <th>Contado</th>
                     <th>Diferencia</th>
@@ -847,7 +937,7 @@
             <div class="table-toolbar">
               <div class="search-box">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                <input type="text" id="catalog-search-input" placeholder="Buscar por nombre, descripción, SKU o código de barras..." />
+                <input type="text" id="catalog-search-input" placeholder="Buscar por nombre, descripción o código interno..." />
               </div>
               <div class="filter-box">
                 <select id="catalog-filter-category">
@@ -861,7 +951,7 @@
                 <thead>
                   <tr>
                     <th>Nombre del Insumo</th>
-                    <th>SKU / Código</th>
+                    <th>Código interno</th>
                     <th>Categoría / Rubro</th>
                     <th>Descripción Técnica</th>
                     <th>Stock Mínimo Alerta</th>
@@ -920,6 +1010,35 @@
     </div>
   </div>
 
+  <!-- Modal: Venta rápida -->
+  <div id="modal-quick-sale" class="modal hidden">
+    <div class="modal-content glass card modal-xl quick-sale">
+      <div class="modal-header">
+        <h3>Registrar Venta</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
+      </div>
+      <div class="form-group multi-only" id="quick-sale-branch-group">
+        <label for="quick-sale-branch">Sucursal</label>
+        <select id="quick-sale-branch"></select>
+      </div>
+      <div class="quick-sale-layout">
+        <div class="quick-sale-search">
+          <label for="quick-sale-search">Buscar producto</label>
+          <input type="text" id="quick-sale-search" class="input-large" placeholder="Escribí el nombre o el código del producto" autocomplete="off">
+          <div id="quick-sale-results" class="quick-sale-results"></div>
+        </div>
+        <div class="quick-sale-cart">
+          <div class="item-list-header">
+            <span>Productos de la venta</span>
+            <span id="quick-sale-total" class="badge">0 unidades</span>
+          </div>
+          <div id="quick-sale-items" class="quick-sale-items"></div>
+          <button type="button" class="btn btn-success btn-block btn-large" id="btn-quick-sale-confirm">Confirmar venta</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Crear Usuario -->
   <div id="modal-create-user" class="modal hidden">
     <div class="modal-content glass card modal-lg">
@@ -974,9 +1093,9 @@
             <option value="Administrador">Administrador</option>
           </select>
         </div>
-        <div class="form-group">
+        <div class="form-group multi-only">
           <label for="new-user-space">Sucursal Asignada <span class="req">*</span></label>
-          <select id="new-user-space" required>
+          <select id="new-user-space">
             <option value="">Seleccionar Sucursal...</option>
           </select>
         </div>
@@ -1061,7 +1180,7 @@
             <option value="Administrador">Administrador</option>
           </select>
         </div>
-        <div class="form-group">
+        <div class="form-group multi-only">
           <label for="edit-user-space">Sucursal Asignada</label>
           <select id="edit-user-space">
             <option value="">Seleccionar Sucursal...</option>
@@ -1148,7 +1267,7 @@
       </div>
       <p class="hint-text">Usar para correcciones puntuales. Para ventas, roturas o vencidos conviene "Registrar Egreso"; para recuentos completos, "Conteo de Inventario".</p>
       <form id="form-stock-adjust" class="form-grid">
-        <div class="form-group">
+        <div class="form-group multi-only">
           <label for="adjust-branch">Sucursal <span class="req">*</span></label>
           <select id="adjust-branch" required></select>
         </div>
@@ -1259,16 +1378,18 @@
           <input type="number" id="prod-minstock" min="0" value="10" required>
         </div>
         <div class="form-group">
-          <label for="prod-sku">SKU <span class="opt">(código interno)</span></label>
+          <label for="prod-sku">Código interno <span class="opt">(opcional)</span></label>
           <input type="text" id="prod-sku" placeholder="Ej: GUA-LAT-M" maxlength="40">
-        </div>
-        <div class="form-group">
-          <label for="prod-barcode">Código de Barras</label>
-          <input type="text" id="prod-barcode" placeholder="Escaneá o escribí el código" maxlength="40">
         </div>
         <div class="form-group">
           <label for="prod-cost">Costo Unitario ($)</label>
           <input type="number" id="prod-cost" min="0" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group span-2">
+          <label class="checkbox-item checkbox-large">
+            <input type="checkbox" id="prod-perishable">
+            <span>Este producto tiene fecha de vencimiento <span class="opt">(al ingresar mercadería se pedirá el lote y la fecha)</span></span>
+          </label>
         </div>
         <div class="form-group span-2">
           <label for="prod-description">Descripción Técnica <span class="req">*</span></label>
@@ -1329,7 +1450,6 @@
         <div class="item-picker">
           <label class="picker-label">Agregar Insumo al Pedido:</label>
           <div class="picker-row">
-            <input type="text" class="scan-input" data-scan-target="order-modal-product-select" placeholder="Escanear código">
             <select id="order-modal-product-select" class="picker-grow"></select>
             <input type="number" id="order-modal-product-qty" min="1" value="1" class="picker-qty" title="Cantidad">
             <button type="button" id="btn-order-modal-add-item" class="btn btn-secondary">Agregar</button>
@@ -1379,7 +1499,7 @@
 
       <form id="form-create-stock-entry-modal" class="form-stack">
         <div class="form-grid">
-          <div class="form-group">
+          <div class="form-group multi-only">
             <label for="stock-modal-branch">Sucursal Destino <span class="req">*</span></label>
             <select id="stock-modal-branch" required></select>
           </div>
@@ -1393,10 +1513,6 @@
           <label class="picker-label">Datos del Insumo a Ingresar:</label>
           <div class="picker-grid">
             <div>
-              <label class="mini-label">Escanear</label>
-              <input type="text" class="scan-input" data-scan-target="stock-modal-product-select" placeholder="Código">
-            </div>
-            <div>
               <label class="mini-label">Insumo / Producto <span class="req">*</span></label>
               <select id="stock-modal-product-select"></select>
             </div>
@@ -1405,11 +1521,11 @@
               <input type="number" id="stock-modal-product-qty" min="1" value="1">
             </div>
             <div>
-              <label class="mini-label">Lote <span class="req">*</span></label>
+              <label class="mini-label">Lote <span class="req lot-req">*</span></label>
               <input type="text" id="stock-modal-lot-number" placeholder="Ej: LOT-2026-99">
             </div>
             <div>
-              <label class="mini-label">Vencimiento <span class="req">*</span></label>
+              <label class="mini-label">Vencimiento <span class="req lot-req">*</span></label>
               <input type="date" id="stock-modal-expiration-date">
             </div>
             <div>
@@ -1462,7 +1578,7 @@
 
       <form id="form-create-informal-entry-modal" class="form-stack">
         <div class="form-grid">
-          <div class="form-group">
+          <div class="form-group multi-only">
             <label for="informal-modal-branch">Sucursal Destino <span class="req">*</span></label>
             <select id="informal-modal-branch" required></select>
           </div>
@@ -1486,7 +1602,6 @@
         <div class="item-picker">
           <label class="picker-label">Agregar Artículo al Ingreso Extraordinario:</label>
           <div class="picker-row">
-            <input type="text" class="scan-input" data-scan-target="informal-modal-product-select" placeholder="Escanear código">
             <select id="informal-modal-product-select" class="picker-grow"></select>
             <input type="number" id="informal-modal-product-qty" min="1" value="1" class="picker-qty" title="Cantidad">
             <button type="button" id="btn-informal-modal-add-item" class="btn btn-secondary">Agregar</button>
@@ -1530,7 +1645,7 @@
 
       <form id="form-exit" class="form-stack">
         <div class="form-grid">
-          <div class="form-group">
+          <div class="form-group multi-only">
             <label for="exit-branch">Sucursal <span class="req">*</span></label>
             <select id="exit-branch" required></select>
           </div>
@@ -1554,7 +1669,6 @@
         <div class="item-picker">
           <label class="picker-label">Agregar artículo:</label>
           <div class="picker-row">
-            <input type="text" class="scan-input" data-scan-target="exit-product-select" placeholder="Escanear código">
             <select id="exit-product-select" class="picker-grow"></select>
             <input type="number" id="exit-product-qty" min="1" value="1" class="picker-qty" title="Cantidad">
             <button type="button" id="btn-exit-add-item" class="btn btn-secondary">Agregar</button>
@@ -1655,7 +1769,7 @@
             <label for="po-supplier">Proveedor <span class="req">*</span></label>
             <select id="po-supplier" required></select>
           </div>
-          <div class="form-group">
+          <div class="form-group multi-only">
             <label for="po-branch">Sucursal que recibe <span class="req">*</span></label>
             <select id="po-branch" required></select>
           </div>
@@ -1746,6 +1860,7 @@
   <script src="js/expirations.js"></script>
   <script src="js/counts.js"></script>
   <script src="js/suppliers.js"></script>
+  <script src="js/home.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

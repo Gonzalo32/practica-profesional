@@ -223,7 +223,7 @@ document.getElementById('btn-open-po-modal')?.addEventListener('click', async ()
   if (!state.suppliers.length) return showToast('Primero registrá al menos un proveedor.', 'error');
   document.getElementById('form-po').reset();
   fillSelect(document.getElementById('po-supplier'), state.suppliers, { placeholder: 'Seleccionar proveedor...', placeholderDisabled: true });
-  fillSelect(document.getElementById('po-branch'), state.branches, { placeholder: 'Seleccionar sucursal...', placeholderDisabled: true, getLabel: branchLabel, value: userBranchId() });
+  fillSelect(document.getElementById('po-branch'), entryBranches(), { placeholder: 'Seleccionar sucursal...', placeholderDisabled: true, getLabel: branchLabel, value: userBranchId() });
   fillPoProducts();
   draftPoItems = [];
   renderPoItems();
@@ -289,8 +289,10 @@ window.openReceivePoModal = (poId) => {
     <tr>
       <td><strong>${escapeHtml(i.productName)}</strong></td>
       <td class="col-center">${i.quantity}</td>
-      <td><input type="text" required data-lot-for="${i.productId}" placeholder="N° de lote"></td>
-      <td><input type="date" required data-exp-for="${i.productId}"></td>
+      ${i.perishable
+        ? `<td><input type="text" required data-lot-for="${i.productId}" placeholder="N° de lote"></td>
+      <td><input type="date" required data-exp-for="${i.productId}"></td>`
+        : '<td colspan="2" class="muted">No vence: no requiere lote</td>'}
     </tr>`).join('');
   openModal('modal-po-receive');
 };
@@ -300,8 +302,8 @@ document.getElementById('form-po-receive')?.addEventListener('submit', async (e)
   if (!receivingPo) return;
   const lots = receivingPo.items.map(i => ({
     productId: i.productId,
-    lotNumber: document.querySelector(`[data-lot-for="${i.productId}"]`).value.trim(),
-    expirationDate: document.querySelector(`[data-exp-for="${i.productId}"]`).value
+    lotNumber: document.querySelector(`[data-lot-for="${i.productId}"]`)?.value.trim() || null,
+    expirationDate: document.querySelector(`[data-exp-for="${i.productId}"]`)?.value || null
   }));
   try {
     const res = await apiFetch(`/suppliers/purchase-orders/${receivingPo.id}/receive`, { method: 'POST', body: JSON.stringify({ lots }) });

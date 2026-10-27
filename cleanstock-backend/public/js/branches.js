@@ -169,9 +169,12 @@ async function loadStockForBranch(branchId) {
 }
 
 function filteredStockItems() {
+  const onlyLow = document.getElementById('stock-view-filter').value === 'low';
   return currentStockItems.filter(item => {
     const p = item.Producto || {};
-    return !stockSearch || [p.name, p.sku, p.barcode].join(' ').toLowerCase().includes(stockSearch);
+    const matchesSearch = !stockSearch || [p.name, p.sku].join(' ').toLowerCase().includes(stockSearch);
+    const isLow = item.quantity <= (item.effectiveMinStock || 0);
+    return matchesSearch && (!onlyLow || isLow);
   });
 }
 
@@ -188,7 +191,8 @@ function renderStockTable() {
   const tbody = document.getElementById('table-branch-stock-body');
   const items = filteredStockItems();
   if (!items.length) {
-    renderEmptyRow(tbody, 9, stockSearch ? 'Sin resultados' : 'Esta sucursal no tiene stock registrado aún');
+    const onlyLow = document.getElementById('stock-view-filter').value === 'low';
+    renderEmptyRow(tbody, 9, stockSearch ? 'Sin resultados' : onlyLow ? 'No hay productos con stock bajo' : 'Esta sucursal no tiene stock registrado aún');
     return;
   }
   tbody.innerHTML = items.map(item => {
@@ -214,6 +218,7 @@ function renderStockTable() {
 document.getElementById('stock-view-branch-select')?.addEventListener('change', (e) => {
   if (e.target.value) loadStockForBranch(e.target.value);
 });
+document.getElementById('stock-view-filter')?.addEventListener('change', renderStockTable);
 document.getElementById('stock-view-search')?.addEventListener('input', debounce((e) => {
   stockSearch = e.target.value.toLowerCase().trim();
   renderStockTable();

@@ -32,7 +32,7 @@ function renderCatalogTable() {
   const q = catalogFilters.search;
 
   const filtered = state.products.filter(p => {
-    const haystack = [p.name, p.description, p.sku, p.barcode].join(' ').toLowerCase();
+    const haystack = [p.name, p.description, p.sku].join(' ').toLowerCase();
     const matchesSearch = !q || haystack.includes(q);
     const matchesCategory = !catalogFilters.category || String(p.categoryId) === String(catalogFilters.category);
     return matchesSearch && matchesCategory;
@@ -45,10 +45,9 @@ function renderCatalogTable() {
 
   tbody.innerHTML = filtered.map(p => `
     <tr>
-      <td><strong>${escapeHtml(p.name)}</strong></td>
+      <td><strong>${escapeHtml(p.name)}</strong>${p.perishable ? '<div class="cell-detail">Con vencimiento</div>' : ''}</td>
       <td>
         ${p.sku ? `<span class="badge">${escapeHtml(p.sku)}</span>` : '<span class="muted">—</span>'}
-        ${p.barcode ? `<div class="cell-detail mono">${escapeHtml(p.barcode)}</div>` : ''}
       </td>
       <td><span class="badge">${escapeHtml(p.Category?.name || 'Sin categoría')}</span></td>
       <td><span class="cell-detail">${escapeHtml(p.description || 'Sin descripción')}</span></td>
@@ -71,19 +70,15 @@ window.openProductModal = async (productId = null) => {
   document.getElementById('prod-description').value = product?.description || '';
   document.getElementById('prod-minstock').value = product ? (product.minimumStock || 0) : 10;
   document.getElementById('prod-sku').value = product?.sku || '';
-  document.getElementById('prod-barcode').value = product?.barcode || '';
   document.getElementById('prod-cost').value = product?.costPrice || '';
+  // Productos nuevos: sin vencimiento por defecto (lo más común en un almacén)
+  document.getElementById('prod-perishable').checked = product ? product.perishable !== false : false;
 
   document.getElementById('modal-product-title').textContent = product ? `Editar ${product.name}` : 'Agregar Nuevo Insumo al Catálogo';
   document.getElementById('btn-product-submit').textContent = product ? 'Guardar Cambios' : 'Agregar Producto';
   openModal('modal-product');
 };
 document.getElementById('btn-open-create-product-modal')?.addEventListener('click', () => openProductModal());
-
-// El lector de códigos envía Enter: en este campo no tiene que enviar el formulario
-document.getElementById('prod-barcode')?.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') e.preventDefault();
-});
 
 document.getElementById('form-product')?.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -95,8 +90,8 @@ document.getElementById('form-product')?.addEventListener('submit', async (e) =>
     description: document.getElementById('prod-description').value.trim(),
     minimumStock: parseInt(document.getElementById('prod-minstock').value, 10) || 0,
     sku: document.getElementById('prod-sku').value.trim() || null,
-    barcode: document.getElementById('prod-barcode').value.trim() || null,
-    costPrice: costValue === '' ? 0 : Number(costValue)
+    costPrice: costValue === '' ? 0 : Number(costValue),
+    perishable: document.getElementById('prod-perishable').checked
   };
 
   try {

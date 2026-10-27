@@ -8,6 +8,7 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const { mongoose } = require('../config/database');
 const app = require('../app');
 const { User, PhysicalSpace, Product, Category } = require('../models');
+const { clearSettingsCache } = require('../services/settingsService');
 
 let mongoServer;
 
@@ -25,6 +26,7 @@ const stopDatabase = async () => {
 const clearDatabase = async () => {
   const collections = await mongoose.connection.db.collections();
   await Promise.all(collections.map(c => c.deleteMany({})));
+  clearSettingsCache();
 };
 
 const PASSWORD = 'clave123';

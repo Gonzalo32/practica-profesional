@@ -333,7 +333,7 @@ function readUserForm(prefix) {
 document.getElementById('form-create-user')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const data = { ...readUserForm('new-user'), password: document.getElementById('new-user-password').value };
-  if (data.role !== 'Proveedor' && !data.physicalSpaceId) {
+  if (!isSingleBranch() && data.role !== 'Proveedor' && !data.physicalSpaceId) {
     showToast('Seleccioná la sucursal del usuario.', 'error');
     return;
   }
@@ -606,3 +606,67 @@ registerExporter('logs', async () => ({
   ],
   rows: (await apiFetch(logQuery({ page: 1, limit: 0 }))).items
 }));
+
+// --------------------------------------------------------------------------
+// Configuración del negocio: nombre y modo de trabajo (un solo local o varias sucursales)
+// --------------------------------------------------------------------------
+function updateSettingsFormVisibility() {
+  const single = document.querySelector('input[name="settings-mode"]:checked')?.value === 'single';
+  const group = document.getElementById('settings-main-branch-group');
+  group.classList.toggle('hidden', !single);
+  const hint = document.getElementById('settings-main-branch-hint');
+  const select = document.getElementById('settings-main-branch');
+  if (!state.branches.length) {
+    select.classList.add('hidden');
+    hint.textContent = 'Todavía no hay locales cargados: al guardar se creará uno con el nombre del negocio.';
+  } else {
+    select.classList.remove('hidden');
+    hint.textContent = 'Todas las ventas, ingresos y salidas se registran en este local.';
+  }
+}
+
+async function loadSettingsForm() {
+  await loadSettings();
+  const s = state.settings;
+  document.getElementById('settings-business-name').value = s.businessName || '';
+  document.querySelector(`input[name="settings-mode"][value="${s.singleBranchMode ? 'single' : 'multi'}"]`).checked = true;
+  fillSelect(document.getElementById('settings-main-branch'), state.branches, { getLabel: branchLabel, value: s.mainBranchId || state.branches[0]?.id });
+  updateSettingsFormVisibility();
+}
+onSubTab('subpanel-admin-settings', loadSettingsForm);
+
+document.querySelectorAll('input[name="settings-mode"]').forEach(r => r.addEventListener('change', updateSettingsFormVisibility));
+
+document.getElementById('form-settings')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const single = document.querySelector('input[name="settings-mode"]:checked')?.value === 'single';
+  const data = {
+    businessName: document.getElementById('settings-business-name').value.trim(),
+    singleBranchMode: single
+  };
+  if (single && state.branches.length) data.mainBranchId = document.getElementById('settings-main-branch').value;
+
+  const changingMode = single !== !!state.settings?.singleBranchMode;
+  if (changingMode) {
+    const ok = await confirmDialog({
+      title: 'Cambiar el modo de trabajo',
+      message: single
+        ? 'Se ocultarán las sucursales, los pedidos entre sucursales y el panel de despacho. Todas las operaciones se registrarán en el local principal. Puede volver a cambiarlo cuando lo necesite.'
+        : 'Se mostrarán nuevamente las sucursales, los pedidos entre sucursales y el panel de despacho.',
+      confirmText: 'Cambiar modo'
+    });
+    if (!ok) return;
+  }
+
+  try {
+    state.settings = await apiFetch('/settings', { method: 'PUT', body: JSON.stringify(data) });
+    applySettingsToUI();
+    showToast('Configuración guardada.', 'success');
+    if (changingMode) {
+      await loadBaseData();
+      renderNavigation();
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+});

@@ -43,6 +43,7 @@ function logout() {
   localStorage.removeItem('cleanstock_token');
   localStorage.removeItem('cleanstock_user');
   stopNotificationPolling();
+  document.body.classList.remove('single-branch');
 
   document.getElementById('login-view').classList.remove('hidden');
   document.getElementById('main-view').classList.add('hidden');
@@ -99,9 +100,14 @@ async function initApp() {
     updateSidebarUserProfile();
   } catch (err) {
     if (!state.token) return; // sesión vencida: apiFetch ya volvió al login
+    // El usuario de la sesión guardada ya no existe (por ejemplo, se reinició la base)
+    if (err.message === 'Usuario no encontrado') {
+      logout();
+      return;
+    }
   }
 
-  await loadBaseData();
+  await Promise.all([loadSettings(), loadBaseData()]);
   renderNavigation();
   startNotificationPolling();
 }
@@ -110,6 +116,7 @@ async function initApp() {
 // Navegación según el rol
 // --------------------------------------------------------------------------
 const NAV_ICONS = {
+  home: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
   admin: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
   catalog: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
   categories: '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
@@ -125,6 +132,7 @@ const NAV_ICONS = {
 
 const NAV_BY_ROLE = {
   Administrador: [
+    ['home', 'Inicio'],
     ['admin', 'Control Administrador'],
     ['catalog', 'Catálogo'],
     ['categories', 'Categorías'],
@@ -141,6 +149,7 @@ const NAV_BY_ROLE = {
     ['solicitante', 'Catálogo y Pedidos']
   ],
   'Usuario Responsable': [
+    ['home', 'Inicio'],
     ['responsable', 'Ingresos y Egresos'],
     ['stock-view', 'Stock de mi Sucursal'],
     ['expirations', 'Vencimientos'],
@@ -157,10 +166,23 @@ const NAV_BY_ROLE = {
   ]
 };
 
+// Secciones que no aplican a un comercio de un solo local
+const MULTI_BRANCH_SECTIONS = ['branches', 'solicitante', 'despachante'];
+
+function navigationForUser() {
+  let tabs = NAV_BY_ROLE[state.user.role] || [];
+  if (isSingleBranch() && ['Administrador', 'Usuario Responsable'].includes(state.user.role)) {
+    tabs = tabs
+      .filter(([id]) => !MULTI_BRANCH_SECTIONS.includes(id))
+      .map(([id, label]) => (id === 'stock-view' ? [id, 'Stock del Local'] : [id, label]));
+  }
+  return tabs;
+}
+
 function renderNavigation() {
   const nav = document.getElementById('main-navigation');
   nav.innerHTML = '';
-  const tabs = NAV_BY_ROLE[state.user.role] || [];
+  const tabs = navigationForUser();
 
   tabs.forEach(([id, label], index) => {
     const tabEl = document.createElement('button');
@@ -202,6 +224,7 @@ function activatePanel(panelId) {
 
 function refreshPanelData(panelId) {
   const loaders = {
+    'panel-home': loadHomePanel,
     'panel-admin': loadAdminPanel,
     'panel-catalog': loadCatalogPanel,
     'panel-categories': loadCategoriesPanel,

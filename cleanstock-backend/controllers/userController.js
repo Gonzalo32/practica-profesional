@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { User, ActivityLog } = require('../models');
 const { toId, escapeRegex, parsePagination, startOfDay } = require('../utils/format');
+const { getSettings } = require('../services/settingsService');
 
 // T2.1: Crear nuevo usuario (Solo Administrador)
 const createUser = async (req, res) => {
@@ -15,11 +16,15 @@ const createUser = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
+    // En modo de un solo local, todos trabajan en el local principal
+    const settings = await getSettings();
+    const branchId = physicalSpaceId || (settings.singleBranchMode ? settings.mainBranchId : null);
+
     const newUser = await User.create({
       username,
       passwordHash,
       role: role || 'Solicitante',
-      physicalSpaceId: physicalSpaceId || null,
+      physicalSpaceId: branchId || null,
       supplierId: role === 'Proveedor' ? (supplierId || null) : null,
       firstName: firstName || null,
       lastName: lastName || null,
