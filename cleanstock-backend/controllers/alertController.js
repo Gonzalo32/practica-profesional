@@ -1,71 +1,189 @@
-const { BranchStock, Product, Category, PhysicalSpace, ActivityLog, User, Order } = require('../models');
+const { BranchStock, Product, PhysicalSpace, ActivityLog, Order, StockEntry } = require('../models');
+const { toId, startOfDay } = require('../utils/format');
 
 // ─── Módulo 1: Sistema de Alertas de Stock Bajo ───────────────────────────────
 
+const effectiveMinFor = (item, prod) => (
+  item.branchMinStock !== null && item.branchMinStock !== undefined
+    ? item.branchMinStock
+    : (prod?.minimumStock || 0)
+);
+
+const branchScope = (user) => {
+  if (user.role === 'Administrador') return {};
+  return user.branchId ? { branchId: user.branchId } : null;
+};
+
+const buildStockAlerts = async (user) => {
+  const scope = branchScope(user);
+  if (!scope) return [];
+
+  const allStock = await BranchStock.find(scope)
+    .populate({
+      path: 'productId',
+      populate: { path: 'categoryId' }
+    })
+    .populate('branchId', 'name type')
+    .lean();
+
+  return allStock
+    .filter(item => {
+      const prod = item.productId && typeof item.productId === 'object' ? item.productId : null;
+      return prod && item.quantity <= effectiveMinFor(item, prod);
+    })
+    .map(item => {
+      const prod = item.productId;
+      const branch = item.branchId && typeof item.branchId === 'object' ? item.branchId : null;
+      const category = prod.categoryId && typeof prod.categoryId === 'object' ? prod.categoryId : null;
+      const effectiveMin = effectiveMinFor(item, prod);
+
+      return {
+        branchId: branch ? branch._id.toString() : toId(item.branchId),
+        branchName: branch?.name || 'Sin nombre',
+        branchType: branch?.type || '',
+        productId: prod._id.toString(),
+        productName: prod.name,
+        categoryName: category?.name || '—',
+        currentQuantity: item.quantity,
+        reservedQuantity: item.reservedQuantity || 0,
+        availableQuantity: Math.max(0, item.quantity - (item.reservedQuantity || 0)),
+        minimumStock: effectiveMin,
+        deficit: Math.max(0, effectiveMin - item.quantity),
+        severity: item.quantity === 0 ? 'CRITICO' : 'BAJO'
+      };
+    })
+    .sort((a, b) => a.currentQuantity - b.currentQuantity); // Más críticos primero
+};
+
 /**
  * GET /api/alerts
- * Retorna todos los pares (sucursal, producto) donde el stock actual
- * está por debajo del mínimo definido (por sucursal o global del producto).
+ * Pares (sucursal, producto) con stock por debajo del mínimo.
  * Admin ve todo. Otros roles solo ven su propia sucursal.
  */
 const getStockAlerts = async (req, res) => {
   try {
-    const user = req.user;
-
-    const whereClause = {};
-    if (user.role !== 'Administrador') {
-      if (!user.branchId) {
-        return res.json([]); // Sin sucursal asignada → sin alertas
-      }
-      whereClause.branchId = user.branchId;
-    }
-
-    const allStock = await BranchStock.find(whereClause)
-      .populate({
-        path: 'productId',
-        populate: { path: 'categoryId' }
-      })
-      .populate('branchId', 'name type')
-      .lean();
-
-    // Filtrar items donde quantity <= mínimo efectivo
-    const alerts = allStock
-      .filter(item => {
-        const prod = item.productId && typeof item.productId === 'object' ? item.productId : null;
-        const effectiveMin = item.branchMinStock !== null && item.branchMinStock !== undefined
-          ? item.branchMinStock
-          : (prod?.minimumStock || 0);
-        return item.quantity <= effectiveMin;
-      })
-      .map(item => {
-        const prod = item.productId && typeof item.productId === 'object' ? item.productId : null;
-        const branch = item.branchId && typeof item.branchId === 'object' ? item.branchId : null;
-        const category = prod && prod.categoryId && typeof prod.categoryId === 'object' ? prod.categoryId : null;
-
-        const effectiveMin = item.branchMinStock !== null && item.branchMinStock !== undefined
-          ? item.branchMinStock
-          : (prod?.minimumStock || 0);
-        const severity = item.quantity === 0 ? 'CRITICO' : 'BAJO';
-
-        return {
-          branchId: branch ? branch._id.toString() : (item.branchId ? item.branchId.toString() : 'N/A'),
-          branchName: branch?.name || 'Sin nombre',
-          branchType: branch?.type || '',
-          productId: prod ? prod._id.toString() : (item.productId ? item.productId.toString() : 'N/A'),
-          productName: prod?.name || 'N/A',
-          categoryName: category?.name || '—',
-          currentQuantity: item.quantity,
-          reservedQuantity: item.reservedQuantity || 0,
-          availableQuantity: item.quantity - (item.reservedQuantity || 0),
-          minimumStock: effectiveMin,
-          severity
-        };
-      })
-      .sort((a, b) => a.currentQuantity - b.currentQuantity); // Más críticos primero
-
-    res.json(alerts);
+    res.json(await buildStockAlerts(req.user));
   } catch (error) {
     res.status(500).json({ message: 'Error obteniendo alertas de stock', error: error.message });
+  }
+};
+
+/**
+ * Lotes con stock que vencen dentro de `days` días (o ya vencidos).
+ */
+const buildExpirationAlerts = async (user, days = 30) => {
+  const scope = branchScope(user);
+  if (!scope) return [];
+
+  const today = startOfDay();
+  const limitDate = new Date(today);
+  limitDate.setDate(limitDate.getDate() + days + 1);
+
+  const lots = await StockEntry.find({
+    ...scope,
+    branchId: scope.branchId || { $ne: null },
+    remaining: { $gt: 0 },
+    status: { $ne: 'AGOTADO' },
+    expirationDate: { $lt: limitDate }
+  })
+    .populate('productId', 'name')
+    .populate('branchId', 'name')
+    .sort({ expirationDate: 1 })
+    .lean();
+
+  return lots.map(l => {
+    const exp = startOfDay(l.expirationDate);
+    const daysLeft = Math.round((exp - today) / 86400000);
+    return {
+      id: l._id.toString(),
+      lotNumber: l.lotNumber,
+      expirationDate: l.expirationDate,
+      daysLeft,
+      remaining: l.remaining,
+      productId: toId(l.productId),
+      productName: l.productId?.name || '—',
+      branchId: toId(l.branchId),
+      branchName: l.branchId?.name || '—',
+      severity: daysLeft < 0 ? 'VENCIDO' : daysLeft <= 7 ? 'URGENTE' : 'POR_VENCER'
+    };
+  });
+};
+
+/**
+ * GET /api/alerts/expirations?days=30
+ */
+const getExpirationAlerts = async (req, res) => {
+  try {
+    const days = Math.min(365, Math.max(0, parseInt(req.query.days, 10) || 30));
+    res.json(await buildExpirationAlerts(req.user, days));
+  } catch (error) {
+    res.status(500).json({ message: 'Error obteniendo vencimientos', error: error.message });
+  }
+};
+
+/**
+ * GET /api/alerts/summary
+ * Resumen para la campanita de notificaciones del encabezado.
+ */
+const getAlertSummary = async (req, res) => {
+  try {
+    const user = req.user;
+    const canSeeStock = ['Administrador', 'Usuario Responsable', 'Despachante'].includes(user.role);
+
+    const [stockAlerts, expirations] = canSeeStock
+      ? await Promise.all([buildStockAlerts(user), buildExpirationAlerts(user, 30)])
+      : [[], []];
+
+    let pendingApprovals = 0;
+    if (user.role === 'Administrador') {
+      pendingApprovals = await Order.countDocuments({ status: 'PENDIENTE_VALIDACION' });
+    }
+
+    // Pedidos despachados que el usuario tiene que confirmar como recibidos
+    let toReceive = 0;
+    if (user.role === 'Solicitante') {
+      toReceive = await Order.countDocuments({ status: 'DESPACHADO', solicitanteId: user.id });
+    } else if (user.role === 'Usuario Responsable' && user.branchId) {
+      toReceive = await Order.countDocuments({ status: 'DESPACHADO', toBranchId: user.branchId });
+    } else if (user.role === 'Administrador') {
+      toReceive = await Order.countDocuments({ status: 'DESPACHADO' });
+    }
+
+    let toDispatch = 0;
+    if (user.role === 'Despachante') {
+      toDispatch = await Order.countDocuments({ status: { $in: ['PENDIENTE', 'EN_PREPARACION'] } });
+    }
+
+    const items = [];
+    stockAlerts.slice(0, 5).forEach(a => items.push({
+      kind: 'stock',
+      severity: a.severity === 'CRITICO' ? 'danger' : 'warning',
+      title: a.severity === 'CRITICO' ? 'Sin stock' : 'Stock bajo',
+      text: `${a.productName} en ${a.branchName}: ${a.currentQuantity} u. (mínimo ${a.minimumStock})`
+    }));
+    expirations.slice(0, 5).forEach(e => items.push({
+      kind: 'expiration',
+      severity: e.severity === 'POR_VENCER' ? 'warning' : 'danger',
+      title: e.daysLeft < 0 ? 'Lote vencido' : `Vence en ${e.daysLeft} día${e.daysLeft === 1 ? '' : 's'}`,
+      text: `${e.productName} (lote ${e.lotNumber}) en ${e.branchName}: ${e.remaining} u.`
+    }));
+    if (pendingApprovals) items.unshift({ kind: 'approval', severity: 'info', title: 'Pedidos para aprobar', text: `${pendingApprovals} pedido(s) esperan validación` });
+    if (toReceive) items.unshift({ kind: 'receive', severity: 'info', title: 'Pedidos en camino', text: `${toReceive} pedido(s) despachados para confirmar recepción` });
+    if (toDispatch) items.unshift({ kind: 'dispatch', severity: 'info', title: 'Pedidos para despachar', text: `${toDispatch} pedido(s) pendientes o en preparación` });
+
+    res.json({
+      lowStock: stockAlerts.length,
+      critical: stockAlerts.filter(a => a.severity === 'CRITICO').length,
+      expiring: expirations.filter(e => e.daysLeft >= 0).length,
+      expired: expirations.filter(e => e.daysLeft < 0).length,
+      pendingApprovals,
+      toReceive,
+      toDispatch,
+      total: stockAlerts.length + expirations.length + pendingApprovals + toReceive + toDispatch,
+      items
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error obteniendo resumen de alertas', error: error.message });
   }
 };
 
@@ -81,32 +199,35 @@ const getKPIs = async (req, res) => {
 
     const activeAlerts = allStock.filter(item => {
       const prod = item.productId && typeof item.productId === 'object' ? item.productId : null;
-      const effectiveMin = item.branchMinStock !== null && item.branchMinStock !== undefined
-        ? item.branchMinStock
-        : (prod?.minimumStock || 0);
-      return item.quantity <= effectiveMin;
+      return prod && item.quantity <= effectiveMinFor(item, prod);
     }).length;
 
     const criticalAlerts = allStock.filter(item => item.quantity === 0).length;
 
-    // Pedidos en tránsito
-    const inTransitOrders = await Order.countDocuments({
-      status: { $in: ['PENDIENTE', 'EN_PREPARACION', 'DESPACHADO'] }
-    });
+    const inventoryValue = allStock.reduce((acc, item) => {
+      const cost = item.productId && typeof item.productId === 'object' ? (item.productId.costPrice || 0) : 0;
+      return acc + item.quantity * cost;
+    }, 0);
 
-    // Ingresos de stock registrados hoy
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayLogs = await ActivityLog.countDocuments({
-      action: { $in: ['REGISTER_STOCK', 'STOCK_ENTRY', 'INFORMAL_ENTRY'] },
-      createdAt: { $gte: today }
-    });
+    const [inTransitOrders, totalOrders, todayStockEntries, expirations] = await Promise.all([
+      Order.countDocuments({ status: { $in: ['PENDIENTE', 'EN_PREPARACION', 'DESPACHADO'] } }),
+      Order.countDocuments(),
+      ActivityLog.countDocuments({
+        action: { $in: ['REGISTER_STOCK', 'STOCK_ENTRY', 'INFORMAL_ENTRY'] },
+        createdAt: { $gte: startOfDay() }
+      }),
+      buildExpirationAlerts(req.user, 30)
+    ]);
 
     res.json({
       activeAlerts,
       criticalAlerts,
       inTransitOrders,
-      todayStockEntries: todayLogs
+      totalOrders,
+      todayStockEntries,
+      inventoryValue,
+      expiringLots: expirations.filter(e => e.daysLeft >= 0).length,
+      expiredLots: expirations.filter(e => e.daysLeft < 0).length
     });
   } catch (error) {
     res.status(500).json({ message: 'Error obteniendo KPIs', error: error.message });
@@ -121,22 +242,25 @@ const setBranchMinStock = async (req, res) => {
   try {
     const { branchId, productId, branchMinStock } = req.body;
 
-    if (!branchId || !productId) {
-      return res.status(400).json({ message: 'branchId y productId son obligatorios' });
+    const [product, branch] = await Promise.all([
+      Product.findById(productId),
+      PhysicalSpace.findById(branchId)
+    ]);
+    if (!product || !branch) {
+      return res.status(404).json({ message: 'Producto o sucursal no encontrados' });
     }
 
-    let stockRecord = await BranchStock.findOne({ branchId, productId });
-    if (!stockRecord) {
-      stockRecord = new BranchStock({ branchId, productId, quantity: 0, reservedQuantity: 0 });
-    }
-
-    stockRecord.branchMinStock = branchMinStock !== undefined ? branchMinStock : null;
-    await stockRecord.save();
+    const value = branchMinStock !== undefined && branchMinStock !== null && branchMinStock !== '' ? Number(branchMinStock) : null;
+    const stockRecord = await BranchStock.findOneAndUpdate(
+      { branchId, productId },
+      { $set: { branchMinStock: value }, $setOnInsert: { quantity: 0, reservedQuantity: 0 } },
+      { new: true, upsert: true }
+    );
 
     await ActivityLog.create({
       userId: req.user.id,
       action: 'SET_MIN_STOCK',
-      details: `Stock mínimo para producto ${productId} en sucursal ${branchId} configurado a ${branchMinStock}`
+      details: `Stock mínimo de "${product.name}" en sucursal "${branch.name}" configurado a ${value === null ? 'el mínimo general del producto' : value}`
     });
 
     res.json({ message: 'Stock mínimo actualizado', stockRecord });
@@ -146,7 +270,10 @@ const setBranchMinStock = async (req, res) => {
 };
 
 module.exports = {
+  buildStockAlerts,
   getStockAlerts,
+  getExpirationAlerts,
+  getAlertSummary,
   getKPIs,
   setBranchMinStock
 };

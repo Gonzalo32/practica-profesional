@@ -1,6 +1,12 @@
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_cleanstock_key';
+// El secreto tiene que venir del .env. Si falta, se genera uno aleatorio para que
+// nadie pueda firmar tokens con un valor conocido (las sesiones se cierran al reiniciar).
+const JWT_SECRET = process.env.JWT_SECRET || (() => {
+  console.warn('ADVERTENCIA: falta JWT_SECRET en el .env. Se usa un secreto temporal; las sesiones se cerrarán al reiniciar el servidor.');
+  return crypto.randomBytes(48).toString('hex');
+})();
 
 // T1.3: Middleware para validar token
 const verifyToken = (req, res, next) => {
@@ -64,7 +70,12 @@ const requireBranchAccess = (req, res, next) => {
   next();
 };
 
+// Para controladores: el Administrador accede a todas las sucursales, el resto solo a la propia
+const canAccessBranch = (user, branchId) =>
+  user.role === 'Administrador' || (!!user.branchId && String(user.branchId) === String(branchId));
+
 module.exports = {
+  canAccessBranch,
   verifyToken,
   requireRole,
   requireBranchAccess,

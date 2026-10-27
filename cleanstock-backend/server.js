@@ -1,79 +1,59 @@
 require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const { syncDatabase } = require('./models');
-const authRoutes = require('./routes/authRoutes');
-const userRoutes = require('./routes/userRoutes');
-const inventoryRoutes = require('./routes/inventoryRoutes');
-const orderRoutes = require('./routes/orderRoutes');
-const branchRoutes = require('./routes/branchRoutes');
-const alertRoutes = require('./routes/alertRoutes');
+const bcrypt = require('bcryptjs');
+const app = require('./app');
+const { syncDatabase, User } = require('./models');
+const { markExpiredLots } = require('./services/stockService');
 
-const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/inventory', inventoryRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/branches', branchRoutes);
-app.use('/api/alerts', alertRoutes);
-
-// Test Route
-app.get('/api/ping', (req, res) => {
-  res.json({ message: 'pong' });
-});
-
-const bcrypt = require('bcryptjs');
-const { User } = require('./models');
-
+// Crea el administrador inicial solo si todavía no existe ninguno.
+// Nunca pisa la contraseña de un administrador existente.
 const autoSeedAdmin = async () => {
   try {
+    const hasAdmin = await User.exists({ role: 'Administrador' });
+    if (hasAdmin) return;
+
     const username = 'admin@cleanstock.com';
-    const email = 'admin@cleanstock.com';
-    let user = await User.findOne({ username });
-    if (!user) {
-      user = await User.findOne({ role: 'Administrador' });
-    }
-    if (!user) {
-      const salt = await bcrypt.genSalt(10);
-      const passwordHash = await bcrypt.hash('admin123', salt);
-      await User.create({
-        username,
-        email,
-        passwordHash,
-        role: 'Administrador',
-        firstName: 'Administrador',
-        lastName: 'Principal',
-        phone: '1122334455',
-        document: '20-12345678-9',
-        cuil: '20-12345678-9',
-        birthDate: '1990-01-01',
-        address: 'Av. Central 123',
-        zipCode: '1000',
-        isActive: true
-      });
-      console.log('Usuario admin auto-generado: admin@cleanstock.com / admin123');
-    }
+    const password = process.env.ADMIN_INITIAL_PASSWORD || 'admin123';
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password, salt);
+    await User.create({
+      username,
+      email: username,
+      passwordHash,
+      role: 'Administrador',
+      firstName: 'Administrador',
+      lastName: 'Principal',
+      isActive: true
+    });
+    console.log(`Usuario administrador inicial creado: ${username} (cambiá la contraseña después de ingresar)`);
   } catch (err) {
-    console.error('Error auto-seeding admin:', err.message);
+    console.error('Error creando el administrador inicial:', err.message);
   }
+};
+
+// Revisa los vencimientos al iniciar y luego una vez por hora
+const scheduleExpirationCheck = () => {
+  const run = async () => {
+    try {
+      const expired = await markExpiredLots();
+      if (expired > 0) console.log(`${expired} lote(s) marcados como VENCIDOS`);
+    } catch (err) {
+      console.error('Error revisando vencimientos:', err.message);
+    }
+  };
+  run();
+  setInterval(run, 60 * 60 * 1000).unref();
 };
 
 // Start Server
 const startServer = async () => {
   await syncDatabase();
   await autoSeedAdmin();
+  scheduleExpirationCheck();
   app.listen(PORT, () => {
     console.log(`Servidor de CleanStock corriendo en http://localhost:${PORT}`);
   });
 };
 
 startServer();
-

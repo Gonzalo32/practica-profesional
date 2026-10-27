@@ -8,6 +8,11 @@ const Order = require('./Order');
 const OrderItem = require('./OrderItem');
 const PhysicalSpace = require('./PhysicalSpace');
 const BranchStock = require('./BranchStock');
+const Supplier = require('./Supplier');
+const PurchaseOrder = require('./PurchaseOrder');
+const StockMovement = require('./StockMovement');
+const InventoryCount = require('./InventoryCount');
+const { Counter, nextSequence } = require('./Counter');
 
 const syncDatabase = async () => {
   await connectDB();
@@ -25,5 +30,11 @@ module.exports = {
   Order,
   OrderItem,
   PhysicalSpace,
-  BranchStock
+  BranchStock,
+  Supplier,
+  PurchaseOrder,
+  StockMovement,
+  InventoryCount,
+  Counter,
+  nextSequence
 };
