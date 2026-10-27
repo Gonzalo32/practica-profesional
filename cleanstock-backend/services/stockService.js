@@ -1,4 +1,5 @@
 const { BranchStock, StockEntry, StockMovement } = require('../models');
+const { todayAsUTCDate } = require('../utils/format');
 
 // Todas las operaciones sobre BranchStock son atómicas: la condición y la
 // modificación viajan en una sola consulta a MongoDB, así dos usuarios
@@ -15,7 +16,7 @@ const subtractReserved = (qty) => ({
 // Suma unidades al stock de una sucursal (crea el registro si no existe).
 const increaseStock = async (branchId, productId, qty) => {
   const update = { $inc: { quantity: qty }, $setOnInsert: { reservedQuantity: 0 } };
-  const options = { new: true, upsert: true };
+  const options = { returnDocument: 'after', upsert: true };
   try {
     return await BranchStock.findOneAndUpdate({ branchId, productId }, update, options);
   } catch (error) {
@@ -31,21 +32,21 @@ const increaseStock = async (branchId, productId, qty) => {
 const decreaseAvailableStock = (branchId, productId, qty) => BranchStock.findOneAndUpdate(
   { branchId, productId, ...availableAtLeast(qty) },
   { $inc: { quantity: -qty } },
-  { new: true }
+  { returnDocument: 'after' }
 );
 
 // Reserva unidades para un pedido. Devuelve null si no hay disponible suficiente.
 const reserveStock = (branchId, productId, qty) => BranchStock.findOneAndUpdate(
   { branchId, productId, ...availableAtLeast(qty) },
   { $inc: { reservedQuantity: qty } },
-  { new: true }
+  { returnDocument: 'after' }
 );
 
 // Libera una reserva (pedido rechazado o reserva revertida).
 const releaseReservation = (branchId, productId, qty) => BranchStock.findOneAndUpdate(
   { branchId, productId },
   [{ $set: { reservedQuantity: subtractReserved(qty) } }],
-  { new: true, updatePipeline: true }
+  { returnDocument: 'after', updatePipeline: true }
 );
 
 // Entrega de un pedido: descuenta del origen las unidades reservadas.
@@ -56,14 +57,14 @@ const consumeReservedStock = async (branchId, productId, qty) => {
     const full = await BranchStock.findOneAndUpdate(
       { branchId, productId, quantity: { $gte: qty } },
       [{ $set: { quantity: { $subtract: ['$quantity', qty] }, reservedQuantity: subtractReserved(qty) } }],
-      { new: true, updatePipeline: true }
+      { returnDocument: 'after', updatePipeline: true }
     );
     if (full) return { removed: qty, missing: 0 };
 
     const before = await BranchStock.findOneAndUpdate(
       { branchId, productId, quantity: { $lt: qty } },
       [{ $set: { quantity: 0, reservedQuantity: subtractReserved(qty) } }],
-      { new: false, updatePipeline: true }
+      { returnDocument: 'before', updatePipeline: true }
     );
     if (before) return { removed: before.quantity, missing: qty - before.quantity };
 
@@ -79,7 +80,7 @@ const setStockQuantity = async (branchId, productId, newQty) => {
   const before = await BranchStock.findOneAndUpdate(
     { branchId, productId },
     { $set: { quantity: newQty }, $setOnInsert: { reservedQuantity: 0 } },
-    { new: false, upsert: true }
+    { returnDocument: 'before', upsert: true }
   );
   return before ? before.quantity : 0;
 };
@@ -105,7 +106,7 @@ const consumeLots = async (branchId, productId, qty) => {
     const updated = await StockEntry.findOneAndUpdate(
       { _id: lot._id, remaining: { $gte: take } },
       [{ $set: { remaining: newRemaining, status: { $cond: [{ $eq: [newRemaining, 0] }, 'AGOTADO', '$status'] } } }],
-      { new: true, updatePipeline: true }
+      { returnDocument: 'after', updatePipeline: true }
     );
     if (!updated) continue;
     pending -= take;
@@ -120,12 +121,10 @@ const consumeLots = async (branchId, productId, qty) => {
   return used;
 };
 
-// Marca como VENCIDOS los lotes con stock cuya fecha ya pasó.
+// Marca como VENCIDOS los lotes con stock cuya fecha ya pasó (el día del vencimiento todavía es válido).
 const markExpiredLots = async () => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
   const result = await StockEntry.updateMany(
-    { status: 'DISPONIBLE', remaining: { $gt: 0 }, expirationDate: { $lt: today } },
+    { status: 'DISPONIBLE', remaining: { $gt: 0 }, expirationDate: { $lt: todayAsUTCDate() } },
     { $set: { status: 'VENCIDO' } }
   );
   return result.modifiedCount || 0;

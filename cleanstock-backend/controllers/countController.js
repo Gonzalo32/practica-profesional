@@ -144,7 +144,7 @@ const closeCount = async (req, res) => {
     const count = await InventoryCount.findOneAndUpdate(
       { _id: req.params.id, status: 'ABIERTO' },
       { $set: { status: 'CERRADO', closedBy: req.user.id, closedAt: new Date() } },
-      { new: true }
+      { returnDocument: 'after' }
     ).populate('branchId', 'name').populate('items.productId', 'name');
     if (!count) return res.status(400).json({ message: 'El conteo ya está cerrado' });
 
@@ -195,7 +195,7 @@ const cancelCount = async (req, res) => {
     const count = await InventoryCount.findOneAndUpdate(
       { _id: req.params.id, status: 'ABIERTO' },
       { $set: { status: 'CANCELADO', closedBy: req.user.id, closedAt: new Date() } },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (!count) return res.status(400).json({ message: 'Solo se pueden cancelar conteos abiertos' });
     res.json({ message: 'Conteo cancelado' });

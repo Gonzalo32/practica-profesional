@@ -218,7 +218,7 @@ const approveOrder = async (req, res) => {
     const order = await Order.findOneAndUpdate(
       { _id: orderId, status: 'PENDIENTE_VALIDACION' },
       { $set: { status: 'PENDIENTE', validatorId: decoded.adminId } },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (!order) {
       const exists = await Order.exists({ _id: orderId });
@@ -283,7 +283,7 @@ const updateOrderStatus = async (req, res) => {
     const order = await Order.findOneAndUpdate(
       { _id: orderId, status: current.status },
       { $set: { status } },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (!order) {
       return res.status(409).json({ message: 'El pedido fue modificado por otro usuario. Actualizá la pantalla.' });

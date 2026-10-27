@@ -65,7 +65,7 @@ const createSupplier = async (req, res) => {
 
 const updateSupplier = async (req, res) => {
   try {
-    const supplier = await Supplier.findByIdAndUpdate(req.params.id, pickSupplierFields(req.body), { new: true, runValidators: true });
+    const supplier = await Supplier.findByIdAndUpdate(req.params.id, pickSupplierFields(req.body), { returnDocument: 'after', runValidators: true });
     if (!supplier) return res.status(404).json({ message: 'Proveedor no encontrado' });
     await ActivityLog.create({
       userId: req.user.id,
@@ -82,7 +82,7 @@ const updateSupplier = async (req, res) => {
 // Baja lógica: el proveedor deja de aparecer pero se conserva su historial
 const deactivateSupplier = async (req, res) => {
   try {
-    const supplier = await Supplier.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
+    const supplier = await Supplier.findByIdAndUpdate(req.params.id, { isActive: false }, { returnDocument: 'after' });
     if (!supplier) return res.status(404).json({ message: 'Proveedor no encontrado' });
     await ActivityLog.create({
       userId: req.user.id,
@@ -205,7 +205,7 @@ const receivePurchaseOrder = async (req, res) => {
     const po = await PurchaseOrder.findOneAndUpdate(
       { _id: req.params.id, status: 'PENDIENTE' },
       { $set: { status: 'RECIBIDA', receivedBy: req.user.id, receivedAt: new Date() } },
-      { new: true }
+      { returnDocument: 'after' }
     ).populate('supplierId', 'name').populate('branchId', 'name');
     if (!po) return res.status(409).json({ message: 'La orden fue modificada por otro usuario' });
 
@@ -259,7 +259,7 @@ const cancelPurchaseOrder = async (req, res) => {
     const po = await PurchaseOrder.findOneAndUpdate(
       { _id: req.params.id, status: 'PENDIENTE' },
       { $set: { status: 'CANCELADA' } },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (!po) return res.status(400).json({ message: 'Solo se pueden cancelar órdenes pendientes' });
     await ActivityLog.create({

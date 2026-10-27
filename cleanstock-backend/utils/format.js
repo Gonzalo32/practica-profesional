@@ -31,11 +31,26 @@ const startOfDay = (date = new Date()) => {
   return d;
 };
 
+// Las fechas de vencimiento se guardan como medianoche UTC ("2026-10-24" -> 2026-10-24T00:00Z).
+// Para comparar días sin corrimientos por zona horaria, "hoy" se lleva al mismo formato.
+const todayAsUTCDate = () => {
+  const now = new Date();
+  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+};
+
+const daysUntil = (expirationDate) => {
+  const exp = new Date(expirationDate);
+  const expDay = Date.UTC(exp.getUTCFullYear(), exp.getUTCMonth(), exp.getUTCDate());
+  return Math.round((expDay - todayAsUTCDate().getTime()) / 86400000);
+};
+
 module.exports = {
   toId,
   formatOrderCode,
   formatPurchaseOrderCode,
   escapeRegex,
   parsePagination,
-  startOfDay
+  startOfDay,
+  todayAsUTCDate,
+  daysUntil
 };

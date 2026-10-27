@@ -4,19 +4,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CleanStock — Sistema de Gestión de Inventario</title>
+  <!-- Aplica el tema guardado antes de pintar la página (evita el parpadeo) -->
+  <script src="js/theme.js"></script>
   <!-- Google Fonts: Inter and Outfit -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <!-- Gráficos del dashboard -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
 </head>
 <body>
   <!-- Ambient background glow elements -->
   <div class="bg-glow bg-glow-1"></div>
   <div class="bg-glow bg-glow-2"></div>
 
-  <!-- Notification Toast -->
-  <div id="toast" class="toast hidden"></div>
+  <!-- Notificaciones (toasts apilables) -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
   <!-- APP CONTAINER -->
   <div id="app">
@@ -30,15 +34,15 @@
           <h1>Clean<span>Stock</span></h1>
           <p class="tagline">"Datos claros generan información confiable"</p>
         </div>
-        
+
         <form id="login-form">
           <div class="form-group">
             <label for="username">Correo Electrónico</label>
-            <input type="text" id="username" value="admin@cleanstock.com" required autocomplete="username" placeholder="juan@empresa.com">
+            <input type="text" id="username" required autocomplete="username" placeholder="juan@empresa.com">
           </div>
           <div class="form-group">
             <label for="password">Contraseña</label>
-            <input type="password" id="password" value="admin123" required autocomplete="current-password" placeholder="••••••••">
+            <input type="password" id="password" required autocomplete="current-password" placeholder="••••••••">
           </div>
           <button type="submit" class="btn btn-primary btn-block">
             <span>Iniciar Sesión</span>
@@ -46,16 +50,15 @@
           </button>
         </form>
 
-        <div class="login-help glass-light">
-          <p>¿Primera vez? Hace click abajo para inicializar el administrador por defecto (<strong>admin@cleanstock.com</strong> / <strong>admin123</strong>).</p>
-          <button type="button" id="btn-init-db" class="btn btn-secondary btn-sm">Inicializar Base de Datos</button>
-        </div>
+        <button type="button" class="btn-theme-toggle login-theme-toggle" data-theme-toggle title="Cambiar entre modo claro y oscuro">
+          <span class="theme-label">Modo claro</span>
+        </button>
       </div>
     </div>
 
     <!-- MAIN APP VIEW (DASHBOARD) -->
     <div id="main-view" class="view hidden layout-sidebar">
-      
+
       <!-- SIDEBAR -->
       <aside class="sidebar glass">
         <div class="sidebar-header">
@@ -65,18 +68,38 @@
             </div>
             <h2>Clean<span>Stock</span></h2>
           </div>
+          <div class="header-actions">
+            <!-- Campanita de notificaciones -->
+            <div class="notif-wrapper">
+              <button type="button" id="btn-notifications" class="btn-icon-round" title="Notificaciones" aria-haspopup="true">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+                <span id="notif-count" class="notif-count hidden">0</span>
+              </button>
+              <div id="notif-dropdown" class="notif-dropdown glass hidden">
+                <div class="notif-header">
+                  <strong>Notificaciones</strong>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-notif-refresh">Actualizar</button>
+                </div>
+                <div id="notif-list" class="notif-list">
+                  <p class="empty-text">Sin novedades.</p>
+                </div>
+              </div>
+            </div>
+            <button type="button" class="btn-icon-round" data-theme-toggle title="Cambiar entre modo claro y oscuro">
+              <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+              <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path></svg>
+            </button>
+          </div>
         </div>
 
         <!-- NAVIGATION TABS -->
         <nav class="nav-tabs sidebar-nav" id="main-navigation">
-          <!-- Generado dinámicamente según el rol en app.js -->
+          <!-- Generado dinámicamente según el rol -->
         </nav>
-        
+
         <div class="sidebar-footer">
           <div class="user-profile-card">
-            <div class="user-avatar-circle" id="profile-avatar">
-              U
-            </div>
+            <div class="user-avatar-circle" id="profile-avatar">U</div>
             <div class="profile-info">
               <span class="user-name" id="profile-username">Usuario</span>
               <span class="user-role badge" id="profile-role">Rol</span>
@@ -97,39 +120,62 @@
 
       <!-- VIEW PANELS -->
       <main class="content-container">
-        <!-- 🔴 PANEL ADMINISTRADOR -->
+        <!-- PANEL ADMINISTRADOR -->
         <section id="panel-admin" class="panel hidden">
           <div class="grid-dashboard">
-            <!-- KPI: Usuarios -->
             <div class="card glass stat-card">
               <h3>Usuarios Activos</h3>
               <p class="stat-number" id="admin-stat-users">0</p>
             </div>
-            <!-- KPI: Productos -->
             <div class="card glass stat-card">
               <h3>Productos</h3>
               <p class="stat-number" id="admin-stat-products">0</p>
             </div>
-            <!-- KPI: Pedidos -->
             <div class="card glass stat-card">
               <h3>Pedidos Realizados</h3>
               <p class="stat-number" id="admin-stat-orders">0</p>
             </div>
-            <!-- KPI: Alertas activas (Módulo 6) -->
             <div class="card glass stat-card stat-card-alert">
-              <h3>⚠️ Alertas de Stock</h3>
+              <h3>Alertas de Stock</h3>
               <p class="stat-number" id="admin-stat-alerts">0</p>
               <span class="stat-sub" id="admin-stat-critical">0 críticas</span>
             </div>
-            <!-- KPI: Pedidos en tránsito -->
             <div class="card glass stat-card stat-card-transit">
-              <h3>🚚 En Tránsito</h3>
+              <h3>En Tránsito</h3>
               <p class="stat-number" id="admin-stat-transit">0</p>
             </div>
-            <!-- KPI: Ingresos del día -->
             <div class="card glass stat-card stat-card-today">
-              <h3>📊 Ingresos Hoy</h3>
+              <h3>Ingresos Hoy</h3>
               <p class="stat-number" id="admin-stat-today">0</p>
+            </div>
+            <div class="card glass stat-card stat-card-value">
+              <h3>Valor del Inventario</h3>
+              <p class="stat-number stat-number-sm" id="admin-stat-value">$ 0</p>
+            </div>
+            <div class="card glass stat-card stat-card-expiring">
+              <h3>Lotes por Vencer (30 días)</h3>
+              <p class="stat-number" id="admin-stat-expiring">0</p>
+              <span class="stat-sub" id="admin-stat-expired">0 vencidos</span>
+            </div>
+          </div>
+
+          <!-- Gráficos -->
+          <div class="charts-grid">
+            <div class="card glass chart-card">
+              <h3>Stock por sucursal</h3>
+              <div class="chart-box"><canvas id="chart-stock-branch"></canvas></div>
+            </div>
+            <div class="card glass chart-card">
+              <h3>Productos con más faltante</h3>
+              <div class="chart-box"><canvas id="chart-shortages"></canvas></div>
+            </div>
+            <div class="card glass chart-card">
+              <h3>Pedidos por estado</h3>
+              <div class="chart-box"><canvas id="chart-orders-status"></canvas></div>
+            </div>
+            <div class="card glass chart-card">
+              <h3>Movimientos de los últimos 30 días</h3>
+              <div class="chart-box"><canvas id="chart-movements"></canvas></div>
             </div>
           </div>
 
@@ -137,19 +183,18 @@
           <div class="sub-nav">
             <button class="btn btn-tab active" data-sub="admin-users">Gestión de Usuarios</button>
             <button class="btn btn-tab" data-sub="admin-approvals">Aprobación de Pedidos</button>
-            <button class="btn btn-tab" data-sub="admin-alerts">🔔 Alertas de Stock</button>
+            <button class="btn btn-tab" data-sub="admin-alerts">Alertas de Stock</button>
             <button class="btn btn-tab" data-sub="admin-logs">Historial de Auditoría</button>
           </div>
 
           <!-- Subpanel: Users CRUD -->
           <div id="subpanel-admin-users" class="subpanel">
             <div class="card glass table-card">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
-                <h3 style="margin-bottom: 0;">Listado de Usuarios</h3>
-                <button id="btn-open-create-user-modal" class="btn btn-primary">➕ Crear Usuario</button>
+              <div class="card-title-row">
+                <h3>Listado de Usuarios</h3>
+                <button id="btn-open-create-user-modal" class="btn btn-primary">Crear Usuario</button>
               </div>
 
-              <!-- Toolbar de Búsqueda, Filtro y Paginación -->
               <div class="table-toolbar">
                 <div class="search-box">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -162,6 +207,7 @@
                     <option value="Solicitante">Solicitante</option>
                     <option value="Usuario Responsable">Usuario Responsable</option>
                     <option value="Despachante">Despachante</option>
+                    <option value="Proveedor">Proveedor</option>
                   </select>
                   <select id="user-filter-branch">
                     <option value="">Todas las Sucursales</option>
@@ -183,170 +229,11 @@
                       <th>Acciones</th>
                     </tr>
                   </thead>
-                  <tbody id="table-users-body">
-                    <!-- Dinámico -->
-                  </tbody>
+                  <tbody id="table-users-body"></tbody>
                 </table>
               </div>
 
-              <!-- Paginador -->
-              <div class="pagination-container" id="users-pagination">
-                <span class="pagination-info" id="users-pagination-info">Mostrando 0 de 0 usuarios</span>
-                <div class="pagination-controls">
-                  <button class="btn btn-secondary btn-sm" id="btn-prev-users-page" disabled>Anterior</button>
-                  <span id="users-current-page" class="page-number">Página 1</span>
-                  <button class="btn btn-secondary btn-sm" id="btn-next-users-page" disabled>Siguiente</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Modal: Crear Usuario -->
-          <div id="modal-create-user" class="modal hidden">
-            <div class="modal-content glass card" style="max-width: 720px; width: 95%; padding: 20px 25px;">
-              <div class="modal-header" style="margin-bottom: 10px; padding-bottom: 8px;">
-                <h3 style="font-size: 1.2rem;">Crear Nuevo Usuario</h3>
-                <button type="button" class="close-btn" id="btn-close-create-user-modal">&times;</button>
-              </div>
-              <form id="form-create-user" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem 1rem; margin-top: 0.5rem;">
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="new-user-email" style="font-size: 0.75rem; margin-bottom: 2px;">Correo Electrónico <span style="color:var(--color-danger)">*</span></label>
-                  <input type="email" id="new-user-email" placeholder="juan@empresa.com" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="new-user-password" style="font-size: 0.75rem; margin-bottom: 2px;">Contraseña <span style="color:var(--color-danger)">*</span></label>
-                  <input type="password" id="new-user-password" placeholder="Contraseña" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="new-user-firstname" style="font-size: 0.75rem; margin-bottom: 2px;">Nombre <span style="color:var(--color-danger)">*</span></label>
-                  <input type="text" id="new-user-firstname" placeholder="Juan" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="new-user-lastname" style="font-size: 0.75rem; margin-bottom: 2px;">Apellido <span style="color:var(--color-danger)">*</span></label>
-                  <input type="text" id="new-user-lastname" placeholder="Pérez" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="new-user-document" style="font-size: 0.75rem; margin-bottom: 2px;">DNI / CUIL / CUIT <span style="color:var(--color-danger)">*</span></label>
-                  <input type="text" id="new-user-document" placeholder="20-12345678-9 / DNI" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="new-user-birthdate" style="font-size: 0.75rem; margin-bottom: 2px;">Fecha de Nacimiento <span style="color:var(--color-danger)">*</span></label>
-                  <input type="date" id="new-user-birthdate" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="new-user-phone" style="font-size: 0.75rem; margin-bottom: 2px;">Teléfono <span style="color:var(--color-danger)">*</span></label>
-                  <input type="tel" id="new-user-phone" placeholder="Código de área + Número" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="new-user-address" style="font-size: 0.75rem; margin-bottom: 2px;">Dirección <span style="color:var(--color-danger)">*</span></label>
-                  <input type="text" id="new-user-address" placeholder="Calle, Número, Piso/Depto" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="new-user-zipcode" style="font-size: 0.75rem; margin-bottom: 2px;">Código Postal <span style="color:var(--color-danger)">*</span></label>
-                  <input type="text" id="new-user-zipcode" placeholder="C1001 / 1400" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="new-user-role" style="font-size: 0.75rem; margin-bottom: 2px;">Rol <span style="color:var(--color-danger)">*</span></label>
-                  <select id="new-user-role" required style="padding: 6px 12px; font-size: 0.85rem;">
-                    <option value="Solicitante">Solicitante</option>
-                    <option value="Despachante">Despachante</option>
-                    <option value="Usuario Responsable">Usuario Responsable</option>
-                    <option value="Administrador">Administrador</option>
-                  </select>
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="new-user-space" style="font-size: 0.75rem; margin-bottom: 2px;">Sucursal Asignada <span style="color:var(--color-danger)">*</span></label>
-                  <select id="new-user-space" required style="padding: 6px 12px; font-size: 0.85rem;">
-                    <option value="">Seleccionar Sucursal...</option>
-                    <!-- Dinámico -->
-                  </select>
-                </div>
-                <div style="grid-column: span 2; display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px;">
-                  <button type="button" class="btn btn-secondary" id="btn-cancel-create-user-modal">Cancelar</button>
-                  <button type="submit" class="btn btn-primary">Registrar Usuario</button>
-                </div>
-              </form>
-            </div>
-          </div>
-
-          <!-- Modal: Ver Usuario -->
-          <div id="modal-view-user" class="modal hidden">
-            <div class="modal-content glass card" style="max-width: 600px; width: 95%; padding: 20px 25px;">
-              <div class="modal-header" style="margin-bottom: 10px; padding-bottom: 8px;">
-                <h3 style="font-size: 1.2rem;">👁️ Detalles de Usuario</h3>
-                <button type="button" class="close-btn" id="btn-close-view-user-modal">&times;</button>
-              </div>
-              <div id="view-user-details-content" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.5rem; font-size: 0.9rem;">
-                <!-- Dinámico -->
-              </div>
-              <div style="display: flex; justify-content: flex-end; margin-top: 15px;">
-                <button type="button" class="btn btn-secondary" id="btn-close-view-user-modal-footer">Cerrar</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Modal: Editar Usuario -->
-          <div id="modal-edit-user" class="modal hidden">
-            <div class="modal-content glass card" style="max-width: 720px; width: 95%; padding: 20px 25px;">
-              <div class="modal-header" style="margin-bottom: 10px; padding-bottom: 8px;">
-                <h3 style="font-size: 1.2rem;">✏️ Editar Usuario</h3>
-                <button type="button" class="close-btn" id="btn-close-edit-user-modal">&times;</button>
-              </div>
-              <form id="form-edit-user" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem 1rem; margin-top: 0.5rem;">
-                <input type="hidden" id="edit-user-id">
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="edit-user-email" style="font-size: 0.75rem; margin-bottom: 2px;">Correo Electrónico <span style="color:var(--color-danger)">*</span></label>
-                  <input type="email" id="edit-user-email" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="edit-user-firstname" style="font-size: 0.75rem; margin-bottom: 2px;">Nombre <span style="color:var(--color-danger)">*</span></label>
-                  <input type="text" id="edit-user-firstname" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="edit-user-lastname" style="font-size: 0.75rem; margin-bottom: 2px;">Apellido <span style="color:var(--color-danger)">*</span></label>
-                  <input type="text" id="edit-user-lastname" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="edit-user-document" style="font-size: 0.75rem; margin-bottom: 2px;">DNI / CUIL / CUIT <span style="color:var(--color-danger)">*</span></label>
-                  <input type="text" id="edit-user-document" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="edit-user-birthdate" style="font-size: 0.75rem; margin-bottom: 2px;">Fecha de Nacimiento <span style="color:var(--color-danger)">*</span></label>
-                  <input type="date" id="edit-user-birthdate" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="edit-user-phone" style="font-size: 0.75rem; margin-bottom: 2px;">Teléfono <span style="color:var(--color-danger)">*</span></label>
-                  <input type="tel" id="edit-user-phone" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="edit-user-address" style="font-size: 0.75rem; margin-bottom: 2px;">Dirección <span style="color:var(--color-danger)">*</span></label>
-                  <input type="text" id="edit-user-address" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="edit-user-zipcode" style="font-size: 0.75rem; margin-bottom: 2px;">Código Postal <span style="color:var(--color-danger)">*</span></label>
-                  <input type="text" id="edit-user-zipcode" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="edit-user-role" style="font-size: 0.75rem; margin-bottom: 2px;">Rol <span style="color:var(--color-danger)">*</span></label>
-                  <select id="edit-user-role" required style="padding: 6px 12px; font-size: 0.85rem;">
-                    <option value="Solicitante">Solicitante</option>
-                    <option value="Despachante">Despachante</option>
-                    <option value="Usuario Responsable">Usuario Responsable</option>
-                    <option value="Administrador">Administrador</option>
-                  </select>
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="edit-user-space" style="font-size: 0.75rem; margin-bottom: 2px;">Sucursal Asignada <span style="color:var(--color-danger)">*</span></label>
-                  <select id="edit-user-space" required style="padding: 6px 12px; font-size: 0.85rem;">
-                    <option value="">Seleccionar Sucursal...</option>
-                    <!-- Dinámico -->
-                  </select>
-                </div>
-                <div style="grid-column: span 2; display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px;">
-                  <button type="button" class="btn btn-secondary" id="btn-cancel-edit-user-modal">Cancelar</button>
-                  <button type="submit" class="btn btn-primary">Guardar Cambios</button>
-                </div>
-              </form>
+              <div class="pagination-container" id="users-pagination"></div>
             </div>
           </div>
 
@@ -358,16 +245,14 @@
                 <table>
                   <thead>
                     <tr>
-                      <th>Pedido ID</th>
+                      <th>N° Pedido</th>
                       <th>Solicitante</th>
                       <th>Fecha</th>
                       <th>Detalle</th>
                       <th>Acción</th>
                     </tr>
                   </thead>
-                  <tbody id="table-admin-approvals-body">
-                    <!-- Dinámico -->
-                  </tbody>
+                  <tbody id="table-admin-approvals-body"></tbody>
                 </table>
               </div>
             </div>
@@ -376,9 +261,13 @@
           <!-- Subpanel: Alerts -->
           <div id="subpanel-admin-alerts" class="subpanel hidden">
             <div class="card glass table-card">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem">
-                <h3>🔔 Artículos con Stock Bajo o Crítico</h3>
-                <button class="btn btn-secondary btn-sm" onclick="loadAlerts()">Actualizar</button>
+              <div class="card-title-row">
+                <h3>Artículos con Stock Bajo o Crítico</h3>
+                <div class="btn-row">
+                  <button class="btn btn-secondary btn-sm" data-export="alerts" data-format="xlsx">Excel</button>
+                  <button class="btn btn-secondary btn-sm" data-export="alerts" data-format="pdf">PDF</button>
+                  <button class="btn btn-secondary btn-sm" id="btn-refresh-alerts">Actualizar</button>
+                </div>
               </div>
               <div class="table-responsive">
                 <table>
@@ -394,9 +283,7 @@
                       <th>Estado</th>
                     </tr>
                   </thead>
-                  <tbody id="table-alerts-body">
-                    <tr><td colspan="8" class="empty-text">Hacé click en Actualizar para ver las alertas activas.</td></tr>
-                  </tbody>
+                  <tbody id="table-alerts-body"></tbody>
                 </table>
               </div>
             </div>
@@ -405,8 +292,25 @@
           <!-- Subpanel: Audit Logs -->
           <div id="subpanel-admin-logs" class="subpanel hidden">
             <div class="card glass table-card">
-              <h3>Historial de Auditoría Global</h3>
-              <div class="table-responsive log-table">
+              <div class="card-title-row">
+                <h3>Historial de Auditoría Global</h3>
+                <div class="btn-row">
+                  <button class="btn btn-secondary btn-sm" data-export="logs" data-format="xlsx">Excel</button>
+                  <button class="btn btn-secondary btn-sm" data-export="logs" data-format="pdf">PDF</button>
+                </div>
+              </div>
+              <div class="table-toolbar">
+                <div class="search-box">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                  <input type="text" id="logs-search-input" placeholder="Buscar en el detalle..." />
+                </div>
+                <div class="filter-box">
+                  <select id="logs-filter-action"><option value="">Todas las acciones</option></select>
+                  <input type="date" id="logs-filter-from" title="Desde">
+                  <input type="date" id="logs-filter-to" title="Hasta">
+                </div>
+              </div>
+              <div class="table-responsive">
                 <table>
                   <thead>
                     <tr>
@@ -416,37 +320,39 @@
                       <th>Detalle</th>
                     </tr>
                   </thead>
-                  <tbody id="table-admin-logs-body">
-                    <!-- Dinámico -->
-                  </tbody>
+                  <tbody id="table-admin-logs-body"></tbody>
                 </table>
               </div>
+              <div class="pagination-container" id="logs-pagination"></div>
             </div>
           </div>
         </section>
 
-        <!-- 🔵 PANEL SOLICITANTE: CATÁLOGO Y PEDIDOS -->
+        <!-- PANEL SOLICITANTE: PEDIDOS -->
         <section id="panel-solicitante" class="panel hidden">
-          <div class="panel-header-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 1rem;">
-            <h2>🛒 Catálogo y Pedidos Realizados</h2>
-            <button id="btn-open-create-order-modal" class="btn btn-primary">➕ Crear Pedido</button>
+          <div class="panel-header-row">
+            <h2>Catálogo y Pedidos Realizados</h2>
+            <button id="btn-open-create-order-modal" class="btn btn-primary">Crear Pedido</button>
           </div>
 
           <div class="card glass table-card">
-            <div class="table-toolbar" style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
-              <div class="search-box" style="flex: 1; min-width: 200px;">
-                <input type="text" id="solicitante-search-orders" placeholder="Buscar por ID, insumo o sucursal..." style="width:100%; padding: 8px 12px; border-radius: 8px;" />
+            <div class="table-toolbar">
+              <div class="search-box">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="solicitante-search-orders" placeholder="Buscar por número, insumo o sucursal..." />
               </div>
               <div class="filter-box">
-                <select id="solicitante-filter-status" style="padding: 8px 12px; border-radius: 8px;">
+                <select id="solicitante-filter-status">
                   <option value="">Todos los Estados</option>
-                  <option value="PENDIENTE">⏳ Pendiente</option>
-                  <option value="PENDIENTE_VALIDACION">⚠️ Esperando Validación Admin</option>
-                  <option value="APROBADO">✅ Aprobado</option>
-                  <option value="EN_PREPARACION">🛠️ En Preparación</option>
-                  <option value="DESPACHADO">🚚 Despachado</option>
-                  <option value="ENTREGADO">🎉 Entregado</option>
+                  <option value="PENDIENTE_VALIDACION">Esperando validación</option>
+                  <option value="PENDIENTE">Pendiente</option>
+                  <option value="EN_PREPARACION">En preparación</option>
+                  <option value="DESPACHADO">Despachado</option>
+                  <option value="ENTREGADO">Entregado</option>
+                  <option value="RECHAZADO">Rechazado</option>
                 </select>
+                <button class="btn btn-secondary btn-sm" data-export="orders" data-format="xlsx">Excel</button>
+                <button class="btn btn-secondary btn-sm" data-export="orders" data-format="pdf">PDF</button>
               </div>
             </div>
 
@@ -455,39 +361,70 @@
                 <thead>
                   <tr>
                     <th>N° Pedido</th>
-                    <th>📤 Sucursal Envía</th>
-                    <th>📥 Sucursal Recibe</th>
+                    <th>Sucursal Envía</th>
+                    <th>Sucursal Recibe</th>
                     <th>Insumos Solicitados</th>
                     <th>Estado</th>
                     <th>Fecha Solicitud</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
-                <tbody id="table-solicitante-orders-body">
-                  <tr><td colspan="7" class="empty-text">Cargando pedidos...</td></tr>
-                </tbody>
+                <tbody id="table-solicitante-orders-body"></tbody>
               </table>
             </div>
+            <div class="pagination-container" id="solicitante-orders-pagination"></div>
           </div>
         </section>
 
-        <!-- 🟢 PANEL USUARIO RESPONSABLE / INGRESOS O PROVISIONES -->
+        <!-- PANEL USUARIO RESPONSABLE: INGRESOS Y EGRESOS -->
         <section id="panel-responsable" class="panel hidden">
-          <div class="panel-header-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 1rem;">
-            <h2>📥 Ingresos y Provisiones de Stock</h2>
-            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-              <button id="btn-open-stock-entry-modal" class="btn btn-primary">➕ Agregar Ingreso</button>
-              <button id="btn-open-informal-entry-modal" class="btn btn-secondary">📌 Ingreso Extraordinario</button>
+          <div class="panel-header-row">
+            <h2>Ingresos y Egresos de Stock</h2>
+            <div class="btn-row">
+              <button id="btn-open-stock-entry-modal" class="btn btn-primary">Agregar Ingreso</button>
+              <button id="btn-open-informal-entry-modal" class="btn btn-secondary">Ingreso Extraordinario</button>
+              <button id="btn-open-exit-modal" class="btn btn-danger-soft">Registrar Egreso</button>
+            </div>
+          </div>
+
+          <!-- Pedidos despachados que llegan a la sucursal -->
+          <div class="card glass table-card" id="card-deliveries">
+            <h3>Pedidos por Recibir</h3>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>N° Pedido</th>
+                    <th>Origen</th>
+                    <th>Destino</th>
+                    <th>Insumos</th>
+                    <th>Despachado</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="table-resp-deliveries-body"></tbody>
+              </table>
             </div>
           </div>
 
           <div class="card glass table-card">
+            <div class="card-title-row">
+              <h3>Últimos Ingresos y Egresos</h3>
+              <div class="filter-box">
+                <select id="resp-movements-type">
+                  <option value="INGRESO,INGRESO_EXTRAORDINARIO,EGRESO">Ingresos y egresos</option>
+                  <option value="INGRESO">Solo ingresos con lote</option>
+                  <option value="INGRESO_EXTRAORDINARIO">Solo ingresos extraordinarios</option>
+                  <option value="EGRESO">Solo egresos</option>
+                </select>
+              </div>
+            </div>
             <div class="table-responsive">
               <table>
                 <thead>
                   <tr>
                     <th>Fecha</th>
-                    <th>Sucursal Destino</th>
+                    <th>Sucursal</th>
                     <th>Producto / Insumo</th>
                     <th>Cantidad</th>
                     <th>Lote</th>
@@ -495,27 +432,21 @@
                     <th>Tipo / Detalles</th>
                   </tr>
                 </thead>
-                <tbody id="table-resp-recent-stock">
-                  <tr><td colspan="7" class="empty-text">Cargando ingresos y provisiones...</td></tr>
-                </tbody>
+                <tbody id="table-resp-recent-stock"></tbody>
               </table>
             </div>
+            <div class="pagination-container" id="resp-movements-pagination"></div>
           </div>
         </section>
 
-        <!-- 🏢 PANEL SUCURSALES -->
+        <!-- PANEL SUCURSALES -->
         <section id="panel-branches" class="panel hidden">
           <div class="panel-header-row">
-            <h2>🏢 Gestión de Sucursales</h2>
+            <h2>Gestión de Sucursales</h2>
+            <button id="btn-open-create-branch-modal" class="btn btn-primary">Crear Sucursal</button>
           </div>
 
           <div class="card glass table-card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
-              <h3 style="margin-bottom: 0;">Sucursales Registradas</h3>
-              <button id="btn-open-create-branch-modal" class="btn btn-primary">➕ Crear Sucursal</button>
-            </div>
-
-            <!-- Toolbar de Búsqueda y Filtro por Tipo -->
             <div class="table-toolbar">
               <div class="search-box">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -526,7 +457,7 @@
                   <option value="">Todos los Tipos</option>
                   <option value="sucursal">Sucursal</option>
                   <option value="filial">Filial</option>
-                  <option value="Zona">Zona</option>
+                  <option value="zona">Zona</option>
                   <option value="dependencia">Dependencia</option>
                   <option value="sector">Sector</option>
                 </select>
@@ -545,290 +476,344 @@
                     <th>Acciones</th>
                   </tr>
                 </thead>
-                <tbody id="table-branches-body">
-                  <!-- Dinámico -->
-                </tbody>
+                <tbody id="table-branches-body"></tbody>
               </table>
-            </div>
-          </div>
-
-          <!-- Modal: Crear Sucursal -->
-          <div id="modal-create-branch" class="modal hidden">
-            <div class="modal-content glass card" style="max-width: 650px; width: 95%; padding: 20px 25px;">
-              <div class="modal-header" style="margin-bottom: 10px; padding-bottom: 8px;">
-                <h3 style="font-size: 1.2rem;">Crear Nueva Sucursal</h3>
-                <button type="button" class="close-btn" id="btn-close-create-branch-modal">&times;</button>
-              </div>
-              <form id="form-create-branch" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem 1rem; margin-top: 0.5rem;">
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="branch-name" style="font-size: 0.75rem; margin-bottom: 2px;">Nombre de la Sucursal <span style="color:var(--color-danger)">*</span></label>
-                  <input type="text" id="branch-name" placeholder="Ej: Sucursal Centro" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="branch-type" style="font-size: 0.75rem; margin-bottom: 2px;">
-                    Tipo <span style="color:var(--color-danger)">*</span>
-                    <span class="tooltip-icon" title="Sucursal: Sede principal o local comercial.&#10;Filial: Sede secundaria dependiente.&#10;Zona: Región geográfica de entrega.&#10;Dependencia: Oficina interna.&#10;Sector: Área o depósito específico." style="cursor:help; margin-left:4px; opacity:0.8;">ℹ️</span>
-                  </label>
-                  <select id="branch-type" required style="padding: 6px 12px; font-size: 0.85rem;">
-                    <option value="" disabled selected>Seleccionar tipo...</option>
-                    <option value="sucursal">Sucursal (Sede principal/comercial)</option>
-                    <option value="filial">Filial (Sede secundaria)</option>
-                    <option value="Zona">Zona (Región logística)</option>
-                    <option value="dependencia">Dependencia (Oficina interna)</option>
-                    <option value="sector">Sector (Área/Depósito)</option>
-                  </select>
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="branch-address" style="font-size: 0.75rem; margin-bottom: 2px;">Dirección <span style="color:var(--color-danger)">*</span></label>
-                  <input type="text" id="branch-address" placeholder="Ej: Av. Corrientes 1234" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="branch-phone" style="font-size: 0.75rem; margin-bottom: 2px;">Teléfono / Contacto <span style="font-weight:normal; color:var(--text-muted);">(Opcional)</span></label>
-                  <input type="tel" id="branch-phone" placeholder="Ej: 011 4321-5678" style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="grid-column: span 2; margin-bottom: 0;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
-                    <label for="branch-description" style="font-size: 0.75rem; margin-bottom: 0;">Descripción <span style="font-weight:normal; color:var(--text-muted);">(Opcional)</span></label>
-                    <span id="create-branch-desc-counter" style="font-size: 0.7rem; color: var(--text-muted);">0 / 200</span>
-                  </div>
-                  <textarea id="branch-description" rows="2" maxlength="200" placeholder="Observaciones o notas de referencia..." style="padding: 6px 12px; font-size: 0.85rem; background: rgba(15, 23, 42, 0.45); border: 1px solid rgba(255, 255, 255, 0.12); color: var(--text-main); border-radius: var(--radius-sm); outline: none; width: 100%;"></textarea>
-                </div>
-                <div style="grid-column: span 2; display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px;">
-                  <button type="button" class="btn btn-secondary" id="btn-cancel-create-branch-modal">Cancelar</button>
-                  <button type="submit" class="btn btn-primary">Registrar Sucursal</button>
-                </div>
-              </form>
-            </div>
-          </div>
-
-          <!-- Modal: Ver Sucursal -->
-          <div id="modal-view-branch" class="modal hidden">
-            <div class="modal-content glass card" style="max-width: 550px; width: 95%; padding: 20px 25px;">
-              <div class="modal-header" style="margin-bottom: 10px; padding-bottom: 8px;">
-                <h3 style="font-size: 1.2rem;">👁️ Detalles de Sucursal</h3>
-                <button type="button" class="close-btn" id="btn-close-view-branch-modal">&times;</button>
-              </div>
-              <div id="view-branch-details-content" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 0.5rem; font-size: 0.9rem;">
-                <!-- Dinámico -->
-              </div>
-              <div style="display: flex; justify-content: flex-end; margin-top: 15px;">
-                <button type="button" class="btn btn-secondary" id="btn-close-view-branch-modal-footer">Cerrar</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Modal: Editar Sucursal -->
-          <div id="modal-edit-branch" class="modal hidden">
-            <div class="modal-content glass card" style="max-width: 650px; width: 95%; padding: 20px 25px;">
-              <div class="modal-header" style="margin-bottom: 10px; padding-bottom: 8px;">
-                <h3 style="font-size: 1.2rem;">✏️ Editar Sucursal</h3>
-                <button type="button" class="close-btn" id="btn-close-edit-branch-modal">&times;</button>
-              </div>
-              <form id="form-edit-branch" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem 1rem; margin-top: 0.5rem;">
-                <input type="hidden" id="edit-branch-id">
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="edit-branch-name" style="font-size: 0.75rem; margin-bottom: 2px;">Nombre de la Sucursal <span style="color:var(--color-danger)">*</span></label>
-                  <input type="text" id="edit-branch-name" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="edit-branch-type" style="font-size: 0.75rem; margin-bottom: 2px;">
-                    Tipo <span style="color:var(--color-danger)">*</span>
-                    <span class="tooltip-icon" title="Sucursal: Sede principal o local comercial.&#10;Filial: Sede secundaria dependiente.&#10;Zona: Región geográfica de entrega.&#10;Dependencia: Oficina interna.&#10;Sector: Área o depósito específico." style="cursor:help; margin-left:4px; opacity:0.8;">ℹ️</span>
-                  </label>
-                  <select id="edit-branch-type" required style="padding: 6px 12px; font-size: 0.85rem;">
-                    <option value="sucursal">Sucursal (Sede principal/comercial)</option>
-                    <option value="filial">Filial (Sede secundaria)</option>
-                    <option value="Zona">Zona (Región logística)</option>
-                    <option value="dependencia">Dependencia (Oficina interna)</option>
-                    <option value="sector">Sector (Área/Depósito)</option>
-                  </select>
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="edit-branch-address" style="font-size: 0.75rem; margin-bottom: 2px;">Dirección <span style="color:var(--color-danger)">*</span></label>
-                  <input type="text" id="edit-branch-address" required style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="edit-branch-phone" style="font-size: 0.75rem; margin-bottom: 2px;">Teléfono / Contacto <span style="font-weight:normal; color:var(--text-muted);">(Opcional)</span></label>
-                  <input type="tel" id="edit-branch-phone" placeholder="Ej: 011 4321-5678" style="padding: 6px 12px; font-size: 0.85rem;">
-                </div>
-                <div class="form-group" style="grid-column: span 2; margin-bottom: 0;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
-                    <label for="edit-branch-description" style="font-size: 0.75rem; margin-bottom: 0;">Descripción <span style="font-weight:normal; color:var(--text-muted);">(Opcional)</span></label>
-                    <span id="edit-branch-desc-counter" style="font-size: 0.7rem; color: var(--text-muted);">0 / 200</span>
-                  </div>
-                  <textarea id="edit-branch-description" rows="2" maxlength="200" placeholder="Observaciones o notas de referencia..." style="padding: 6px 12px; font-size: 0.85rem; background: rgba(15, 23, 42, 0.45); border: 1px solid rgba(255, 255, 255, 0.12); color: var(--text-main); border-radius: var(--radius-sm); outline: none; width: 100%;"></textarea>
-                </div>
-                <div style="grid-column: span 2; display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px;">
-                  <button type="button" class="btn btn-secondary" id="btn-cancel-edit-branch-modal">Cancelar</button>
-                  <button type="submit" class="btn btn-primary">Guardar Cambios</button>
-                </div>
-              </form>
             </div>
           </div>
         </section>
 
-        <!-- 📊 PANEL STOCK POR SUCURSAL -->
+        <!-- PANEL STOCK POR SUCURSAL -->
         <section id="panel-stock-view" class="panel hidden">
-          <div class="panel-header-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 1rem;">
-            <h2 id="stock-view-branch-title">📊 Stock por Sucursal</h2>
-            <button type="button" id="btn-toggle-stock-adjust" class="btn btn-secondary">
-              ⚖️ Ajuste Manual de Stock
-            </button>
+          <div class="panel-header-row">
+            <h2 id="stock-view-branch-title">Stock por Sucursal</h2>
+            <div class="btn-row">
+              <button type="button" class="btn btn-secondary btn-sm" data-export="stock" data-format="xlsx">Excel</button>
+              <button type="button" class="btn btn-secondary btn-sm" data-export="stock" data-format="pdf">PDF</button>
+              <button type="button" id="btn-toggle-stock-adjust" class="btn btn-secondary">Ajuste Manual de Stock</button>
+            </div>
           </div>
 
-          <div class="card glass filter-card" style="margin-bottom: 1.2rem;">
-            <div class="filter-row" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-              <label for="stock-view-branch-select" style="font-weight: 600;">Sucursal:</label>
-              <select id="stock-view-branch-select" style="max-width:320px">
+          <div class="card glass filter-card">
+            <div class="filter-row">
+              <label for="stock-view-branch-select" class="inline-label">Sucursal:</label>
+              <select id="stock-view-branch-select" class="select-md">
                 <option value="">— Seleccionar sucursal —</option>
               </select>
-            </div>
-          </div>
-
-          <!-- Modal Popup: Ajuste Manual de Stock -->
-          <div id="container-stock-adjust-form" class="modal hidden">
-            <div class="modal-content glass card" style="max-width: 650px; width: 95%; padding: 20px 25px;">
-              <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; padding-bottom: 8px;">
-                <h3 style="font-size: 1.2rem; margin-bottom: 0;">⚖️ Ajuste Manual de Stock</h3>
-                <button type="button" class="close-btn" id="btn-close-stock-adjust-form">&times;</button>
+              <div class="search-box search-box-sm">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="stock-view-search" placeholder="Buscar producto, SKU o código..." />
               </div>
-              <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem">
-                Usar para correcciones, pérdidas, vencimientos o ingresos directos.
-              </p>
-              <form id="form-stock-adjust" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem 1rem;">
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="adjust-branch">Sucursal <span style="color:var(--color-danger)">*</span></label>
-                  <select id="adjust-branch" required>
-                    <option value="">— Seleccionar Sucursal —</option>
-                  </select>
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="adjust-product">Producto <span style="color:var(--color-danger)">*</span></label>
-                  <select id="adjust-product" required>
-                    <option value="">— Seleccionar Producto —</option>
-                  </select>
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="adjust-quantity">Cantidad <span style="font-weight:normal; color:var(--text-muted);">(ingresá + o -)</span> <span style="color:var(--color-danger)">*</span></label>
-                  <div style="display: flex; gap: 8px; align-items: center;">
-                    <button type="button" class="btn btn-secondary" id="btn-adjust-qty-minus" style="padding: 6px 14px; font-weight: bold; font-size: 1.1rem;">-</button>
-                    <input type="number" id="adjust-quantity" placeholder="0" required style="text-align: center; font-weight: 600;">
-                    <button type="button" class="btn btn-secondary" id="btn-adjust-qty-plus" style="padding: 6px 14px; font-weight: bold; font-size: 1.1rem;">+</button>
-                  </div>
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label for="adjust-reason-select">Motivo del Ajuste <span style="color:var(--color-danger)">*</span></label>
-                  <select id="adjust-reason-select" required>
-                    <option value="" disabled selected>— Seleccionar motivo —</option>
-                    <option value="Corrección de conteo / Inventario">Corrección de conteo / Inventario</option>
-                    <option value="Pérdida por vencimiento">Pérdida por vencimiento</option>
-                    <option value="Rotura / Daño de insumo">Rotura / Daño de insumo</option>
-                    <option value="Ingreso directo de insumos">Ingreso directo de insumos</option>
-                    <option value="Otro">Otro (Especificar)</option>
-                  </select>
-                </div>
-                <div class="form-group hidden" id="adjust-reason-other-group" style="grid-column: span 2; margin-bottom: 0;">
-                  <label for="adjust-reason-other">Especificar Otro Motivo <span style="color:var(--color-danger)">*</span></label>
-                  <input type="text" id="adjust-reason-other" placeholder="Describí el motivo del ajuste...">
-                </div>
-                <div style="grid-column: span 2; display: flex; justify-content: flex-end; gap: 10px; margin-top: 1rem;">
-                  <button type="button" class="btn btn-secondary" id="btn-cancel-stock-adjust">Cancelar</button>
-                  <button type="submit" class="btn btn-primary">Aplicar Ajuste</button>
-                </div>
-              </form>
+              <span class="stock-total-value" id="stock-view-total-value"></span>
             </div>
           </div>
 
-          <!-- Tabla de stock (Full Width) -->
-          <div class="card glass table-card" style="margin-bottom: 1.5rem;">
+          <!-- Tabla de stock -->
+          <div class="card glass table-card">
             <div class="table-responsive">
               <table>
                 <thead>
                   <tr>
                     <th>Producto</th>
+                    <th>SKU</th>
                     <th>Categoría</th>
-                    <th>
-                      Total 
-                      <span class="tooltip-icon" title="Existencia física total registrada en esta sucursal." style="cursor:help; opacity:0.8;">ℹ️</span>
-                    </th>
-                    <th>
-                      Reservado 
-                      <span class="tooltip-icon" title="Unidades comprometidas en pedidos aprobados pendientes de despachar." style="cursor:help; opacity:0.8;">ℹ️</span>
-                    </th>
-                    <th>
-                      Disponible 
-                      <span class="tooltip-icon" title="Unidades aptas para nuevos pedidos (Total - Reservado)." style="cursor:help; opacity:0.8;">ℹ️</span>
-                    </th>
-                    <th>
-                      Mínimo 
-                      <span class="tooltip-icon" title="Nivel mínimo de stock sugerido antes de generar alerta." style="cursor:help; opacity:0.8;">ℹ️</span>
-                    </th>
+                    <th title="Existencia física total registrada en esta sucursal.">Total</th>
+                    <th title="Unidades comprometidas en pedidos pendientes de entregar.">Reservado</th>
+                    <th title="Unidades aptas para nuevos pedidos (Total - Reservado).">Disponible</th>
+                    <th title="Nivel mínimo de stock antes de generar alerta.">Mínimo</th>
+                    <th title="Vencimiento más próximo entre los lotes con stock.">Próx. venc.</th>
+                    <th title="Total por costo unitario.">Valor</th>
                   </tr>
                 </thead>
-                <tbody id="table-branch-stock-body">
-                  <tr><td colspan="6" class="empty-text">Seleccioná una sucursal para ver su stock.</td></tr>
-                </tbody>
+                <tbody id="table-branch-stock-body"></tbody>
               </table>
             </div>
           </div>
 
-          <!-- Modal: Confirmación de Ajuste de Stock -->
-          <div id="modal-confirm-stock-adjust" class="modal hidden">
-            <div class="modal-content glass card" style="max-width: 480px; width: 95%; padding: 20px 25px;">
-              <div class="modal-header" style="margin-bottom: 12px;">
-                <h3 style="font-size: 1.15rem;">⚠️ Confirmar Ajuste de Stock</h3>
-                <button type="button" class="close-btn" id="btn-close-confirm-adjust-modal">&times;</button>
-              </div>
-              <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 15px;">
-                ¿Estás seguro de que deseas aplicar el siguiente ajuste directo sobre el inventario de la sucursal?
-              </p>
-              <div id="confirm-stock-adjust-summary" class="glass-light" style="padding: 15px; border-radius: var(--radius-sm); font-size: 0.88rem; line-height: 1.6; margin-bottom: 20px;">
-                <!-- Dinámico -->
-              </div>
-              <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                <button type="button" class="btn btn-secondary" id="btn-cancel-confirm-adjust">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="btn-execute-confirm-adjust">Sí, Aplicar Ajuste</button>
-              </div>
-            </div>
-          </div>
-
           <!-- Trazabilidad de movimientos -->
-          <div class="card glass table-card" style="margin-top:1.5rem">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem">
-              <h3>📋 Historial de Movimientos de Stock</h3>
-              <button class="btn btn-secondary btn-sm" onclick="loadMovementsTraceability()">Actualizar</button>
+          <div class="card glass table-card">
+            <div class="card-title-row">
+              <h3>Historial de Movimientos de Stock</h3>
+              <div class="btn-row">
+                <button class="btn btn-secondary btn-sm" data-export="movements" data-format="xlsx">Excel</button>
+                <button class="btn btn-secondary btn-sm" data-export="movements" data-format="pdf">PDF</button>
+              </div>
             </div>
-            <div class="table-responsive log-table">
+            <div class="table-toolbar">
+              <div class="filter-box">
+                <select id="movements-filter-type">
+                  <option value="">Todos los tipos</option>
+                  <option value="INGRESO">Ingreso</option>
+                  <option value="INGRESO_EXTRAORDINARIO">Ingreso extraordinario</option>
+                  <option value="EGRESO">Egreso</option>
+                  <option value="AJUSTE">Ajuste manual</option>
+                  <option value="TRANSFERENCIA_SALIDA">Transferencia (salida)</option>
+                  <option value="TRANSFERENCIA_ENTRADA">Transferencia (entrada)</option>
+                  <option value="CONTEO">Conteo físico</option>
+                  <option value="DISCREPANCIA">Discrepancia</option>
+                </select>
+                <select id="movements-filter-product"><option value="">Todos los productos</option></select>
+                <input type="date" id="movements-filter-from" title="Desde">
+                <input type="date" id="movements-filter-to" title="Hasta">
+              </div>
+            </div>
+            <div class="table-responsive">
               <table>
                 <thead>
                   <tr>
                     <th>Fecha</th>
                     <th>Tipo</th>
+                    <th>Producto</th>
+                    <th>Cantidad</th>
+                    <th>Lote</th>
                     <th>Detalle</th>
                     <th>Usuario</th>
                   </tr>
                 </thead>
-                <tbody id="table-movements-body">
-                  <tr><td colspan="4" class="empty-text">Cargando movimientos...</td></tr>
-                </tbody>
+                <tbody id="table-movements-body"></tbody>
+              </table>
+            </div>
+            <div class="pagination-container" id="movements-pagination"></div>
+          </div>
+        </section>
+
+        <!-- PANEL VENCIMIENTOS -->
+        <section id="panel-expirations" class="panel hidden">
+          <div class="panel-header-row">
+            <h2>Control de Vencimientos</h2>
+            <div class="btn-row">
+              <button class="btn btn-secondary btn-sm" data-export="expirations" data-format="xlsx">Excel</button>
+              <button class="btn btn-secondary btn-sm" data-export="expirations" data-format="pdf">PDF</button>
+            </div>
+          </div>
+          <div class="grid-dashboard grid-compact">
+            <div class="card glass stat-card stat-card-alert"><h3>Vencidos con stock</h3><p class="stat-number" id="exp-stat-expired">0</p></div>
+            <div class="card glass stat-card stat-card-warning"><h3>Vencen en 7 días</h3><p class="stat-number" id="exp-stat-urgent">0</p></div>
+            <div class="card glass stat-card stat-card-transit"><h3>Vencen en el período</h3><p class="stat-number" id="exp-stat-upcoming">0</p></div>
+          </div>
+          <div class="card glass table-card">
+            <div class="table-toolbar">
+              <div class="filter-box">
+                <label for="exp-filter-days" class="inline-label">Mostrar lotes que vencen en los próximos</label>
+                <select id="exp-filter-days">
+                  <option value="7">7 días</option>
+                  <option value="15">15 días</option>
+                  <option value="30" selected>30 días</option>
+                  <option value="60">60 días</option>
+                  <option value="90">90 días</option>
+                </select>
+                <select id="exp-filter-branch"><option value="">Todas las sucursales</option></select>
+              </div>
+            </div>
+            <p class="hint-text">Los lotes se descuentan en orden FEFO: lo que vence primero, sale primero. Los vencidos siguen contando en el stock hasta que se den de baja.</p>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Producto</th>
+                    <th>Sucursal</th>
+                    <th>Lote</th>
+                    <th>Vencimiento</th>
+                    <th>Días</th>
+                    <th>Unidades</th>
+                    <th>Estado</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="table-expirations-body"></tbody>
               </table>
             </div>
           </div>
         </section>
 
-        <!-- 🚚 PANEL DESPACHANTE -->
-        <section id="panel-despachante" class="panel hidden">
+        <!-- PANEL CONTEO DE INVENTARIO -->
+        <section id="panel-counts" class="panel hidden">
+          <div class="panel-header-row">
+            <h2>Conteo Físico de Inventario</h2>
+          </div>
+
+          <div class="card glass filter-card">
+            <div class="filter-row">
+              <label for="count-branch-select" class="inline-label">Sucursal:</label>
+              <select id="count-branch-select" class="select-md"></select>
+              <button class="btn btn-primary" id="btn-start-count">Iniciar Conteo</button>
+            </div>
+            <p class="hint-text">El sistema toma una foto del stock actual. Cargá lo que contaste en el depósito y, al cerrar, se ajustan las diferencias y quedan registradas.</p>
+          </div>
+
+          <!-- Conteo abierto -->
+          <div class="card glass table-card hidden" id="count-editor">
+            <div class="card-title-row">
+              <h3 id="count-editor-title">Conteo en curso</h3>
+              <div class="btn-row">
+                <button class="btn btn-secondary btn-sm" id="btn-count-cancel">Cancelar conteo</button>
+                <button class="btn btn-secondary btn-sm" id="btn-count-save">Guardar avance</button>
+                <button class="btn btn-primary btn-sm" id="btn-count-close">Cerrar y ajustar stock</button>
+              </div>
+            </div>
+            <div class="table-toolbar">
+              <div class="search-box">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="count-search" placeholder="Buscar producto o SKU..." />
+              </div>
+              <span class="hint-text" id="count-progress"></span>
+            </div>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Producto</th>
+                    <th>SKU</th>
+                    <th>Según sistema</th>
+                    <th>Contado</th>
+                    <th>Diferencia</th>
+                  </tr>
+                </thead>
+                <tbody id="table-count-items"></tbody>
+              </table>
+            </div>
+          </div>
+
           <div class="card glass table-card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
-              <h3 style="margin-bottom: 0;">🚚 Panel de Despacho de Pedidos</h3>
-              <div class="filter-box" style="display: flex; align-items: center; gap: 8px;">
-                <label for="despachante-filter-status" style="font-size: 0.85rem; color: var(--text-muted);">Filtrar por Estado:</label>
-                <select id="despachante-filter-status" style="padding: 6px 12px; font-size: 0.85rem; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.12); background: rgba(15, 23, 42, 0.6); color: var(--text-main);">
+            <h3>Historial de Conteos</h3>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Sucursal</th>
+                    <th>Estado</th>
+                    <th>Contados</th>
+                    <th>Diferencias</th>
+                    <th>Responsable</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="table-counts-history"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- PANEL PROVEEDORES -->
+        <section id="panel-suppliers" class="panel hidden">
+          <div class="panel-header-row">
+            <h2 id="suppliers-panel-title">Proveedores y Órdenes de Compra</h2>
+          </div>
+
+          <div class="sub-nav" id="suppliers-sub-nav">
+            <button class="btn btn-tab active" data-sub="suppliers-list">Proveedores</button>
+            <button class="btn btn-tab" data-sub="suppliers-po">Órdenes de Compra</button>
+          </div>
+
+          <div id="subpanel-suppliers-list" class="subpanel">
+            <div class="card glass table-card">
+              <div class="card-title-row">
+                <h3>Proveedores Registrados</h3>
+                <button class="btn btn-primary" id="btn-open-supplier-modal">Nuevo Proveedor</button>
+              </div>
+              <div class="table-toolbar">
+                <div class="search-box">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                  <input type="text" id="supplier-search" placeholder="Buscar por razón social, CUIT o contacto..." />
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Razón Social</th>
+                      <th>CUIT</th>
+                      <th>Contacto</th>
+                      <th>Teléfono / Email</th>
+                      <th>Productos que provee</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-suppliers-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div id="subpanel-suppliers-po" class="subpanel hidden">
+            <div class="card glass table-card">
+              <div class="card-title-row">
+                <h3>Órdenes de Compra</h3>
+                <div class="btn-row">
+                  <select id="po-filter-status">
+                    <option value="">Todos los estados</option>
+                    <option value="PENDIENTE">Pendientes</option>
+                    <option value="RECIBIDA">Recibidas</option>
+                    <option value="CANCELADA">Canceladas</option>
+                  </select>
+                  <button class="btn btn-primary" id="btn-open-po-modal">Nueva Orden de Compra</button>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>N° Orden</th>
+                      <th>Proveedor</th>
+                      <th>Sucursal destino</th>
+                      <th>Productos</th>
+                      <th>Total</th>
+                      <th>Estado</th>
+                      <th>Fecha</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-po-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- PANEL DESPACHANTE -->
+        <section id="panel-despachante" class="panel hidden">
+          <div class="panel-header-row">
+            <h2>Panel de Despacho de Pedidos</h2>
+            <div class="btn-row">
+              <div class="segmented" role="group" aria-label="Vista">
+                <button type="button" class="segmented-btn active" data-dispatch-view="board">Tablero</button>
+                <button type="button" class="segmented-btn" data-dispatch-view="list">Lista</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Vista tablero (Kanban) -->
+          <div id="dispatch-board" class="kanban">
+            <div class="kanban-col" data-status="PENDIENTE">
+              <div class="kanban-col-header"><span class="kanban-dot dot-pendiente"></span>Pendientes <span class="kanban-count" data-count="PENDIENTE">0</span></div>
+              <div class="kanban-cards" data-cards="PENDIENTE"></div>
+            </div>
+            <div class="kanban-col" data-status="EN_PREPARACION">
+              <div class="kanban-col-header"><span class="kanban-dot dot-preparacion"></span>En preparación <span class="kanban-count" data-count="EN_PREPARACION">0</span></div>
+              <div class="kanban-cards" data-cards="EN_PREPARACION"></div>
+            </div>
+            <div class="kanban-col" data-status="DESPACHADO">
+              <div class="kanban-col-header"><span class="kanban-dot dot-despachado"></span>Despachados <span class="kanban-count" data-count="DESPACHADO">0</span></div>
+              <div class="kanban-cards" data-cards="DESPACHADO"></div>
+            </div>
+            <div class="kanban-col" data-status="ENTREGADO">
+              <div class="kanban-col-header"><span class="kanban-dot dot-entregado"></span>Entregados (últimos 10) <span class="kanban-count" data-count="ENTREGADO">0</span></div>
+              <div class="kanban-cards" data-cards="ENTREGADO"></div>
+            </div>
+          </div>
+
+          <!-- Vista lista -->
+          <div id="dispatch-list" class="card glass table-card hidden">
+            <div class="card-title-row">
+              <h3>Todos los pedidos</h3>
+              <div class="filter-box">
+                <label for="despachante-filter-status" class="inline-label">Filtrar por Estado:</label>
+                <select id="despachante-filter-status">
                   <option value="">Todos los Estados</option>
-                  <option value="PENDIENTE">⏳ Pendientes</option>
-                  <option value="EN_PREPARACION">🛠️ En Preparación</option>
-                  <option value="DESPACHADO">🚚 Despachados</option>
-                  <option value="ENTREGADO">✅ Entregados</option>
+                  <option value="PENDIENTE">Pendientes</option>
+                  <option value="EN_PREPARACION">En Preparación</option>
+                  <option value="DESPACHADO">Despachados</option>
+                  <option value="ENTREGADO">Entregados</option>
                 </select>
               </div>
             </div>
@@ -838,35 +823,34 @@
                   <tr>
                     <th>N° Pedido</th>
                     <th>Solicitante</th>
-                    <th>🏢 Sucursal Destino</th>
+                    <th>Sucursal Destino</th>
                     <th>Fecha</th>
                     <th>Estado</th>
                     <th>Detalle Insumos</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
-                <tbody id="table-despachante-orders-body">
-                  <!-- Dinámico -->
-                </tbody>
+                <tbody id="table-despachante-orders-body"></tbody>
               </table>
             </div>
           </div>
         </section>
 
-        <!-- 📦 PANEL CATÁLOGO -->
+        <!-- PANEL CATÁLOGO -->
         <section id="panel-catalog" class="panel hidden">
-          <div class="panel-header-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 1rem;">
-            <h2>📦 Catálogo de Productos / Insumos</h2>
-            <button id="btn-open-create-product-modal" class="btn btn-primary">➕ Agregar Insumo</button>
+          <div class="panel-header-row">
+            <h2>Catálogo de Productos / Insumos</h2>
+            <button id="btn-open-create-product-modal" class="btn btn-primary">Agregar Insumo</button>
           </div>
 
           <div class="card glass table-card">
-            <div class="table-toolbar" style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
-              <div class="search-box" style="flex: 1; min-width: 200px;">
-                <input type="text" id="catalog-search-input" placeholder="Buscar por nombre o descripción..." style="width:100%; padding: 8px 12px; border-radius: 8px;" />
+            <div class="table-toolbar">
+              <div class="search-box">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="catalog-search-input" placeholder="Buscar por nombre, descripción, SKU o código de barras..." />
               </div>
               <div class="filter-box">
-                <select id="catalog-filter-category" style="padding: 8px 12px; border-radius: 8px;">
+                <select id="catalog-filter-category">
                   <option value="">Todas las Categorías</option>
                 </select>
               </div>
@@ -877,24 +861,25 @@
                 <thead>
                   <tr>
                     <th>Nombre del Insumo</th>
+                    <th>SKU / Código</th>
                     <th>Categoría / Rubro</th>
                     <th>Descripción Técnica</th>
                     <th>Stock Mínimo Alerta</th>
+                    <th>Costo Unitario</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
-                <tbody id="table-catalog-body">
-                  <tr><td colspan="4" class="empty-text">Cargando catálogo...</td></tr>
-                </tbody>
+                <tbody id="table-catalog-body"></tbody>
               </table>
             </div>
           </div>
         </section>
 
-        <!-- 🏷️ PANEL CATEGORÍAS -->
+        <!-- PANEL CATEGORÍAS -->
         <section id="panel-categories" class="panel hidden">
-          <div class="panel-header-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 1rem;">
-            <h2>🏷️ Gestión de Categorías / Rubros</h2>
-            <button id="btn-open-create-category-modal" class="btn btn-primary">➕ Agregar Categoría</button>
+          <div class="panel-header-row">
+            <h2>Gestión de Categorías / Rubros</h2>
+            <button id="btn-open-create-category-modal" class="btn btn-primary">Agregar Categoría</button>
           </div>
 
           <div class="card glass table-card">
@@ -907,9 +892,7 @@
                     <th>Insumos Vinculados</th>
                   </tr>
                 </thead>
-                <tbody id="table-categories-body">
-                  <tr><td colspan="3" class="empty-text">Cargando categorías...</td></tr>
-                </tbody>
+                <tbody id="table-categories-body"></tbody>
               </table>
             </div>
           </div>
@@ -918,34 +901,318 @@
     </div>
   </div>
 
-  <!-- TIMELINE / TRAZABILIDAD MODAL -->
-  <div id="timeline-modal" class="modal hidden">
-    <div class="modal-content glass">
+  <!-- ===================================================================== -->
+  <!-- MODALES                                                                -->
+  <!-- ===================================================================== -->
+
+  <!-- Confirmación genérica (reemplaza confirm() del navegador) -->
+  <div id="modal-confirm" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="modal-content glass card modal-sm">
       <div class="modal-header">
-        <h3>Historial de Trazabilidad del Pedido</h3>
-        <button id="close-modal-btn" class="close-btn">&times;</button>
+        <h3 id="confirm-title">Confirmar</h3>
+        <button type="button" class="close-btn" data-confirm-cancel>&times;</button>
       </div>
-      <div class="modal-body">
-        <p class="modal-order-id">Pedido: <span id="modal-order-id-label">-</span></p>
-        <div class="timeline" id="timeline-container">
-          <!-- Timestamps dinámicos -->
-        </div>
+      <div id="confirm-message" class="confirm-message"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" data-confirm-cancel>Cancelar</button>
+        <button type="button" class="btn btn-primary" id="confirm-accept">Confirmar</button>
       </div>
     </div>
   </div>
 
-  <!-- ADMIN VALIDATION TOKEN MODAL -->
+  <!-- Modal: Crear Usuario -->
+  <div id="modal-create-user" class="modal hidden">
+    <div class="modal-content glass card modal-lg">
+      <div class="modal-header">
+        <h3>Crear Nuevo Usuario</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
+      </div>
+      <form id="form-create-user" class="form-grid">
+        <div class="form-group">
+          <label for="new-user-email">Correo Electrónico <span class="req">*</span></label>
+          <input type="email" id="new-user-email" placeholder="juan@empresa.com" required>
+        </div>
+        <div class="form-group">
+          <label for="new-user-password">Contraseña <span class="req">*</span></label>
+          <input type="password" id="new-user-password" placeholder="Mínimo 6 caracteres" minlength="6" required>
+        </div>
+        <div class="form-group">
+          <label for="new-user-firstname">Nombre <span class="req">*</span></label>
+          <input type="text" id="new-user-firstname" placeholder="Juan" required>
+        </div>
+        <div class="form-group">
+          <label for="new-user-lastname">Apellido <span class="req">*</span></label>
+          <input type="text" id="new-user-lastname" placeholder="Pérez" required>
+        </div>
+        <div class="form-group">
+          <label for="new-user-document">DNI / CUIL / CUIT <span class="req">*</span></label>
+          <input type="text" id="new-user-document" placeholder="20-12345678-9 / DNI" required>
+        </div>
+        <div class="form-group">
+          <label for="new-user-birthdate">Fecha de Nacimiento <span class="req">*</span></label>
+          <input type="date" id="new-user-birthdate" required>
+        </div>
+        <div class="form-group">
+          <label for="new-user-phone">Teléfono <span class="req">*</span></label>
+          <input type="tel" id="new-user-phone" placeholder="Código de área + Número" required>
+        </div>
+        <div class="form-group">
+          <label for="new-user-address">Dirección <span class="req">*</span></label>
+          <input type="text" id="new-user-address" placeholder="Calle, Número, Piso/Depto" required>
+        </div>
+        <div class="form-group">
+          <label for="new-user-zipcode">Código Postal <span class="req">*</span></label>
+          <input type="text" id="new-user-zipcode" placeholder="C1001 / 1400" required>
+        </div>
+        <div class="form-group">
+          <label for="new-user-role">Rol <span class="req">*</span></label>
+          <select id="new-user-role" required>
+            <option value="Solicitante">Solicitante</option>
+            <option value="Despachante">Despachante</option>
+            <option value="Usuario Responsable">Usuario Responsable</option>
+            <option value="Proveedor">Proveedor</option>
+            <option value="Administrador">Administrador</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="new-user-space">Sucursal Asignada <span class="req">*</span></label>
+          <select id="new-user-space" required>
+            <option value="">Seleccionar Sucursal...</option>
+          </select>
+        </div>
+        <div class="form-group hidden" id="new-user-supplier-group">
+          <label for="new-user-supplier">Empresa Proveedora <span class="req">*</span></label>
+          <select id="new-user-supplier"></select>
+        </div>
+        <div class="modal-actions span-2">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-primary">Registrar Usuario</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Ver Usuario -->
+  <div id="modal-view-user" class="modal hidden">
+    <div class="modal-content glass card modal-md">
+      <div class="modal-header">
+        <h3>Detalles de Usuario</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
+      </div>
+      <div id="view-user-details-content" class="details-grid"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" data-close-modal>Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Editar Usuario -->
+  <div id="modal-edit-user" class="modal hidden">
+    <div class="modal-content glass card modal-lg">
+      <div class="modal-header">
+        <h3>Editar Usuario</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
+      </div>
+      <form id="form-edit-user" class="form-grid">
+        <input type="hidden" id="edit-user-id">
+        <div class="form-group">
+          <label for="edit-user-email">Correo Electrónico <span class="req">*</span></label>
+          <input type="email" id="edit-user-email" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-user-password">Nueva Contraseña <span class="opt">(dejar vacío para no cambiarla)</span></label>
+          <input type="password" id="edit-user-password" minlength="6" autocomplete="new-password">
+        </div>
+        <div class="form-group">
+          <label for="edit-user-firstname">Nombre <span class="req">*</span></label>
+          <input type="text" id="edit-user-firstname" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-user-lastname">Apellido <span class="req">*</span></label>
+          <input type="text" id="edit-user-lastname" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-user-document">DNI / CUIL / CUIT <span class="req">*</span></label>
+          <input type="text" id="edit-user-document" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-user-birthdate">Fecha de Nacimiento <span class="req">*</span></label>
+          <input type="date" id="edit-user-birthdate" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-user-phone">Teléfono <span class="req">*</span></label>
+          <input type="tel" id="edit-user-phone" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-user-address">Dirección <span class="req">*</span></label>
+          <input type="text" id="edit-user-address" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-user-zipcode">Código Postal <span class="req">*</span></label>
+          <input type="text" id="edit-user-zipcode" required>
+        </div>
+        <div class="form-group">
+          <label for="edit-user-role">Rol <span class="req">*</span></label>
+          <select id="edit-user-role" required>
+            <option value="Solicitante">Solicitante</option>
+            <option value="Despachante">Despachante</option>
+            <option value="Usuario Responsable">Usuario Responsable</option>
+            <option value="Proveedor">Proveedor</option>
+            <option value="Administrador">Administrador</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="edit-user-space">Sucursal Asignada</label>
+          <select id="edit-user-space">
+            <option value="">Seleccionar Sucursal...</option>
+          </select>
+        </div>
+        <div class="form-group hidden" id="edit-user-supplier-group">
+          <label for="edit-user-supplier">Empresa Proveedora <span class="req">*</span></label>
+          <select id="edit-user-supplier"></select>
+        </div>
+        <div class="modal-actions span-2">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Crear / Editar Sucursal -->
+  <div id="modal-branch" class="modal hidden">
+    <div class="modal-content glass card modal-lg">
+      <div class="modal-header">
+        <h3 id="modal-branch-title">Crear Nueva Sucursal</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
+      </div>
+      <form id="form-branch" class="form-grid">
+        <input type="hidden" id="branch-id">
+        <div class="form-group">
+          <label for="branch-name">Nombre de la Sucursal <span class="req">*</span></label>
+          <input type="text" id="branch-name" placeholder="Ej: Sucursal Centro" required>
+        </div>
+        <div class="form-group">
+          <label for="branch-type" title="Sucursal: sede principal o local comercial. Filial: sede secundaria. Zona: región de entrega. Dependencia: oficina interna. Sector: área o depósito.">Tipo <span class="req">*</span></label>
+          <select id="branch-type" required>
+            <option value="sucursal">Sucursal (Sede principal/comercial)</option>
+            <option value="filial">Filial (Sede secundaria)</option>
+            <option value="Zona">Zona (Región logística)</option>
+            <option value="dependencia">Dependencia (Oficina interna)</option>
+            <option value="sector">Sector (Área/Depósito)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="branch-address">Dirección <span class="req">*</span></label>
+          <input type="text" id="branch-address" placeholder="Ej: Av. Corrientes 1234" required>
+        </div>
+        <div class="form-group">
+          <label for="branch-phone">Teléfono / Contacto <span class="opt">(Opcional)</span></label>
+          <input type="tel" id="branch-phone" placeholder="Ej: 011 4321-5678">
+        </div>
+        <div class="form-group span-2">
+          <div class="label-row">
+            <label for="branch-description">Descripción <span class="opt">(Opcional)</span></label>
+            <span id="branch-desc-counter" class="char-counter">0 / 200</span>
+          </div>
+          <textarea id="branch-description" rows="2" maxlength="200" placeholder="Observaciones o notas de referencia..."></textarea>
+        </div>
+        <div class="modal-actions span-2">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-branch-submit">Registrar Sucursal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Ver Sucursal -->
+  <div id="modal-view-branch" class="modal hidden">
+    <div class="modal-content glass card modal-md">
+      <div class="modal-header">
+        <h3>Detalles de Sucursal</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
+      </div>
+      <div id="view-branch-details-content" class="details-grid"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" data-close-modal>Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Ajuste Manual de Stock -->
+  <div id="modal-stock-adjust" class="modal hidden">
+    <div class="modal-content glass card modal-lg">
+      <div class="modal-header">
+        <h3>Ajuste Manual de Stock</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
+      </div>
+      <p class="hint-text">Usar para correcciones puntuales. Para ventas, roturas o vencidos conviene "Registrar Egreso"; para recuentos completos, "Conteo de Inventario".</p>
+      <form id="form-stock-adjust" class="form-grid">
+        <div class="form-group">
+          <label for="adjust-branch">Sucursal <span class="req">*</span></label>
+          <select id="adjust-branch" required></select>
+        </div>
+        <div class="form-group">
+          <label for="adjust-product">Producto <span class="req">*</span></label>
+          <select id="adjust-product" required></select>
+        </div>
+        <div class="form-group">
+          <label for="adjust-quantity">Cantidad <span class="opt">(+ suma, - resta)</span> <span class="req">*</span></label>
+          <div class="qty-stepper">
+            <button type="button" class="btn btn-secondary" id="btn-adjust-qty-minus">-</button>
+            <input type="number" id="adjust-quantity" placeholder="0" required>
+            <button type="button" class="btn btn-secondary" id="btn-adjust-qty-plus">+</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="adjust-reason-select">Motivo del Ajuste <span class="req">*</span></label>
+          <select id="adjust-reason-select" required>
+            <option value="" disabled selected>— Seleccionar motivo —</option>
+            <option value="Corrección de conteo / Inventario">Corrección de conteo / Inventario</option>
+            <option value="Pérdida por vencimiento">Pérdida por vencimiento</option>
+            <option value="Rotura / Daño de insumo">Rotura / Daño de insumo</option>
+            <option value="Ingreso directo de insumos">Ingreso directo de insumos</option>
+            <option value="Otro">Otro (Especificar)</option>
+          </select>
+        </div>
+        <div class="form-group span-2 hidden" id="adjust-reason-other-group">
+          <label for="adjust-reason-other">Especificar Otro Motivo <span class="req">*</span></label>
+          <input type="text" id="adjust-reason-other" placeholder="Describí el motivo del ajuste...">
+        </div>
+        <div class="modal-actions span-2">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-primary">Aplicar Ajuste</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Trazabilidad del pedido -->
+  <div id="timeline-modal" class="modal hidden">
+    <div class="modal-content glass">
+      <div class="modal-header">
+        <h3>Historial de Trazabilidad del Pedido</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-order-id">Pedido: <span id="modal-order-id-label">-</span></p>
+        <div class="timeline" id="timeline-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Token de validación del administrador -->
   <div id="validation-token-modal" class="modal hidden">
     <div class="modal-content glass">
       <div class="modal-header">
         <h3>Aprobación Urgente / Crítica</h3>
-        <button id="close-token-modal-btn" class="close-btn">&times;</button>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
       </div>
       <div class="modal-body">
         <div class="token-generation-box">
           <p>Para aprobar esta orden, genera un Token de Validación temporal.</p>
           <button id="btn-generate-token" class="btn btn-secondary">Generar Token</button>
-          
+
           <div id="token-display-box" class="token-display hidden">
             <label for="token-string">Token de Validación Temporal (15m)</label>
             <div class="copy-box">
@@ -954,9 +1221,9 @@
             </div>
           </div>
         </div>
-        
+
         <hr class="modal-divider">
-        
+
         <div class="token-apply-box">
           <p>Ingresa el token generado para autorizar la orden inmediatamente.</p>
           <form id="form-apply-token">
@@ -970,306 +1237,515 @@
     </div>
   </div>
 
-  <!-- Modal Popup: Agregar Insumo al Catálogo -->
-  <div id="modal-create-product" class="modal hidden">
-    <div class="modal-content glass card" style="max-width: 600px; width: 95%; padding: 20px 25px;">
-      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px;">
-        <h3 style="font-size: 1.2rem; margin-bottom: 0;">➕ Agregar Nuevo Insumo al Catálogo</h3>
-        <button type="button" class="close-btn" id="btn-close-create-product-modal">&times;</button>
+  <!-- Modal: Crear / Editar Producto -->
+  <div id="modal-product" class="modal hidden">
+    <div class="modal-content glass card modal-lg">
+      <div class="modal-header">
+        <h3 id="modal-product-title">Agregar Nuevo Insumo al Catálogo</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
       </div>
-      <form id="form-create-product" style="display: flex; flex-direction: column; gap: 0.8rem;">
-        <div class="form-group" style="margin-bottom:0;">
-          <label for="prod-name">Nombre del Insumo <span style="color:var(--color-danger)">*</span></label>
+      <form id="form-product" class="form-grid">
+        <input type="hidden" id="prod-id">
+        <div class="form-group span-2">
+          <label for="prod-name">Nombre del Insumo <span class="req">*</span></label>
           <input type="text" id="prod-name" placeholder="Ej: Guantes de Latex Talle M" required>
         </div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label for="prod-category">Categoría / Rubro <span style="color:var(--color-danger)">*</span></label>
-          <select id="prod-category" required>
-            <option value="" disabled selected>Selecciona rubro...</option>
-          </select>
+        <div class="form-group">
+          <label for="prod-category">Categoría / Rubro <span class="req">*</span></label>
+          <select id="prod-category" required></select>
         </div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label for="prod-description">Descripción Técnica <span style="color:var(--color-danger)">*</span></label>
-          <textarea id="prod-description" rows="3" placeholder="Especificaciones técnicas, talle, marca o características..." required></textarea>
-        </div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label for="prod-minstock">
-            Stock Mínimo Alerta <span style="color:var(--color-danger)">*</span>
-            <span class="tooltip-icon" title="Nivel límite configurable. Si el stock total cae debajo de esta cifra, el sistema genera alertas." style="cursor:help; opacity:0.8;">ℹ️</span>
-          </label>
+        <div class="form-group">
+          <label for="prod-minstock" title="Si el stock de una sucursal baja a este número o menos, el sistema genera una alerta.">Stock Mínimo Alerta <span class="req">*</span></label>
           <input type="number" id="prod-minstock" min="0" value="10" required>
         </div>
-        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 0.8rem;">
-          <button type="button" class="btn btn-secondary" id="btn-cancel-create-product-modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Agregar Producto</button>
+        <div class="form-group">
+          <label for="prod-sku">SKU <span class="opt">(código interno)</span></label>
+          <input type="text" id="prod-sku" placeholder="Ej: GUA-LAT-M" maxlength="40">
+        </div>
+        <div class="form-group">
+          <label for="prod-barcode">Código de Barras</label>
+          <input type="text" id="prod-barcode" placeholder="Escaneá o escribí el código" maxlength="40">
+        </div>
+        <div class="form-group">
+          <label for="prod-cost">Costo Unitario ($)</label>
+          <input type="number" id="prod-cost" min="0" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group span-2">
+          <label for="prod-description">Descripción Técnica <span class="req">*</span></label>
+          <textarea id="prod-description" rows="3" placeholder="Especificaciones técnicas, talle, marca o características..." required></textarea>
+        </div>
+        <div class="modal-actions span-2">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-product-submit">Agregar Producto</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Modal Popup: Crear Nueva Categoría -->
+  <!-- Modal: Crear Categoría -->
   <div id="modal-create-category" class="modal hidden">
-    <div class="modal-content glass card" style="max-width: 500px; width: 95%; padding: 20px 25px;">
-      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px;">
-        <h3 style="font-size: 1.2rem; margin-bottom: 0;">🏷️ Crear Nueva Categoría (Rubro)</h3>
-        <button type="button" class="close-btn" id="btn-close-create-category-modal">&times;</button>
+    <div class="modal-content glass card modal-md">
+      <div class="modal-header">
+        <h3>Crear Nueva Categoría (Rubro)</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
       </div>
-      <form id="form-create-category" style="display: flex; flex-direction: column; gap: 0.8rem;">
-        <div class="form-group" style="margin-bottom:0;">
-          <label for="cat-name">Nombre de Rubro / Categoría <span style="color:var(--color-danger)">*</span></label>
+      <form id="form-create-category" class="form-stack">
+        <div class="form-group">
+          <label for="cat-name">Nombre de Rubro / Categoría <span class="req">*</span></label>
           <input type="text" id="cat-name" placeholder="Ej: Descartables" required>
         </div>
-        <div class="form-group" style="margin-bottom:0;">
+        <div class="form-group">
           <label for="cat-description">Descripción</label>
           <textarea id="cat-description" rows="3" placeholder="Descripción corta..."></textarea>
         </div>
-        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 0.8rem;">
-          <button type="button" class="btn btn-secondary" id="btn-cancel-create-category-modal">Cancelar</button>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
           <button type="submit" class="btn btn-primary">Agregar Rubro</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Modal Popup: Crear Nuevo Pedido -->
+  <!-- Modal: Crear Nuevo Pedido -->
   <div id="modal-create-order" class="modal hidden">
-    <div class="modal-content glass card" style="max-width: 700px; width: 95%; padding: 20px 25px;">
-      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px;">
-        <h3 style="font-size: 1.2rem; margin-bottom: 0;">🛒 Crear Nuevo Pedido de Insumos</h3>
-        <button type="button" class="close-btn" id="btn-close-create-order-modal">&times;</button>
+    <div class="modal-content glass card modal-lg">
+      <div class="modal-header">
+        <h3>Crear Nuevo Pedido de Insumos</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
       </div>
-      
-      <form id="form-create-order-modal" style="display: flex; flex-direction: column; gap: 1rem;">
-        <!-- Sucursales Origen y Destino -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-          <div class="form-group" style="margin-bottom:0;">
-            <label for="order-modal-from-branch">📤 Sucursal que Envía (Origen) <span style="color:var(--color-danger)">*</span></label>
-            <select id="order-modal-from-branch" required>
-              <option value="" disabled selected>Seleccionar sucursal origen...</option>
-            </select>
+
+      <form id="form-create-order-modal" class="form-stack">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="order-modal-from-branch">Sucursal que Envía (Origen) <span class="req">*</span></label>
+            <select id="order-modal-from-branch" required></select>
           </div>
-          <div class="form-group" style="margin-bottom:0;">
-            <label for="order-modal-to-branch">📥 Sucursal que Recibe (Destino) <span style="color:var(--color-danger)">*</span></label>
-            <select id="order-modal-to-branch" required>
-              <option value="" disabled selected>Seleccionar sucursal destino...</option>
-            </select>
+          <div class="form-group">
+            <label for="order-modal-to-branch">Sucursal que Recibe (Destino) <span class="req">*</span></label>
+            <select id="order-modal-to-branch" required></select>
           </div>
         </div>
 
-        <!-- Selector de Artículo y Cantidad con Botón (+) -->
-        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); padding: 12px 15px;">
-          <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 8px;">Agregar Insumo al Pedido:</label>
-          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-            <div style="flex: 2; min-width: 200px;">
-              <select id="order-modal-product-select" style="width: 100%; padding: 8px 12px; font-size: 0.85rem;">
-                <option value="">Selecciona un insumo...</option>
-              </select>
-            </div>
-            <div style="width: 90px;">
-              <input type="number" id="order-modal-product-qty" min="1" value="1" placeholder="Cant." style="width: 100%; padding: 8px 10px; font-size: 0.85rem; text-align: center;">
-            </div>
-            <button type="button" id="btn-order-modal-add-item" class="btn btn-secondary" style="padding: 8px 16px; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; justify-content: center;" title="Agregar Insumo a la Lista">
-              ➕
-            </button>
+        <div class="item-picker">
+          <label class="picker-label">Agregar Insumo al Pedido:</label>
+          <div class="picker-row">
+            <input type="text" class="scan-input" data-scan-target="order-modal-product-select" placeholder="Escanear código">
+            <select id="order-modal-product-select" class="picker-grow"></select>
+            <input type="number" id="order-modal-product-qty" min="1" value="1" class="picker-qty" title="Cantidad">
+            <button type="button" id="btn-order-modal-add-item" class="btn btn-secondary">Agregar</button>
           </div>
+          <span class="hint-text" id="order-modal-available"></span>
         </div>
 
-        <!-- Lista de Insumos Agregados por debajo -->
-        <div class="card glass-light" style="padding: 12px; border-radius: var(--radius-sm);">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <span style="font-weight: 600; font-size: 0.85rem;">Insumos Agregados al Pedido:</span>
-            <span id="order-modal-items-count" class="badge">0 artículos</span>
+        <div class="card glass-light item-list">
+          <div class="item-list-header">
+            <span>Insumos Agregados al Pedido:</span>
+            <span id="order-modal-items-count" class="badge">0 insumos</span>
           </div>
-          <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
-            <table style="font-size: 0.85rem; width: 100%;">
+          <div class="table-responsive item-list-scroll">
+            <table class="table-compact">
               <thead>
                 <tr>
                   <th>Insumo</th>
-                  <th style="width: 80px; text-align: center;">Cantidad</th>
-                  <th style="width: 60px; text-align: center;">Acción</th>
+                  <th class="col-center">Cantidad</th>
+                  <th class="col-center">Acción</th>
                 </tr>
               </thead>
-              <tbody id="table-order-modal-items-body">
-                <tr><td colspan="3" class="empty-text" style="padding: 12px;">Aún no agregaste insumos a este pedido.</td></tr>
-              </tbody>
+              <tbody id="table-order-modal-items-body"></tbody>
             </table>
           </div>
         </div>
 
-        <!-- Notas opcionales -->
-        <div class="form-group" style="margin-bottom:0;">
-          <label for="order-modal-notes" style="font-size: 0.8rem;">Notas u Observaciones del Pedido (opcional)</label>
+        <div class="form-group">
+          <label for="order-modal-notes">Notas u Observaciones del Pedido (opcional)</label>
           <textarea id="order-modal-notes" rows="2" placeholder="Observaciones o justificación adicional..."></textarea>
         </div>
 
-        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 0.5rem;">
-          <button type="button" class="btn btn-secondary" id="btn-cancel-create-order-modal">Cancelar</button>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
           <button type="submit" class="btn btn-primary">Confirmar y Enviar Pedido</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Modal Popup: Agregar Ingreso de Stock (Provisión Estándar) -->
+  <!-- Modal: Agregar Ingreso de Stock (Provisión Estándar) -->
   <div id="modal-create-stock-entry" class="modal hidden">
-    <div class="modal-content glass card" style="max-width: 750px; width: 95%; padding: 20px 25px;">
-      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px;">
-        <h3 style="font-size: 1.2rem; margin-bottom: 0;">📥 Agregar Ingreso / Provisión de Stock</h3>
-        <button type="button" class="close-btn" id="btn-close-create-stock-entry-modal">&times;</button>
+    <div class="modal-content glass card modal-xl">
+      <div class="modal-header">
+        <h3>Agregar Ingreso / Provisión de Stock</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
       </div>
 
-      <form id="form-create-stock-entry-modal" style="display: flex; flex-direction: column; gap: 1rem;">
-        <!-- Sucursal Destino -->
-        <div class="form-group" style="margin-bottom: 0;">
-          <label for="stock-modal-branch">🏢 Sucursal Destino <span style="color:var(--color-danger)">*</span></label>
-          <select id="stock-modal-branch" required style="width: 100%; padding: 8px 12px; font-size: 0.85rem;">
-            <option value="" disabled selected>Seleccionar sucursal destino...</option>
-          </select>
+      <form id="form-create-stock-entry-modal" class="form-stack">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="stock-modal-branch">Sucursal Destino <span class="req">*</span></label>
+            <select id="stock-modal-branch" required></select>
+          </div>
+          <div class="form-group">
+            <label for="stock-modal-supplier">Proveedor <span class="opt">(opcional)</span></label>
+            <select id="stock-modal-supplier"></select>
+          </div>
         </div>
 
-        <!-- Formulario para agregar item a la lista -->
-        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); padding: 12px 15px;">
-          <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 8px;">Datos del Insumo a Ingresar:</label>
-          <div style="display: grid; grid-template-columns: 2fr 1fr 1.5fr 1.5fr auto; gap: 8px; align-items: end;">
+        <div class="item-picker">
+          <label class="picker-label">Datos del Insumo a Ingresar:</label>
+          <div class="picker-grid">
             <div>
-              <label style="font-size: 0.75rem; display: block; margin-bottom: 2px;">Insumo / Producto <span style="color:var(--color-danger)">*</span></label>
-              <select id="stock-modal-product-select" style="width: 100%; padding: 7px 10px; font-size: 0.85rem;">
-                <option value="">Selecciona insumo...</option>
-              </select>
+              <label class="mini-label">Escanear</label>
+              <input type="text" class="scan-input" data-scan-target="stock-modal-product-select" placeholder="Código">
             </div>
             <div>
-              <label style="font-size: 0.75rem; display: block; margin-bottom: 2px;">Cantidad <span style="color:var(--color-danger)">*</span></label>
-              <input type="number" id="stock-modal-product-qty" min="1" value="1" placeholder="Cant." style="width: 100%; padding: 7px 10px; font-size: 0.85rem; text-align: center;">
+              <label class="mini-label">Insumo / Producto <span class="req">*</span></label>
+              <select id="stock-modal-product-select"></select>
             </div>
             <div>
-              <label style="font-size: 0.75rem; display: block; margin-bottom: 2px;">Lote <span style="color:var(--color-danger)">*</span></label>
-              <input type="text" id="stock-modal-lot-number" placeholder="Ej: LOT-2026-99" style="width: 100%; padding: 7px 10px; font-size: 0.85rem;">
+              <label class="mini-label">Cantidad <span class="req">*</span></label>
+              <input type="number" id="stock-modal-product-qty" min="1" value="1">
             </div>
             <div>
-              <label style="font-size: 0.75rem; display: block; margin-bottom: 2px;">Vencimiento <span style="color:var(--color-danger)">*</span></label>
-              <input type="date" id="stock-modal-expiration-date" style="width: 100%; padding: 7px 10px; font-size: 0.85rem;">
+              <label class="mini-label">Lote <span class="req">*</span></label>
+              <input type="text" id="stock-modal-lot-number" placeholder="Ej: LOT-2026-99">
             </div>
             <div>
-              <button type="button" id="btn-stock-modal-add-item" class="btn btn-secondary" style="padding: 7px 14px; font-weight: bold; font-size: 1.1rem; min-height: 36px;" title="Agregar Insumo a la Lista">
-                ➕
-              </button>
+              <label class="mini-label">Vencimiento <span class="req">*</span></label>
+              <input type="date" id="stock-modal-expiration-date">
+            </div>
+            <div>
+              <label class="mini-label">Costo unit. ($)</label>
+              <input type="number" id="stock-modal-unit-cost" min="0" step="0.01" placeholder="Opcional">
+            </div>
+            <div class="picker-btn-cell">
+              <button type="button" id="btn-stock-modal-add-item" class="btn btn-secondary">Agregar</button>
             </div>
           </div>
         </div>
 
-        <!-- Lista de Insumos que ingresan -->
-        <div class="card glass-light" style="padding: 12px; border-radius: var(--radius-sm);">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <span style="font-weight: 600; font-size: 0.85rem;">Artículos que Ingresarán:</span>
+        <div class="card glass-light item-list">
+          <div class="item-list-header">
+            <span>Artículos que Ingresarán:</span>
             <span id="stock-modal-items-count" class="badge">0 artículos</span>
           </div>
-          <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
-            <table style="font-size: 0.85rem; width: 100%;">
+          <div class="table-responsive item-list-scroll">
+            <table class="table-compact">
               <thead>
                 <tr>
                   <th>Insumo / Producto</th>
-                  <th style="width: 80px; text-align: center;">Cantidad</th>
+                  <th class="col-center">Cantidad</th>
                   <th>Lote</th>
-                  <th>Fecha Vencimiento</th>
-                  <th style="width: 60px; text-align: center;">Acción</th>
+                  <th>Vencimiento</th>
+                  <th>Costo unit.</th>
+                  <th class="col-center">Acción</th>
                 </tr>
               </thead>
-              <tbody id="table-stock-modal-items-body">
-                <tr><td colspan="5" class="empty-text" style="padding: 12px;">Aún no agregaste insumos a la lista de ingreso.</td></tr>
-              </tbody>
+              <tbody id="table-stock-modal-items-body"></tbody>
             </table>
           </div>
         </div>
 
-        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 0.5rem;">
-          <button type="button" class="btn btn-secondary" id="btn-cancel-create-stock-entry-modal">Cancelar</button>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
           <button type="submit" class="btn btn-primary">Confirmar Ingreso de Stock</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Modal Popup: Ingreso Extraordinario / Extraoficial -->
+  <!-- Modal: Ingreso Extraordinario / Extraoficial -->
   <div id="modal-create-informal-entry" class="modal hidden">
-    <div class="modal-content glass card" style="max-width: 720px; width: 95%; padding: 20px 25px;">
-      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 8px;">
-        <h3 style="font-size: 1.2rem; margin-bottom: 0;">📌 Registrar Ingreso Extraordinario</h3>
-        <button type="button" class="close-btn" id="btn-close-create-informal-entry-modal">&times;</button>
+    <div class="modal-content glass card modal-lg">
+      <div class="modal-header">
+        <h3>Registrar Ingreso Extraordinario</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
       </div>
 
-      <form id="form-create-informal-entry-modal" style="display: flex; flex-direction: column; gap: 1rem;">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-          <div class="form-group" style="margin-bottom:0;">
-            <label for="informal-modal-branch">🏢 Sucursal Destino <span style="color:var(--color-danger)">*</span></label>
-            <select id="informal-modal-branch" required style="width: 100%; padding: 8px 12px; font-size: 0.85rem;">
-              <option value="" disabled selected>Seleccionar sucursal destino...</option>
+      <form id="form-create-informal-entry-modal" class="form-stack">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="informal-modal-branch">Sucursal Destino <span class="req">*</span></label>
+            <select id="informal-modal-branch" required></select>
+          </div>
+          <div class="form-group">
+            <label for="informal-modal-entry-type">Tipo de Ingreso <span class="req">*</span></label>
+            <select id="informal-modal-entry-type" required>
+              <option value="ENCONTRADO">Encontrado en depósito</option>
+              <option value="DONACION">Donación / Aporte externo</option>
+              <option value="DEVOLUCION">Devolución de sucursal / sector</option>
+              <option value="EXCEDENTE">Excedente de proyecto / obra</option>
+              <option value="SIN_OC">Llegó sin Orden de Compra previa</option>
             </select>
           </div>
-          <div class="form-group" style="margin-bottom:0;">
-            <label for="informal-modal-entry-type">Tipo de Ingreso <span style="color:var(--color-danger)">*</span></label>
-            <select id="informal-modal-entry-type" required style="width: 100%; padding: 8px 12px; font-size: 0.85rem;">
-              <option value="ENCONTRADO">🔍 Encontrado en depósito</option>
-              <option value="DONACION">🎁 Donación / Aporte externo</option>
-              <option value="DEVOLUCION">🔄 Devolución de sucursal / sector</option>
-              <option value="EXCEDENTE">⬆️ Excedente de proyecto / obra</option>
-              <option value="SIN_OC">📦 Llegó sin Orden de Compra previa</option>
-            </select>
+        </div>
+
+        <div class="form-group">
+          <label for="informal-modal-description">Descripción / Motivo <span class="req">*</span></label>
+          <textarea id="informal-modal-description" rows="2" placeholder="Explicación detallada: de dónde proviene, quién lo trajo, condición..." required></textarea>
+        </div>
+
+        <div class="item-picker">
+          <label class="picker-label">Agregar Artículo al Ingreso Extraordinario:</label>
+          <div class="picker-row">
+            <input type="text" class="scan-input" data-scan-target="informal-modal-product-select" placeholder="Escanear código">
+            <select id="informal-modal-product-select" class="picker-grow"></select>
+            <input type="number" id="informal-modal-product-qty" min="1" value="1" class="picker-qty" title="Cantidad">
+            <button type="button" id="btn-informal-modal-add-item" class="btn btn-secondary">Agregar</button>
           </div>
         </div>
 
-        <div class="form-group" style="margin-bottom:0;">
-          <label for="informal-modal-description">Descripción / Motivo <span style="color:var(--color-danger)">*</span></label>
-          <textarea id="informal-modal-description" rows="2" placeholder="Explicación detallada: de dónde proviene, quién lo trajo, condición..." required style="padding: 8px 12px; font-size: 0.85rem;"></textarea>
-        </div>
-
-        <!-- Formulario para agregar item a la lista -->
-        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); padding: 12px 15px;">
-          <label style="font-weight: 600; font-size: 0.85rem; display: block; margin-bottom: 8px;">Agregar Artículo al Ingreso Extraordinario:</label>
-          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-            <div style="flex: 2; min-width: 200px;">
-              <select id="informal-modal-product-select" style="width: 100%; padding: 8px 12px; font-size: 0.85rem;">
-                <option value="">Selecciona un producto...</option>
-              </select>
-            </div>
-            <div style="width: 90px;">
-              <input type="number" id="informal-modal-product-qty" min="1" value="1" placeholder="Cant." style="width: 100%; padding: 8px 10px; font-size: 0.85rem; text-align: center;">
-            </div>
-            <button type="button" id="btn-informal-modal-add-item" class="btn btn-secondary" style="padding: 8px 16px; font-weight: bold; font-size: 1.1rem;" title="Agregar a la Lista">
-              ➕
-            </button>
-          </div>
-        </div>
-
-        <!-- Lista de Insumos que ingresan -->
-        <div class="card glass-light" style="padding: 12px; border-radius: var(--radius-sm);">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <span style="font-weight: 600; font-size: 0.85rem;">Artículos Extraordinarios:</span>
+        <div class="card glass-light item-list">
+          <div class="item-list-header">
+            <span>Artículos Extraordinarios:</span>
             <span id="informal-modal-items-count" class="badge">0 artículos</span>
           </div>
-          <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
-            <table style="font-size: 0.85rem; width: 100%;">
+          <div class="table-responsive item-list-scroll">
+            <table class="table-compact">
               <thead>
                 <tr>
                   <th>Producto</th>
-                  <th style="width: 80px; text-align: center;">Cantidad</th>
-                  <th style="width: 60px; text-align: center;">Acción</th>
+                  <th class="col-center">Cantidad</th>
+                  <th class="col-center">Acción</th>
                 </tr>
               </thead>
-              <tbody id="table-informal-modal-items-body">
-                <tr><td colspan="3" class="empty-text" style="padding: 12px;">Aún no agregaste artículos a este ingreso extraordinario.</td></tr>
-              </tbody>
+              <tbody id="table-informal-modal-items-body"></tbody>
             </table>
           </div>
         </div>
 
-        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 0.5rem;">
-          <button type="button" class="btn btn-secondary" id="btn-cancel-create-informal-entry-modal">Cancelar</button>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
           <button type="submit" class="btn btn-warning">Confirmar Ingreso Extraordinario</button>
         </div>
       </form>
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <!-- Modal: Registrar Egreso / Merma -->
+  <div id="modal-exit" class="modal hidden">
+    <div class="modal-content glass card modal-lg">
+      <div class="modal-header">
+        <h3>Registrar Egreso de Stock</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
+      </div>
+
+      <form id="form-exit" class="form-stack">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="exit-branch">Sucursal <span class="req">*</span></label>
+            <select id="exit-branch" required></select>
+          </div>
+          <div class="form-group">
+            <label for="exit-type">Tipo de Egreso <span class="req">*</span></label>
+            <select id="exit-type" required>
+              <option value="VENTA">Venta</option>
+              <option value="CONSUMO">Consumo interno</option>
+              <option value="ROTURA">Rotura / Daño</option>
+              <option value="VENCIDO">Producto vencido</option>
+              <option value="OTRO">Otro</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="exit-description">Motivo / Observaciones <span class="opt">(obligatorio para "Otro")</span></label>
+          <textarea id="exit-description" rows="2" placeholder="Ej: ticket de venta, sector que lo consumió, cómo se rompió..."></textarea>
+        </div>
+
+        <div class="item-picker">
+          <label class="picker-label">Agregar artículo:</label>
+          <div class="picker-row">
+            <input type="text" class="scan-input" data-scan-target="exit-product-select" placeholder="Escanear código">
+            <select id="exit-product-select" class="picker-grow"></select>
+            <input type="number" id="exit-product-qty" min="1" value="1" class="picker-qty" title="Cantidad">
+            <button type="button" id="btn-exit-add-item" class="btn btn-secondary">Agregar</button>
+          </div>
+          <span class="hint-text" id="exit-available"></span>
+        </div>
+
+        <div class="card glass-light item-list">
+          <div class="item-list-header">
+            <span>Artículos que salen:</span>
+            <span id="exit-items-count" class="badge">0 artículos</span>
+          </div>
+          <div class="table-responsive item-list-scroll">
+            <table class="table-compact">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th class="col-center">Cantidad</th>
+                  <th class="col-center">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="table-exit-items-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <p class="hint-text">Las unidades salen de los lotes que vencen primero (FEFO). Lo reservado para pedidos no se puede dar de baja.</p>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-danger">Confirmar Egreso</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Crear / Editar Proveedor -->
+  <div id="modal-supplier" class="modal hidden">
+    <div class="modal-content glass card modal-lg">
+      <div class="modal-header">
+        <h3 id="modal-supplier-title">Nuevo Proveedor</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
+      </div>
+      <form id="form-supplier" class="form-grid">
+        <input type="hidden" id="supplier-id">
+        <div class="form-group">
+          <label for="supplier-name">Razón Social <span class="req">*</span></label>
+          <input type="text" id="supplier-name" required maxlength="120">
+        </div>
+        <div class="form-group">
+          <label for="supplier-cuit">CUIT</label>
+          <input type="text" id="supplier-cuit" placeholder="30-12345678-9">
+        </div>
+        <div class="form-group">
+          <label for="supplier-contact">Persona de Contacto</label>
+          <input type="text" id="supplier-contact">
+        </div>
+        <div class="form-group">
+          <label for="supplier-phone">Teléfono</label>
+          <input type="tel" id="supplier-phone">
+        </div>
+        <div class="form-group">
+          <label for="supplier-email">Email</label>
+          <input type="email" id="supplier-email">
+        </div>
+        <div class="form-group">
+          <label for="supplier-address">Dirección</label>
+          <input type="text" id="supplier-address">
+        </div>
+        <div class="form-group span-2">
+          <label>Productos que provee</label>
+          <div class="search-box search-box-sm">
+            <input type="text" id="supplier-products-filter" placeholder="Filtrar productos...">
+          </div>
+          <div id="supplier-products-list" class="checkbox-list"></div>
+        </div>
+        <div class="form-group span-2">
+          <label for="supplier-notes">Notas</label>
+          <textarea id="supplier-notes" rows="2" placeholder="Condiciones de pago, días de entrega..."></textarea>
+        </div>
+        <div class="modal-actions span-2">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar Proveedor</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Nueva Orden de Compra -->
+  <div id="modal-po" class="modal hidden">
+    <div class="modal-content glass card modal-lg">
+      <div class="modal-header">
+        <h3>Nueva Orden de Compra</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
+      </div>
+      <form id="form-po" class="form-stack">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="po-supplier">Proveedor <span class="req">*</span></label>
+            <select id="po-supplier" required></select>
+          </div>
+          <div class="form-group">
+            <label for="po-branch">Sucursal que recibe <span class="req">*</span></label>
+            <select id="po-branch" required></select>
+          </div>
+        </div>
+        <div class="item-picker">
+          <label class="picker-label">Agregar producto:</label>
+          <div class="picker-row">
+            <select id="po-product-select" class="picker-grow"></select>
+            <input type="number" id="po-product-qty" min="1" value="1" class="picker-qty" title="Cantidad">
+            <input type="number" id="po-product-cost" min="0" step="0.01" class="picker-qty" placeholder="Costo $" title="Costo unitario">
+            <button type="button" id="btn-po-add-item" class="btn btn-secondary">Agregar</button>
+          </div>
+          <span class="hint-text">Se sugieren primero los productos que el proveedor tiene asociados.</span>
+        </div>
+        <div class="card glass-light item-list">
+          <div class="item-list-header">
+            <span>Productos de la orden:</span>
+            <span id="po-items-total" class="badge">$ 0</span>
+          </div>
+          <div class="table-responsive item-list-scroll">
+            <table class="table-compact">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th class="col-center">Cantidad</th>
+                  <th>Costo unit.</th>
+                  <th>Subtotal</th>
+                  <th class="col-center">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="table-po-items-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="po-notes">Notas</label>
+          <textarea id="po-notes" rows="2"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-primary">Generar Orden de Compra</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Recibir Orden de Compra -->
+  <div id="modal-po-receive" class="modal hidden">
+    <div class="modal-content glass card modal-lg">
+      <div class="modal-header">
+        <h3 id="po-receive-title">Recibir Orden de Compra</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
+      </div>
+      <form id="form-po-receive" class="form-stack">
+        <p class="hint-text">Cargá el lote y el vencimiento de cada producto recibido. Al confirmar, el stock ingresa a la sucursal con el proveedor y el costo de la orden.</p>
+        <div class="table-responsive">
+          <table class="table-compact">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th class="col-center">Cantidad</th>
+                <th>Lote</th>
+                <th>Vencimiento</th>
+              </tr>
+            </thead>
+            <tbody id="table-po-receive-body"></tbody>
+          </table>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-success">Confirmar Recepción</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Librerías (orden: núcleo primero, inicio al final) -->
+  <script src="js/core.js"></script>
+  <script src="js/export.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/admin.js"></script>
+  <script src="js/orders.js"></script>
+  <script src="js/dispatch.js"></script>
+  <script src="js/inventory.js"></script>
+  <script src="js/catalog.js"></script>
+  <script src="js/branches.js"></script>
+  <script src="js/expirations.js"></script>
+  <script src="js/counts.js"></script>
+  <script src="js/suppliers.js"></script>
+  <script src="js/main.js"></script>
 </body>
 </html>

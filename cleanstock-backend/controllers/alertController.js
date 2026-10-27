@@ -1,5 +1,5 @@
 const { BranchStock, Product, PhysicalSpace, ActivityLog, Order, StockEntry } = require('../models');
-const { toId, startOfDay } = require('../utils/format');
+const { toId, startOfDay, todayAsUTCDate, daysUntil } = require('../utils/format');
 
 // ─── Módulo 1: Sistema de Alertas de Stock Bajo ───────────────────────────────
 
@@ -75,9 +75,8 @@ const buildExpirationAlerts = async (user, days = 30) => {
   const scope = branchScope(user);
   if (!scope) return [];
 
-  const today = startOfDay();
-  const limitDate = new Date(today);
-  limitDate.setDate(limitDate.getDate() + days + 1);
+  const limitDate = todayAsUTCDate();
+  limitDate.setUTCDate(limitDate.getUTCDate() + days + 1);
 
   const lots = await StockEntry.find({
     ...scope,
@@ -92,8 +91,7 @@ const buildExpirationAlerts = async (user, days = 30) => {
     .lean();
 
   return lots.map(l => {
-    const exp = startOfDay(l.expirationDate);
-    const daysLeft = Math.round((exp - today) / 86400000);
+    const daysLeft = daysUntil(l.expirationDate);
     return {
       id: l._id.toString(),
       lotNumber: l.lotNumber,
@@ -254,7 +252,7 @@ const setBranchMinStock = async (req, res) => {
     const stockRecord = await BranchStock.findOneAndUpdate(
       { branchId, productId },
       { $set: { branchMinStock: value }, $setOnInsert: { quantity: 0, reservedQuantity: 0 } },
-      { new: true, upsert: true }
+      { returnDocument: 'after', upsert: true }
     );
 
     await ActivityLog.create({
