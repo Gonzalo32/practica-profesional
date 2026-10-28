@@ -3,16 +3,8 @@ const { PhysicalSpace, ActivityLog } = require('../models');
 // Crear Espacio Físico (Solo Administrador)
 const createSpace = async (req, res) => {
   try {
+    // Nombre, tipo y descripción ya llegan validados por validators/index.js (space)
     const { name, description, type } = req.body;
-
-    if (!name || !type) {
-      return res.status(400).json({ message: 'El nombre y el tipo son obligatorios' });
-    }
-
-    const validTypes = ['filial', 'Zona', 'sucursal', 'dependencia', 'sector'];
-    if (!validTypes.includes(type)) {
-      return res.status(400).json({ message: `Tipo inválido. Debe ser uno de: ${validTypes.join(', ')}` });
-    }
 
     const spaceExists = await PhysicalSpace.findOne({ name });
     if (spaceExists) {
@@ -59,10 +51,6 @@ const updateSpace = async (req, res) => {
     }
 
     if (type) {
-      const validTypes = ['filial', 'Zona', 'sucursal', 'dependencia', 'sector'];
-      if (!validTypes.includes(type)) {
-        return res.status(400).json({ message: `Tipo inválido. Debe ser uno de: ${validTypes.join(', ')}` });
-      }
       space.type = type;
     }
 

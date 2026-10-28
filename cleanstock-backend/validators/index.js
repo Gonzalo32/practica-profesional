@@ -80,6 +80,21 @@ const branchUpdate = [
   validate
 ];
 
+const space = [
+  requiredText('name', 'El nombre del espacio', 100),
+  body('type').isIn(BRANCH_TYPES).withMessage(`Tipo inválido. Debe ser uno de: ${BRANCH_TYPES.join(', ')}`),
+  optionalText('description', 'La descripción', 200),
+  validate
+];
+
+const spaceUpdate = [
+  idParam(),
+  body('name').optional().isString().trim().notEmpty().withMessage('El nombre no puede quedar vacío').isLength({ max: 100 }).withMessage('El nombre no puede superar 100 caracteres'),
+  body('type').optional().isIn(BRANCH_TYPES).withMessage(`Tipo inválido. Debe ser uno de: ${BRANCH_TYPES.join(', ')}`),
+  optionalText('description', 'La descripción', 200),
+  validate
+];
+
 const stockAdjust = [
   idParam(),
   mongoId('productId', 'Producto'),
@@ -251,6 +266,8 @@ module.exports = {
   updateUser,
   branch,
   branchUpdate,
+  space,
+  spaceUpdate,
   stockAdjust,
   category,
   createProduct,
