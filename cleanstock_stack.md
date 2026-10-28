@@ -73,9 +73,12 @@
 ## Puerto por defecto
 - `3000` (configurable por variable de entorno `PORT`)
 
-## Usuario administrador inicial
+## Usuario administrador de prueba
 - Si la base no tiene ningún administrador, al iniciar se crea `admin@cleanstock.com`
-  con la contraseña de `ADMIN_INITIAL_PASSWORD` (o `admin123` si no está definida). Conviene cambiarla al ingresar.
+  con la contraseña de `ADMIN_INITIAL_PASSWORD`. Si no está definida, se genera una clave al azar
+  y se muestra una sola vez en la consola. Conviene cambiarla al ingresar.
+- `npm run seed:admin` crea o restablece ese usuario de prueba con la clave de `ADMIN_INITIAL_PASSWORD`.
+- La contraseña nunca se escribe en el código: vive solo en el `.env`, que no se sube al repositorio.
 
 ## Modos de trabajo
 - **Varias sucursales**: empresas con más de un local o depósito (pedidos, transferencias y despacho entre sucursales).

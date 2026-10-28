@@ -2,15 +2,40 @@ require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const { connectDB, User } = require('./models');
 
+// Crea o restablece el usuario administrador de prueba (admin@cleanstock.com).
+// La contraseña se toma de ADMIN_INITIAL_PASSWORD en el .env: nunca se escribe en el código.
+// Uso: npm run seed:admin
 async function seedAdmin() {
   try {
+    const password = process.env.ADMIN_INITIAL_PASSWORD;
+    if (!password) {
+      console.error('Falta ADMIN_INITIAL_PASSWORD en el archivo .env. Definila y volvé a ejecutar el script.');
+      process.exit(1);
+    }
+
     await connectDB();
 
     const username = 'admin@cleanstock.com';
     const email = 'admin@cleanstock.com';
-    const password = 'admin123';
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
+
+    // Datos ficticios del usuario de prueba
+    const testData = {
+      username,
+      email,
+      passwordHash,
+      role: 'Administrador',
+      firstName: 'Administrador',
+      lastName: 'Principal',
+      phone: '1122334455',
+      document: '20-12345678-9',
+      cuil: '20-12345678-9',
+      birthDate: '1990-01-01',
+      address: 'Av. Central 123',
+      zipCode: '1000',
+      isActive: true
+    };
 
     let user = await User.findOne({ username });
     if (!user) {
@@ -18,38 +43,12 @@ async function seedAdmin() {
     }
 
     if (user) {
-      user.username = username;
-      user.email = email;
-      user.passwordHash = passwordHash;
-      user.role = 'Administrador';
-      user.firstName = 'Administrador';
-      user.lastName = 'Principal';
-      user.phone = '1122334455';
-      user.document = '20-12345678-9';
-      user.cuil = '20-12345678-9';
-      user.birthDate = '1990-01-01';
-      user.address = 'Av. Central 123';
-      user.zipCode = '1000';
-      user.isActive = true;
+      Object.assign(user, testData);
       await user.save();
-      console.log('Usuario "admin@cleanstock.com" actualizado exitosamente con la clave "admin123".');
+      console.log(`Usuario de prueba "${username}" actualizado con la clave de ADMIN_INITIAL_PASSWORD.`);
     } else {
-      user = await User.create({
-        username,
-        email,
-        passwordHash,
-        role: 'Administrador',
-        firstName: 'Administrador',
-        lastName: 'Principal',
-        phone: '1122334455',
-        document: '20-12345678-9',
-        cuil: '20-12345678-9',
-        birthDate: '1990-01-01',
-        address: 'Av. Central 123',
-        zipCode: '1000',
-        isActive: true
-      });
-      console.log('Usuario "admin@cleanstock.com" creado exitosamente con la clave "admin123".');
+      await User.create(testData);
+      console.log(`Usuario de prueba "${username}" creado con la clave de ADMIN_INITIAL_PASSWORD.`);
     }
     process.exit(0);
   } catch (err) {
