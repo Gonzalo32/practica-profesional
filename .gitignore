@@ -16,6 +16,16 @@ temp_pdf_parse/
 
 # Documentos de entrega (no son código)
 *.pdf
+*.docx
+
+# Notas de trabajo internas (la documentación del repositorio está en README.md)
+cleanstock_stack.md
+cleanstock_tasks.md
+DOCUMENTACION_PRUEBAS.md
+
+# Configuración de asistentes de programación (Claude Code, Qodo)
+.claude/
+.qodo/
 
 # Logs y sistema
 *.log
