@@ -167,7 +167,6 @@ const createOrder = [
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Las cantidades deben ser números enteros mayores a 0').toInt(),
   optionalMongoId('fromBranchId', 'Sucursal de origen'),
   optionalMongoId('toBranchId', 'Sucursal de destino'),
-  body('requiresValidation').optional().isBoolean().toBoolean(),
   optionalText('notes', 'Las notas', 500),
   validate
 ];

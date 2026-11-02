@@ -220,13 +220,12 @@ document.getElementById('form-create-order-modal')?.addEventListener('submit', a
 
   try {
     const items = draftOrderItems.map(item => ({ productId: item.productId, quantity: item.quantity }));
-    // Los pedidos grandes requieren aprobación del administrador
-    const requiresValidation = draftOrderItems.some(item => item.quantity > 50);
     const res = await apiFetch('/orders', {
       method: 'POST',
-      body: JSON.stringify({ items, requiresValidation, fromBranchId, toBranchId, notes })
+      body: JSON.stringify({ items, fromBranchId, toBranchId, notes })
     });
-    showToast(`Pedido ${res.order.code} creado${requiresValidation ? '. Requiere aprobación del administrador.' : ' y enviado.'}`, 'success');
+    // El servidor decide si el pedido requiere aprobación del administrador (más de 50 unidades de un producto)
+    showToast(`Pedido ${res.order.code} creado${res.order.requiresValidation ? '. Requiere aprobación del administrador.' : ' y enviado.'}`, 'success');
     closeModal('modal-create-order');
     loadSolicitanteOrders();
   } catch (err) {

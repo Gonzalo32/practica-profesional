@@ -107,6 +107,28 @@ describe('Pedidos entre sucursales', () => {
     expect((await setStatus(otro, body.order.id, 'ENTREGADO')).status).toBe(400);
   });
 
+  test('el servidor decide si un pedido grande requiere aprobación', async () => {
+    await request(app).post('/api/inventory/stock').set(auth(s.tokens.admin)).send({
+      productId: s.product._id, branchId: s.central._id, quantity: 200, lotNumber: 'L-B', expirationDate: '2030-06-01'
+    });
+    const send = (items, extra = {}) => request(app).post('/api/orders').set(auth(s.tokens.solicitante)).send({
+      items, fromBranchId: s.central._id, toBranchId: s.norte._id, ...extra
+    });
+
+    // El cliente no puede saltear la aprobación
+    const grande = await send([{ productId: s.product._id, quantity: 60 }], { requiresValidation: false });
+    expect(grande.status).toBe(201);
+    expect(grande.body.order.status).toBe('PENDIENTE_VALIDACION');
+
+    // Dos renglones del mismo producto se suman antes de comparar
+    const partido = await send([{ productId: s.product._id, quantity: 30 }, { productId: s.product._id, quantity: 30 }]);
+    expect(partido.body.order.status).toBe('PENDIENTE_VALIDACION');
+
+    // Hasta 50 unidades no hace falta aprobación, aunque el cliente la pida
+    const limite = await send([{ productId: s.product._id, quantity: 50 }], { requiresValidation: true });
+    expect(limite.body.order.status).toBe('PENDIENTE');
+  });
+
   test('el listado de pedidos se puede paginar y filtrar por varios estados', async () => {
     for (let i = 0; i < 3; i++) await createOrder(s.tokens.solicitante, 1);
     const res = await request(app).get('/api/orders?page=1&limit=2&status=PENDIENTE,EN_PREPARACION').set(auth(s.tokens.admin));

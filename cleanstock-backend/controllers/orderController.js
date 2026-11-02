@@ -14,12 +14,17 @@ const mergeItems = (items) => {
   return [...merged.entries()].map(([productId, quantity]) => ({ productId, quantity }));
 };
 
+// Un pedido con más de esta cantidad de un mismo producto requiere aprobación del administrador
+const VALIDATION_THRESHOLD = 50;
+
 // T4.2 Crear una Orden de Pedido a partir de un carrito
 const createOrder = async (req, res) => {
   const reserved = [];
   try {
-    const { requiresValidation, fromBranchId, toBranchId, notes } = req.body;
+    const { fromBranchId, toBranchId, notes } = req.body;
     const items = mergeItems(req.body.items);
+    // Lo decide el servidor: no se confía en lo que mande el cliente
+    const requiresValidation = items.some(item => item.quantity > VALIDATION_THRESHOLD);
 
     if (fromBranchId && toBranchId && String(fromBranchId) === String(toBranchId)) {
       return res.status(400).json({ message: 'La sucursal de origen y la de destino no pueden ser la misma.' });
@@ -53,7 +58,7 @@ const createOrder = async (req, res) => {
       number,
       solicitanteId: req.user.id,
       status: requiresValidation ? 'PENDIENTE_VALIDACION' : 'PENDIENTE',
-      requiresValidation: requiresValidation || false,
+      requiresValidation,
       fromBranchId: fromBranchId || null,
       toBranchId: toBranchId || null,
       notes: notes || null
