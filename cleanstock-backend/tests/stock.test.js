@@ -100,6 +100,23 @@ describe('Ingresos, egresos y lotes', () => {
     expect(res.body[1].severity).toBe('URGENTE');
   });
 
+  test('un producto que nunca tuvo stock aparece como crítico en las alertas del administrador', async () => {
+    const admin = await request(app).get('/api/alerts').set(auth(s.tokens.admin));
+    expect(admin.status).toBe(200);
+    const alert = admin.body.find(a => a.productId === String(s.product._id));
+    expect(alert.severity).toBe('CRITICO');
+    expect(alert.branchName).toBe('Ninguna sucursal');
+    expect(alert.deficit).toBe(5);
+
+    const kpis = await request(app).get('/api/alerts/kpis').set(auth(s.tokens.admin));
+    expect(kpis.body.criticalAlerts).toBe(1);
+
+    // Con stock por encima del mínimo deja de aparecer
+    await addEntry(s.tokens.admin, { quantity: 10 });
+    const after = await request(app).get('/api/alerts').set(auth(s.tokens.admin));
+    expect(after.body).toHaveLength(0);
+  });
+
   test('busca productos por código interno y no permite códigos repetidos', async () => {
     await request(app).put(`/api/inventory/products/${s.product._id}`).set(auth(s.tokens.admin)).send({ sku: 'lav-001' });
     const bySku = await request(app).get('/api/inventory/products?q=LAV-001').set(auth(s.tokens.admin));

@@ -2110,6 +2110,8 @@ tr:hover td {
    MODO DE UN SOLO LOCAL
    ========================================================================== */
 body.single-branch .multi-only { display: none !important; }
+/* Con un solo local quedan 5 indicadores: entran en una fila */
+body.single-branch #panel-admin .grid-dashboard { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 
 
 /* ==========================================================================

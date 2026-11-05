@@ -63,6 +63,7 @@ Proyecto Final de Práctica Profesional II — IFES. Grupo: Guerrero, Marambio.
    | `JWT_SECRET` | Secreto con el que se firman los tokens de sesión. Usar un texto largo y aleatorio |
    | `ADMIN_INITIAL_PASSWORD` | Contraseña del usuario de prueba `admin@cleanstock.com` |
    | `LOGIN_RATE_LIMIT` | Intentos fallidos de inicio de sesión permitidos cada 15 minutos. Opcional, por defecto 10 |
+   | `DEMO_DATA` | Con `true`, si la base está vacía se cargan datos de demostración al iniciar. Opcional |
 
    El archivo `.env` contiene claves y no se sube al repositorio.
 
@@ -88,13 +89,36 @@ npm run seed:admin
 
 Conviene cambiar la contraseña después del primer ingreso. Desde el panel del Administrador se crean los demás usuarios, sucursales y productos.
 
+### Datos de demostración
+
+Para probar el sistema con datos de ejemplo, sobre una base **vacía**:
+
+```bash
+npm run seed:demo
+```
+
+Carga tres sucursales, nueve productos con lotes y vencimientos, dos proveedores con órdenes de compra, pedidos en todos los estados y un usuario por rol. Los datos se cargan a través de la propia API, así que pasan por las mismas validaciones y reglas que el uso normal. Si la base ya tiene productos o pedidos, el comando no hace nada: nunca borra ni pisa datos.
+
+Usuarios (todos con la contraseña de `ADMIN_INITIAL_PASSWORD`):
+
+| Usuario | Rol |
+| --- | --- |
+| `admin@cleanstock.com` | Administrador |
+| `responsable@cleanstock.com` | Usuario Responsable (Depósito Central) |
+| `norte@cleanstock.com` | Solicitante (Sucursal Norte) |
+| `sur@cleanstock.com` | Solicitante (Sucursal Sur) |
+| `despachante@cleanstock.com` | Despachante |
+| `proveedor@cleanstock.com` | Proveedor (Química del Sur SA) |
+
+Con `DEMO_DATA=true` en el `.env`, los mismos datos se cargan al iniciar el servidor si la base está vacía. Sirve para la base en memoria, que se usa cuando no hay conexión con MongoDB. La base en memoria descarga MongoDB (unos 780 MB) la primera vez que se usa, así que conviene arrancarla una vez con conexión antes de necesitarla sin internet.
+
 ## Pruebas
 
 ```bash
 npm test
 ```
 
-Corre 50 pruebas automatizadas sobre una base de datos en memoria, sin tocar la base real. Cubren autenticación, permisos por rol y por sucursal, pedidos, stock, proveedores, conteos, configuración, espacios físicos y reportes.
+Corre 54 pruebas automatizadas sobre una base de datos en memoria, sin tocar la base real. Cubren autenticación, permisos por rol y por sucursal, pedidos, stock, proveedores, conteos, configuración, espacios físicos y reportes.
 
 ## Estructura del proyecto
 

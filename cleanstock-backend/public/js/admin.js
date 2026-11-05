@@ -21,6 +21,7 @@ async function loadAdminStats() {
     document.getElementById('admin-stat-alerts').textContent = kpis.activeAlerts;
     document.getElementById('admin-stat-critical').textContent = `${kpis.criticalAlerts} críticas`;
     document.getElementById('admin-stat-transit').textContent = kpis.inTransitOrders;
+    document.getElementById('admin-stat-approvals').textContent = kpis.pendingApprovals;
     document.getElementById('admin-stat-today').textContent = kpis.todayStockEntries;
     document.getElementById('admin-stat-expiring').textContent = kpis.expiringLots;
     document.getElementById('admin-stat-expired').textContent = `${kpis.expiredLots} vencidos`;
@@ -98,7 +99,8 @@ function drawDashboardCharts(data) {
   renderChart('chart-shortages', {
     type: 'bar',
     data: {
-      labels: data.topShortages.length ? data.topShortages.map(s => s.label) : ['Sin faltantes'],
+      // Dos renglones (producto y sucursal) para que los nombres largos no se corten
+      labels: data.topShortages.length ? data.topShortages.map(s => [s.productName, s.branchName]) : ['Sin faltantes'],
       datasets: [{ label: 'Unidades faltantes para el mínimo', data: data.topShortages.map(s => s.deficit), backgroundColor: t.danger, borderRadius: 6 }]
     },
     options: baseChartOptions(t, {
@@ -438,6 +440,7 @@ window.rejectOrder = async (orderId) => {
     showToast('Pedido rechazado y reserva liberada', 'success');
     loadAdminApprovals();
     loadAdminStats();
+    loadDashboardCharts();
     refreshNotifications();
   } catch (err) {
     showToast(err.message, 'error');
@@ -483,6 +486,7 @@ document.getElementById('form-apply-token')?.addEventListener('submit', async (e
     closeModal('validation-token-modal');
     loadAdminApprovals();
     loadAdminStats();
+    loadDashboardCharts();
     refreshNotifications();
   } catch (err) {
     showToast(err.message, 'error');

@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const app = require('./app');
 const { syncDatabase, User } = require('./models');
 const { markExpiredLots } = require('./services/stockService');
+const { seedDemo, isDatabaseEmpty } = require('./services/demoSeed');
 
 const PORT = process.env.PORT || 3000;
 
@@ -53,10 +54,24 @@ const scheduleExpirationCheck = () => {
   setInterval(run, 60 * 60 * 1000).unref();
 };
 
+// Con DEMO_DATA=true, si la base está vacía se cargan los datos de demostración al iniciar.
+// Sirve sobre todo cuando no hay conexión y el sistema arranca con la base en memoria.
+const autoSeedDemo = async () => {
+  if (process.env.DEMO_DATA !== 'true') return;
+  try {
+    if (!(await isDatabaseEmpty())) return;
+    await seedDemo(app, process.env.ADMIN_INITIAL_PASSWORD);
+    console.log('Datos de demostración cargados (los usuarios usan la clave de ADMIN_INITIAL_PASSWORD).');
+  } catch (err) {
+    console.error('No se cargaron los datos de demostración:', err.message);
+  }
+};
+
 // Start Server
 const startServer = async () => {
   await syncDatabase();
   await autoSeedAdmin();
+  await autoSeedDemo();
   scheduleExpirationCheck();
   app.listen(PORT, () => {
     console.log(`Servidor de CleanStock corriendo en http://localhost:${PORT}`);

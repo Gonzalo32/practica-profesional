@@ -28,7 +28,7 @@ const buildStockAlerts = async (user) => {
     .populate('branchId', 'name type')
     .lean();
 
-  return allStock
+  const branchAlerts = allStock
     .filter(item => {
       const prod = item.productId && typeof item.productId === 'object' ? item.productId : null;
       return prod && item.quantity <= effectiveMinFor(item, prod);
@@ -53,8 +53,36 @@ const buildStockAlerts = async (user) => {
         deficit: Math.max(0, effectiveMin - item.quantity),
         severity: item.quantity === 0 ? 'CRITICO' : 'BAJO'
       };
-    })
+    });
+
+  // Para el administrador también cuentan los productos con mínimo que nunca
+  // tuvieron stock en ninguna sucursal: no tienen registro de stock, pero faltan.
+  const neverStocked = user.role === 'Administrador' ? await buildNeverStockedAlerts() : [];
+
+  return [...branchAlerts, ...neverStocked]
     .sort((a, b) => a.currentQuantity - b.currentQuantity); // Más críticos primero
+};
+
+const buildNeverStockedAlerts = async () => {
+  const stockedIds = await BranchStock.distinct('productId');
+  const products = await Product.find({ _id: { $nin: stockedIds }, minimumStock: { $gt: 0 } })
+    .populate('categoryId', 'name')
+    .lean();
+
+  return products.map(prod => ({
+    branchId: null,
+    branchName: 'Ninguna sucursal',
+    branchType: '',
+    productId: prod._id.toString(),
+    productName: prod.name,
+    categoryName: prod.categoryId?.name || '—',
+    currentQuantity: 0,
+    reservedQuantity: 0,
+    availableQuantity: 0,
+    minimumStock: prod.minimumStock,
+    deficit: prod.minimumStock,
+    severity: 'CRITICO'
+  }));
 };
 
 /**
@@ -204,7 +232,9 @@ const getKPIs = async (req, res) => {
 
     const criticalAlerts = allStock.filter(item => item.quantity === 0).length;
 
-    const [inTransitOrders, totalOrders, todayStockEntries, expirations] = await Promise.all([
+    const [neverStocked, pendingApprovals, inTransitOrders, totalOrders, todayStockEntries, expirations] = await Promise.all([
+      buildNeverStockedAlerts(),
+      Order.countDocuments({ status: 'PENDIENTE_VALIDACION' }),
       Order.countDocuments({ status: { $in: ['PENDIENTE', 'EN_PREPARACION', 'DESPACHADO'] } }),
       Order.countDocuments(),
       ActivityLog.countDocuments({
@@ -215,8 +245,9 @@ const getKPIs = async (req, res) => {
     ]);
 
     res.json({
-      activeAlerts,
-      criticalAlerts,
+      activeAlerts: activeAlerts + neverStocked.length,
+      criticalAlerts: criticalAlerts + neverStocked.length,
+      pendingApprovals,
       inTransitOrders,
       totalOrders,
       todayStockEntries,

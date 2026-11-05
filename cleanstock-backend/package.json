@@ -6,6 +6,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "seed:admin": "node seed_admin.js",
+    "seed:demo": "node seed_demo.js",
     "test": "node --test --test-concurrency=1 \"tests/**/*.test.js\""
   },
   "keywords": [],

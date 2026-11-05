@@ -69,11 +69,15 @@ const getDashboard = async (req, res) => {
       movementsLast30.push({ date: key, entradas: m?.entradas || 0, salidas: m?.salidas || 0 });
     }
 
-    const topShortages = [...alerts]
+    // Solo los que realmente están por debajo del mínimo (los que están justo en el mínimo no suman faltante)
+    const topShortages = alerts
+      .filter(a => a.deficit > 0)
       .sort((a, b) => b.deficit - a.deficit || a.currentQuantity - b.currentQuantity)
       .slice(0, 10)
       .map(a => ({
         label: `${a.productName} (${a.branchName})`,
+        productName: a.productName,
+        branchName: a.branchName,
         deficit: a.deficit,
         currentQuantity: a.currentQuantity,
         minimumStock: a.minimumStock
