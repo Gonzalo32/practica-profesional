@@ -14,7 +14,6 @@ const mongoId = (field, label) => body(field).isMongoId().withMessage(`${label} 
 const optionalMongoId = (field, label) => body(field).optional({ values: 'falsy' }).isMongoId().withMessage(`${label} inválido`);
 const idParam = (name = 'id') => param(name).isMongoId().withMessage('Identificador inválido');
 const positiveInt = (field, label) => body(field).isInt({ min: 1 }).withMessage(`${label} debe ser un número entero mayor a 0`).toInt();
-const optionalMoney = (field, label) => body(field).optional({ values: 'falsy' }).isFloat({ min: 0 }).withMessage(`${label} debe ser un número mayor o igual a 0`).toFloat();
 const requiredText = (field, label, max = 200) => body(field)
   .isString().withMessage(`${label} es obligatorio`)
   .trim()
@@ -114,8 +113,7 @@ const productFields = [
   optionalText('description', 'La descripción', 500),
   body('minimumStock').optional().isInt({ min: 0 }).withMessage('El stock mínimo debe ser un número entero mayor o igual a 0').toInt(),
   body('sku').optional({ values: 'falsy' }).isString().trim().isLength({ max: 40 }).withMessage('El SKU no puede superar 40 caracteres'),
-  body('perishable').optional().isBoolean().withMessage('Indicá si el producto tiene vencimiento').toBoolean(),
-  optionalMoney('costPrice', 'El costo')
+  body('perishable').optional().isBoolean().withMessage('Indicá si el producto tiene vencimiento').toBoolean()
 ];
 
 const createProduct = [
@@ -139,7 +137,6 @@ const stockEntry = [
   optionalText('lotNumber', 'El número de lote', 60),
   body('expirationDate').optional({ values: 'falsy' }).isISO8601().withMessage('El vencimiento debe ser una fecha válida'),
   optionalMongoId('supplierId', 'Proveedor'),
-  optionalMoney('unitCost', 'El costo unitario'),
   validate
 ];
 
@@ -211,7 +208,6 @@ const purchaseOrder = [
   body('items').isArray({ min: 1 }).withMessage('Agregá al menos un producto a la orden de compra'),
   body('items.*.productId').isMongoId().withMessage('Producto inválido'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Las cantidades deben ser enteros mayores a 0'),
-  body('items.*.unitCost').optional({ values: 'falsy' }).isFloat({ min: 0 }).withMessage('El costo unitario debe ser mayor o igual a 0'),
   optionalText('notes', 'Las notas', 500),
   validate
 ];

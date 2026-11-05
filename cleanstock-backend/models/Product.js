@@ -14,7 +14,6 @@ const productSchema = new mongoose.Schema({
     default: null,
     set: val => (val ? String(val).toUpperCase().trim() : null)
   },
-  costPrice: { type: Number, default: 0, min: 0 },
   // Perecedero: al ingresar stock se exige lote y vencimiento. Los productos cargados
   // antes de este campo lo toman como true para conservar el control que ya tenían.
   perishable: { type: Boolean, default: true },

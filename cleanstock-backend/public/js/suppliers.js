@@ -151,12 +151,12 @@ window.deactivateSupplier = async (supplierId) => {
 // --------------------------------------------------------------------------
 async function loadPurchaseOrders() {
   const tbody = document.getElementById('table-po-body');
-  setTableLoading(tbody, 8, 3);
+  setTableLoading(tbody, 7, 3);
   try {
     const status = document.getElementById('po-filter-status').value;
     loadedPurchaseOrders = await apiFetch(`/suppliers/purchase-orders${status ? `?status=${status}` : ''}`);
     if (!loadedPurchaseOrders.length) {
-      renderEmptyRow(tbody, 8, 'No hay órdenes de compra', hasRole('Proveedor') ? 'Cuando te hagan un pedido lo vas a ver acá.' : 'Generá una orden para pedirle mercadería a un proveedor.');
+      renderEmptyRow(tbody, 7, 'No hay órdenes de compra', hasRole('Proveedor') ? 'Cuando te hagan un pedido lo vas a ver acá.' : 'Generá una orden para pedirle mercadería a un proveedor.');
       return;
     }
     const canManage = hasRole('Administrador', 'Usuario Responsable');
@@ -167,7 +167,6 @@ async function loadPurchaseOrders() {
         <td><strong>${escapeHtml(po.supplierName)}</strong></td>
         <td>${escapeHtml(po.branchName)}</td>
         <td><span class="cell-detail">${po.items.map(i => `${escapeHtml(i.productName)} x${i.quantity}`).join(', ')}</span></td>
-        <td>${po.total ? formatMoney(po.total) : '<span class="muted">—</span>'}</td>
         <td><span class="status-badge ${statusCls[po.status]}">${escapeHtml(capitalize(po.status.toLowerCase()))}</span></td>
         <td class="cell-date">${formatDateTime(po.createdAt)}${po.receivedAt ? `<br><small class="muted">Recibida ${formatDateTime(po.receivedAt)}</small>` : ''}</td>
         <td>${canManage && po.status === 'PENDIENTE' ? `
@@ -177,7 +176,7 @@ async function loadPurchaseOrders() {
           </div>` : ''}</td>
       </tr>`).join('');
   } catch (err) {
-    renderErrorRow(tbody, 8, err.message);
+    renderErrorRow(tbody, 7, err.message);
   }
 }
 document.getElementById('po-filter-status')?.addEventListener('change', loadPurchaseOrders);
@@ -186,18 +185,16 @@ let draftPoItems = [];
 
 function renderPoItems() {
   const tbody = document.getElementById('table-po-items-body');
-  const total = draftPoItems.reduce((acc, i) => acc + i.quantity * (i.unitCost || 0), 0);
-  document.getElementById('po-items-total').textContent = formatMoney(total);
+  const count = draftPoItems.length;
+  document.getElementById('po-items-count').textContent = `${count} producto${count === 1 ? '' : 's'}`;
   if (!draftPoItems.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="empty-text">Aún no agregaste productos.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="3" class="empty-text">Aún no agregaste productos.</td></tr>';
     return;
   }
   tbody.innerHTML = draftPoItems.map((i, index) => `
     <tr>
       <td><strong>${escapeHtml(i.productName)}</strong></td>
       <td class="col-center"><span class="badge">${i.quantity}</span></td>
-      <td>${i.unitCost === null ? '—' : formatMoney(i.unitCost)}</td>
-      <td>${i.unitCost === null ? '—' : formatMoney(i.quantity * i.unitCost)}</td>
       <td class="col-center"><button type="button" class="btn-icon btn-icon-danger" title="Quitar" onclick="removePoItem(${index})">${ICON_DELETE}</button></td>
     </tr>`).join('');
 }
@@ -231,29 +228,21 @@ document.getElementById('btn-open-po-modal')?.addEventListener('click', async ()
 });
 
 document.getElementById('po-supplier')?.addEventListener('change', fillPoProducts);
-document.getElementById('po-product-select')?.addEventListener('change', (e) => {
-  const product = state.products.find(p => p.id === e.target.value);
-  document.getElementById('po-product-cost').value = product?.costPrice || '';
-});
 
 document.getElementById('btn-po-add-item')?.addEventListener('click', () => {
   const productId = document.getElementById('po-product-select').value;
   const quantity = parseInt(document.getElementById('po-product-qty').value, 10) || 0;
-  const costValue = document.getElementById('po-product-cost').value;
   if (!productId) return showToast('Seleccioná un producto.', 'error');
   if (quantity <= 0) return showToast('La cantidad debe ser mayor a 0.', 'error');
-  const unitCost = costValue === '' ? null : Number(costValue);
 
   const existing = draftPoItems.find(i => i.productId === productId);
   if (existing) {
     existing.quantity += quantity;
-    if (unitCost !== null) existing.unitCost = unitCost;
   } else {
-    draftPoItems.push({ productId, productName: getProductName(productId), quantity, unitCost });
+    draftPoItems.push({ productId, productName: getProductName(productId), quantity });
   }
   document.getElementById('po-product-select').value = '';
   document.getElementById('po-product-qty').value = 1;
-  document.getElementById('po-product-cost').value = '';
   renderPoItems();
 });
 
@@ -267,7 +256,7 @@ document.getElementById('form-po')?.addEventListener('submit', async (e) => {
         supplierId: document.getElementById('po-supplier').value,
         branchId: document.getElementById('po-branch').value,
         notes: document.getElementById('po-notes').value.trim(),
-        items: draftPoItems.map(({ productId, quantity, unitCost }) => ({ productId, quantity, unitCost }))
+        items: draftPoItems.map(({ productId, quantity }) => ({ productId, quantity }))
       })
     });
     showToast(`Orden ${po.code} generada`, 'success');

@@ -4,47 +4,28 @@ const { startOfDay } = require('../utils/format');
 
 const ORDER_STATUSES = ['PENDIENTE_VALIDACION', 'PENDIENTE', 'EN_PREPARACION', 'DESPACHADO', 'ENTREGADO', 'RECHAZADO'];
 
-// Unidades y valor ($) del inventario por sucursal
-const buildValuation = async () => {
+// Unidades del inventario por sucursal
+const buildStockByBranch = async () => {
   const [branches, stockItems] = await Promise.all([
     PhysicalSpace.find().sort({ name: 1 }).lean(),
-    BranchStock.find().populate('productId', 'name costPrice').lean()
+    BranchStock.find().lean()
   ]);
 
   const byBranch = new Map(branches.map(b => [b._id.toString(), {
     branchId: b._id.toString(),
     branchName: b.name,
     totalUnits: 0,
-    totalValue: 0,
     products: 0
   }]));
 
   for (const item of stockItems) {
     const row = byBranch.get(item.branchId.toString());
     if (!row) continue;
-    const cost = item.productId?.costPrice || 0;
     row.totalUnits += item.quantity;
-    row.totalValue += item.quantity * cost;
     if (item.quantity > 0) row.products += 1;
   }
 
-  const rows = [...byBranch.values()];
-  return {
-    branches: rows,
-    totalUnits: rows.reduce((acc, r) => acc + r.totalUnits, 0),
-    totalValue: rows.reduce((acc, r) => acc + r.totalValue, 0)
-  };
-};
-
-/**
- * GET /api/reports/valuation
- */
-const getValuation = async (req, res) => {
-  try {
-    res.json(await buildValuation());
-  } catch (error) {
-    res.status(500).json({ message: 'Error calculando la valorización', error: error.message });
-  }
+  return [...byBranch.values()];
 };
 
 /**
@@ -56,8 +37,8 @@ const getDashboard = async (req, res) => {
     const since = startOfDay();
     since.setDate(since.getDate() - 29);
 
-    const [valuation, alerts, ordersByStatusRaw, movementsRaw] = await Promise.all([
-      buildValuation(),
+    const [stockByBranch, alerts, ordersByStatusRaw, movementsRaw] = await Promise.all([
+      buildStockByBranch(),
       buildStockAlerts(req.user),
       Order.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
       StockMovement.aggregate([
@@ -99,8 +80,7 @@ const getDashboard = async (req, res) => {
       }));
 
     res.json({
-      stockByBranch: valuation.branches,
-      inventoryValue: valuation.totalValue,
+      stockByBranch,
       ordersByStatus,
       movementsLast30,
       topShortages
@@ -111,6 +91,5 @@ const getDashboard = async (req, res) => {
 };
 
 module.exports = {
-  getValuation,
   getDashboard
 };

@@ -1,6 +1,6 @@
 const { describe, test, before, after, beforeEach } = require('node:test');
 const { app, request, startDatabase, stopDatabase, clearDatabase, seedScenario, auth, createUser, login , expect } = require('./helpers');
-const { BranchStock, StockEntry, Product } = require('../models');
+const { BranchStock, StockEntry } = require('../models');
 
 let s;
 
@@ -28,14 +28,13 @@ describe('Proveedores y órdenes de compra', () => {
     expect(bad.status).toBe(400);
   });
 
-  test('recibir una orden de compra ingresa stock con lote, proveedor y costo', async () => {
+  test('recibir una orden de compra ingresa stock con lote y proveedor', async () => {
     const supplier = (await request(app).post('/api/suppliers').set(auth(s.tokens.admin)).send({ name: 'Química Sur SA' })).body;
     const po = await request(app).post('/api/suppliers/purchase-orders').set(auth(s.tokens.admin)).send({
-      supplierId: supplier.id, branchId: s.central._id, items: [{ productId: s.product._id, quantity: 12, unitCost: 210 }]
+      supplierId: supplier.id, branchId: s.central._id, items: [{ productId: s.product._id, quantity: 12 }]
     });
     expect(po.status).toBe(201);
     expect(po.body.code).toBe('OC-0001');
-    expect(po.body.total).toBe(2520);
 
     const receive = () => request(app).post(`/api/suppliers/purchase-orders/${po.body.id}/receive`).set(auth(s.tokens.admin)).send({
       lots: [{ productId: s.product._id, lotNumber: 'OC1-L1', expirationDate: '2031-03-01' }]
@@ -46,7 +45,6 @@ describe('Proveedores y órdenes de compra', () => {
     expect((await stockOf(s.central)).quantity).toBe(12);
     const lot = await StockEntry.findOne({ lotNumber: 'OC1-L1' }).lean();
     expect(String(lot.supplierId)).toBe(supplier.id);
-    expect((await Product.findById(s.product._id)).costPrice).toBe(210);
   });
 
   test('al recibir una orden, los productos que no vencen no necesitan lote', async () => {
@@ -118,13 +116,13 @@ describe('Conteo físico de inventario', () => {
 });
 
 describe('Reportes', () => {
-  test('el dashboard devuelve valorización, estados y movimientos de 30 días', async () => {
+  test('el dashboard devuelve stock por sucursal, estados y movimientos de 30 días', async () => {
     await request(app).post('/api/inventory/stock').set(auth(s.tokens.admin)).send({
       productId: s.product._id, branchId: s.central._id, quantity: 3, lotNumber: 'L', expirationDate: '2030-01-01'
     });
     const res = await request(app).get('/api/reports/dashboard').set(auth(s.tokens.admin));
     expect(res.status).toBe(200);
-    expect(res.body.inventoryValue).toBe(300);
+    expect(res.body.stockByBranch.find(b => b.branchName === 'Central').totalUnits).toBe(3);
     expect(res.body.movementsLast30).toHaveLength(30);
     expect(res.body.movementsLast30.at(-1).entradas).toBe(3);
     expect(res.body.topShortages[0].deficit).toBe(2);

@@ -1,6 +1,6 @@
 const { describe, test, before, after, beforeEach } = require('node:test');
 const { app, request, startDatabase, stopDatabase, clearDatabase, seedScenario, auth , expect } = require('./helpers');
-const { BranchStock, StockEntry, StockMovement, Product } = require('../models');
+const { BranchStock, StockEntry, StockMovement } = require('../models');
 const { markExpiredLots } = require('../services/stockService');
 
 let s;
@@ -24,15 +24,14 @@ const addEntry = (token, data) => request(app).post('/api/inventory/stock').set(
 const stockOf = async (branch) => (await BranchStock.findOne({ branchId: branch._id, productId: s.product._id }).lean()) || { quantity: 0, reservedQuantity: 0 };
 
 describe('Ingresos, egresos y lotes', () => {
-  test('un ingreso crea el lote, suma stock, registra el movimiento y actualiza el costo', async () => {
-    const res = await addEntry(s.tokens.responsable, { unitCost: 150 });
+  test('un ingreso crea el lote, suma stock y registra el movimiento', async () => {
+    const res = await addEntry(s.tokens.responsable);
     expect(res.status).toBe(201);
     expect((await stockOf(s.central)).quantity).toBe(10);
     const lot = await StockEntry.findOne({ lotNumber: 'L-1' }).lean();
     expect(lot.remaining).toBe(10);
     expect(String(lot.branchId)).toBe(String(s.central._id));
     expect(await StockMovement.countDocuments({ type: 'INGRESO' })).toBe(1);
-    expect((await Product.findById(s.product._id)).costPrice).toBe(150);
   });
 
   test('ingresos simultáneos no pierden unidades', async () => {

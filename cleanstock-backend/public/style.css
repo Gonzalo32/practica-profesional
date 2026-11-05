@@ -1647,11 +1647,6 @@ tr:hover td {
 
 /* Contadores de los gráficos y tarjetas nuevas */
 .stat-sub { font-size: 0.8rem; color: var(--text-muted); }
-.stat-number-sm { font-size: 1.9rem; }
-.stat-card.stat-card-value {
-  background: radial-gradient(circle at top right, var(--color-primary-glow), transparent 70%), var(--glass-bg);
-  border: 1px solid var(--color-primary-glow);
-}
 .stat-card.stat-card-expiring,
 .stat-card.stat-card-warning {
   background: radial-gradient(circle at top right, hsla(35, 90%, 60%, 0.12), transparent 70%), var(--glass-bg);
@@ -1785,7 +1780,6 @@ tr:hover td {
 .filter-row { align-items: center; flex-wrap: wrap; }
 .select-md { max-width: 320px; }
 .search-box-sm { flex: 0 1 280px; min-width: 200px; }
-.stock-total-value { margin-left: auto; font-weight: 700; color: var(--color-primary); }
 .filter-box { align-items: center; }
 .filter-box select { width: auto; min-width: 170px; }
 .card-title-row select { width: auto; min-width: 170px; padding: 8px 12px; font-size: 0.85rem; }
@@ -2102,7 +2096,6 @@ tr:hover td {
   .form-grid, .details-grid { grid-template-columns: 1fr; }
   .span-2 { grid-column: auto; }
   .notif-dropdown { left: 10px; right: 10px; width: auto; }
-  .stock-total-value { margin-left: 0; }
   .sub-nav { overflow-x: auto; }
   .kanban { grid-template-columns: 1fr; }
   .kanban-col { min-height: 0; }

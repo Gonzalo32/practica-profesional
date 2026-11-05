@@ -192,10 +192,6 @@
               <h3>Ingresos Hoy</h3>
               <p class="stat-number" id="admin-stat-today">0</p>
             </div>
-            <div class="card glass stat-card stat-card-value">
-              <h3>Valor del Inventario</h3>
-              <p class="stat-number stat-number-sm" id="admin-stat-value">$ 0</p>
-            </div>
             <div class="card glass stat-card stat-card-expiring">
               <h3>Lotes por Vencer (30 días)</h3>
               <p class="stat-number" id="admin-stat-expiring">0</p>
@@ -593,7 +589,6 @@
                 <option value="">Todos los productos</option>
                 <option value="low">Solo stock bajo</option>
               </select>
-              <span class="stock-total-value" id="stock-view-total-value"></span>
             </div>
           </div>
 
@@ -611,7 +606,6 @@
                     <th title="Unidades aptas para nuevos pedidos (Total - Reservado).">Disponible</th>
                     <th title="Nivel mínimo de stock antes de generar alerta.">Mínimo</th>
                     <th title="Vencimiento más próximo entre los lotes con stock.">Próx. venc.</th>
-                    <th title="Total por costo unitario.">Valor</th>
                   </tr>
                 </thead>
                 <tbody id="table-branch-stock-body"></tbody>
@@ -847,7 +841,6 @@
                       <th>Proveedor</th>
                       <th>Sucursal destino</th>
                       <th>Productos</th>
-                      <th>Total</th>
                       <th>Estado</th>
                       <th>Fecha</th>
                       <th>Acciones</th>
@@ -955,7 +948,6 @@
                     <th>Categoría / Rubro</th>
                     <th>Descripción Técnica</th>
                     <th>Stock Mínimo Alerta</th>
-                    <th>Costo Unitario</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
@@ -1381,10 +1373,6 @@
           <label for="prod-sku">Código interno <span class="opt">(opcional)</span></label>
           <input type="text" id="prod-sku" placeholder="Ej: GUA-LAT-M" maxlength="40">
         </div>
-        <div class="form-group">
-          <label for="prod-cost">Costo Unitario ($)</label>
-          <input type="number" id="prod-cost" min="0" step="0.01" placeholder="0.00">
-        </div>
         <div class="form-group span-2">
           <label class="checkbox-item checkbox-large">
             <input type="checkbox" id="prod-perishable">
@@ -1528,10 +1516,6 @@
               <label class="mini-label">Vencimiento <span class="req lot-req">*</span></label>
               <input type="date" id="stock-modal-expiration-date">
             </div>
-            <div>
-              <label class="mini-label">Costo unit. ($)</label>
-              <input type="number" id="stock-modal-unit-cost" min="0" step="0.01" placeholder="Opcional">
-            </div>
             <div class="picker-btn-cell">
               <button type="button" id="btn-stock-modal-add-item" class="btn btn-secondary">Agregar</button>
             </div>
@@ -1551,7 +1535,6 @@
                   <th class="col-center">Cantidad</th>
                   <th>Lote</th>
                   <th>Vencimiento</th>
-                  <th>Costo unit.</th>
                   <th class="col-center">Acción</th>
                 </tr>
               </thead>
@@ -1779,7 +1762,6 @@
           <div class="picker-row">
             <select id="po-product-select" class="picker-grow"></select>
             <input type="number" id="po-product-qty" min="1" value="1" class="picker-qty" title="Cantidad">
-            <input type="number" id="po-product-cost" min="0" step="0.01" class="picker-qty" placeholder="Costo $" title="Costo unitario">
             <button type="button" id="btn-po-add-item" class="btn btn-secondary">Agregar</button>
           </div>
           <span class="hint-text">Se sugieren primero los productos que el proveedor tiene asociados.</span>
@@ -1787,7 +1769,7 @@
         <div class="card glass-light item-list">
           <div class="item-list-header">
             <span>Productos de la orden:</span>
-            <span id="po-items-total" class="badge">$ 0</span>
+            <span id="po-items-count" class="badge">0 productos</span>
           </div>
           <div class="table-responsive item-list-scroll">
             <table class="table-compact">
@@ -1795,8 +1777,6 @@
                 <tr>
                   <th>Producto</th>
                   <th class="col-center">Cantidad</th>
-                  <th>Costo unit.</th>
-                  <th>Subtotal</th>
                   <th class="col-center">Acción</th>
                 </tr>
               </thead>
@@ -1824,7 +1804,7 @@
         <button type="button" class="close-btn" data-close-modal>&times;</button>
       </div>
       <form id="form-po-receive" class="form-stack">
-        <p class="hint-text">Cargá el lote y el vencimiento de cada producto recibido. Al confirmar, el stock ingresa a la sucursal con el proveedor y el costo de la orden.</p>
+        <p class="hint-text">Cargá el lote y el vencimiento de cada producto recibido. Al confirmar, el stock ingresa a la sucursal asociado al proveedor de la orden.</p>
         <div class="table-responsive">
           <table class="table-compact">
             <thead>

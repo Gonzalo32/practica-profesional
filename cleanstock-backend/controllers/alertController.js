@@ -204,11 +204,6 @@ const getKPIs = async (req, res) => {
 
     const criticalAlerts = allStock.filter(item => item.quantity === 0).length;
 
-    const inventoryValue = allStock.reduce((acc, item) => {
-      const cost = item.productId && typeof item.productId === 'object' ? (item.productId.costPrice || 0) : 0;
-      return acc + item.quantity * cost;
-    }, 0);
-
     const [inTransitOrders, totalOrders, todayStockEntries, expirations] = await Promise.all([
       Order.countDocuments({ status: { $in: ['PENDIENTE', 'EN_PREPARACION', 'DESPACHADO'] } }),
       Order.countDocuments(),
@@ -225,7 +220,6 @@ const getKPIs = async (req, res) => {
       inTransitOrders,
       totalOrders,
       todayStockEntries,
-      inventoryValue,
       expiringLots: expirations.filter(e => e.daysLeft >= 0).length,
       expiredLots: expirations.filter(e => e.daysLeft < 0).length
     });

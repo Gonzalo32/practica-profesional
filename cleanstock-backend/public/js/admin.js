@@ -22,7 +22,6 @@ async function loadAdminStats() {
     document.getElementById('admin-stat-critical').textContent = `${kpis.criticalAlerts} críticas`;
     document.getElementById('admin-stat-transit').textContent = kpis.inTransitOrders;
     document.getElementById('admin-stat-today').textContent = kpis.todayStockEntries;
-    document.getElementById('admin-stat-value').textContent = formatMoney(kpis.inventoryValue);
     document.getElementById('admin-stat-expiring').textContent = kpis.expiringLots;
     document.getElementById('admin-stat-expired').textContent = `${kpis.expiredLots} vencidos`;
 
@@ -91,8 +90,7 @@ function drawDashboardCharts(data) {
     },
     options: baseChartOptions(t, {
       plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { afterLabel: (ctx) => `Valor: ${formatMoney(data.stockByBranch[ctx.dataIndex].totalValue)}` } }
+        legend: { display: false }
       }
     })
   });

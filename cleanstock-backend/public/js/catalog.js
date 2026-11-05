@@ -6,14 +6,14 @@ const catalogFilters = { search: '', category: '' };
 
 async function loadCatalogPanel() {
   const tbody = document.getElementById('table-catalog-body');
-  if (!state.products.length) setTableLoading(tbody, 7);
+  if (!state.products.length) setTableLoading(tbody, 6);
   try {
     await loadBaseData();
     fillSelect(document.getElementById('catalog-filter-category'), state.categories, { placeholder: 'Todas las Categorías', value: catalogFilters.category });
     document.getElementById('btn-open-create-product-modal').classList.toggle('hidden', !hasRole('Administrador', 'Usuario Responsable'));
     renderCatalogTable();
   } catch (err) {
-    renderErrorRow(tbody, 7, err.message);
+    renderErrorRow(tbody, 6, err.message);
   }
 }
 
@@ -39,7 +39,7 @@ function renderCatalogTable() {
   });
 
   if (!filtered.length) {
-    renderEmptyRow(tbody, 7, 'No se encontraron productos', 'Probá con otra búsqueda o categoría.');
+    renderEmptyRow(tbody, 6, 'No se encontraron productos', 'Probá con otra búsqueda o categoría.');
     return;
   }
 
@@ -52,7 +52,6 @@ function renderCatalogTable() {
       <td><span class="badge">${escapeHtml(p.Category?.name || 'Sin categoría')}</span></td>
       <td><span class="cell-detail">${escapeHtml(p.description || 'Sin descripción')}</span></td>
       <td><span class="strong">${p.minimumStock || 0} unidades</span></td>
-      <td>${p.costPrice ? formatMoney(p.costPrice) : '<span class="muted">Sin cargar</span>'}</td>
       <td>${canEdit ? `<button class="btn-icon" title="Editar producto" onclick="openProductModal('${p.id}')">${ICON_EDIT}</button>` : ''}</td>
     </tr>`).join('');
 }
@@ -70,7 +69,6 @@ window.openProductModal = async (productId = null) => {
   document.getElementById('prod-description').value = product?.description || '';
   document.getElementById('prod-minstock').value = product ? (product.minimumStock || 0) : 10;
   document.getElementById('prod-sku').value = product?.sku || '';
-  document.getElementById('prod-cost').value = product?.costPrice || '';
   // Productos nuevos: sin vencimiento por defecto (lo más común en un almacén)
   document.getElementById('prod-perishable').checked = product ? product.perishable !== false : false;
 
@@ -83,14 +81,12 @@ document.getElementById('btn-open-create-product-modal')?.addEventListener('clic
 document.getElementById('form-product')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const id = document.getElementById('prod-id').value;
-  const costValue = document.getElementById('prod-cost').value;
   const data = {
     name: document.getElementById('prod-name').value.trim(),
     categoryId: document.getElementById('prod-category').value,
     description: document.getElementById('prod-description').value.trim(),
     minimumStock: parseInt(document.getElementById('prod-minstock').value, 10) || 0,
     sku: document.getElementById('prod-sku').value.trim() || null,
-    costPrice: costValue === '' ? 0 : Number(costValue),
     perishable: document.getElementById('prod-perishable').checked
   };
 

@@ -148,7 +148,7 @@ const getBranchStock = async (req, res) => {
     ]);
     const lotInfo = new Map(lotsByProduct.map(l => [l._id.toString(), l]));
 
-    // Enriquecer con cantidad disponible, mínimo efectivo y valorización
+    // Enriquecer con cantidad disponible y mínimo efectivo
     const enrichedItems = stockItems.map(item => {
       const productObj = item.productId && typeof item.productId === 'object' ? item.productId : null;
       const categoryObj = productObj && productObj.categoryId && typeof productObj.categoryId === 'object' ? productObj.categoryId : null;
@@ -158,7 +158,6 @@ const getBranchStock = async (req, res) => {
         : (productObj?.minimumStock || 0);
       const reserved = item.reservedQuantity || 0;
       const available = Math.max(0, item.quantity - reserved);
-      const costPrice = productObj?.costPrice || 0;
       const lots = productObj ? lotInfo.get(productObj._id.toString()) : null;
 
       return {
@@ -173,8 +172,6 @@ const getBranchStock = async (req, res) => {
         effectiveMinStock: effectiveMin,
         isLow: item.quantity <= effectiveMin && effectiveMin > 0,
         isCritical: item.quantity === 0,
-        costPrice,
-        stockValue: item.quantity * costPrice,
         nextExpiration: lots ? lots.nextExpiration : null,
         lotCount: lots ? lots.lots : 0,
         Producto: productObj ? {
@@ -201,7 +198,6 @@ const getBranchStock = async (req, res) => {
         address: branch.address,
         phone: branch.phone
       },
-      totalValue: enrichedItems.reduce((acc, i) => acc + i.stockValue, 0),
       stockItems: enrichedItems
     });
   } catch (error) {
@@ -309,7 +305,6 @@ const getStockMovements = async (req, res) => {
       quantity: m.quantity,
       lotNumber: m.lotNumber,
       expirationDate: m.expirationDate,
-      unitCost: m.unitCost,
       reason: m.reason,
       createdAt: m.createdAt,
       productId: toId(m.productId),

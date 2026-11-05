@@ -40,7 +40,7 @@ const duplicateProductMessage = (error) => {
 
 const createProduct = async (req, res) => {
   try {
-    const { name, categoryId, description, minimumStock, sku, costPrice, perishable } = req.body;
+    const { name, categoryId, description, minimumStock, sku, perishable } = req.body;
 
     const product = await Product.create({
       name,
@@ -48,7 +48,6 @@ const createProduct = async (req, res) => {
       description,
       minimumStock,
       sku: sku || null,
-      costPrice: costPrice || 0,
       perishable: perishable !== undefined ? perishable : true
     });
 
@@ -74,7 +73,6 @@ const formatProduct = (p) => ({
   description: p.description,
   minimumStock: p.minimumStock,
   sku: p.sku || null,
-  costPrice: p.costPrice || 0,
   perishable: p.perishable !== false,
   categoryId: p.categoryId ? toId(p.categoryId) : null,
   Category: p.categoryId && typeof p.categoryId === 'object' ? {
@@ -107,7 +105,7 @@ const getProducts = async (req, res) => {
 const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, categoryId, description, minimumStock, sku, costPrice, perishable } = req.body;
+    const { name, categoryId, description, minimumStock, sku, perishable } = req.body;
 
     const product = await Product.findById(id);
     if (!product) return res.status(404).json({ message: 'Producto no encontrado' });
@@ -117,7 +115,6 @@ const updateProduct = async (req, res) => {
     if (description !== undefined) product.description = description;
     if (minimumStock !== undefined) product.minimumStock = minimumStock;
     if (sku !== undefined) product.sku = sku || null;
-    if (costPrice !== undefined) product.costPrice = costPrice || 0;
     if (perishable !== undefined) product.perishable = perishable;
 
     await product.save();
@@ -142,9 +139,6 @@ const registerStockEntry = async (req, res) => {
   try {
     const { productId, lotNumber, expirationDate, branchId, supplierId } = req.body;
     const quantity = parseInt(req.body.quantity, 10);
-    const unitCost = req.body.unitCost !== undefined && req.body.unitCost !== null && req.body.unitCost !== ''
-      ? Number(req.body.unitCost)
-      : null;
 
     const [prod, branch, supplier] = await Promise.all([
       Product.findById(productId),
@@ -170,18 +164,11 @@ const registerStockEntry = async (req, res) => {
         expirationDate,
         quantity,
         supplierId: supplierId || null,
-        unitCost,
         registeredBy: req.user.id
       })
       : null;
 
     const branchStock = await stock.increaseStock(branchId, productId, quantity);
-
-    // El último costo de compra pasa a ser el costo de referencia del producto
-    if (unitCost !== null) {
-      prod.costPrice = unitCost;
-      await prod.save();
-    }
 
     await stock.recordMovement({
       type: 'INGRESO',
@@ -191,7 +178,6 @@ const registerStockEntry = async (req, res) => {
       lotNumber: hasLot ? lotNumber : null,
       expirationDate: hasLot ? expirationDate : null,
       supplierId: supplierId || null,
-      unitCost,
       userId: req.user.id
     });
 
@@ -340,7 +326,6 @@ const getLots = async (req, res) => {
       quantity: l.quantity,
       remaining: l.remaining ?? l.quantity,
       status: l.status,
-      unitCost: l.unitCost ?? null,
       productId: toId(l.productId),
       productName: l.productId?.name || null,
       branchId: toId(l.branchId),

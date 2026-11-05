@@ -128,7 +128,7 @@ async function openCreateStockEntryModal() {
   fillSelect(document.getElementById('stock-modal-product-select'), state.products, { placeholder: 'Seleccioná insumo...' });
   draftStockEntryItems = [];
   updateLotFields(null);
-  ['stock-modal-lot-number', 'stock-modal-expiration-date', 'stock-modal-unit-cost'].forEach(id => { document.getElementById(id).value = ''; });
+  ['stock-modal-lot-number', 'stock-modal-expiration-date'].forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('stock-modal-product-qty').value = 1;
   renderStockModalItemsTable();
   openModal('modal-create-stock-entry');
@@ -147,12 +147,9 @@ function updateLotFields(product) {
   document.querySelectorAll('#modal-create-stock-entry .lot-req').forEach(el => el.classList.toggle('hidden', !needsLot));
 }
 
-// Al elegir un producto se sugiere su costo actual
+// Al elegir un producto se muestran u ocultan los campos de lote
 document.getElementById('stock-modal-product-select')?.addEventListener('change', (e) => {
-  const product = state.products.find(p => p.id === e.target.value);
-  const costInput = document.getElementById('stock-modal-unit-cost');
-  if (product && product.costPrice && !costInput.value) costInput.value = product.costPrice;
-  updateLotFields(product);
+  updateLotFields(state.products.find(p => p.id === e.target.value));
 });
 
 document.getElementById('btn-stock-modal-add-item')?.addEventListener('click', () => {
@@ -160,7 +157,6 @@ document.getElementById('btn-stock-modal-add-item')?.addEventListener('click', (
   const quantity = parseInt(document.getElementById('stock-modal-product-qty').value, 10) || 0;
   const lotNumber = document.getElementById('stock-modal-lot-number').value.trim();
   const expirationDate = document.getElementById('stock-modal-expiration-date').value;
-  const costValue = document.getElementById('stock-modal-unit-cost').value;
 
   if (!productId) return showToast('Seleccioná un insumo o producto.', 'error');
   if (quantity <= 0) return showToast('La cantidad debe ser mayor a 0.', 'error');
@@ -171,7 +167,6 @@ document.getElementById('btn-stock-modal-add-item')?.addEventListener('click', (
     showToast('Atención: la fecha de vencimiento ya pasó. El lote quedará marcado como vencido.', 'info');
   }
 
-  const unitCost = costValue === '' ? null : Number(costValue);
   const existing = draftStockEntryItems.find(item =>
     item.productId === productId && item.lotNumber.toLowerCase() === lotNumber.toLowerCase() && item.expirationDate === expirationDate
   );
@@ -179,12 +174,12 @@ document.getElementById('btn-stock-modal-add-item')?.addEventListener('click', (
     existing.quantity += quantity;
     showToast(`Se sumaron ${quantity} unidades al mismo lote.`, 'info');
   } else {
-    draftStockEntryItems.push({ productId, productName: getProductName(productId), quantity, lotNumber, expirationDate, unitCost });
+    draftStockEntryItems.push({ productId, productName: getProductName(productId), quantity, lotNumber, expirationDate });
   }
 
   document.getElementById('stock-modal-product-select').value = '';
   document.getElementById('stock-modal-product-qty').value = 1;
-  ['stock-modal-lot-number', 'stock-modal-expiration-date', 'stock-modal-unit-cost'].forEach(id => { document.getElementById(id).value = ''; });
+  ['stock-modal-lot-number', 'stock-modal-expiration-date'].forEach(id => { document.getElementById(id).value = ''; });
   updateLotFields(null);
   renderStockModalItemsTable();
 });
@@ -192,7 +187,7 @@ document.getElementById('btn-stock-modal-add-item')?.addEventListener('click', (
 function renderStockModalItemsTable() {
   renderDraftItems('table-stock-modal-items-body', 'stock-modal-items-count', draftStockEntryItems, 'removeStockModalItem',
     'Aún no agregaste insumos a la lista de ingreso.',
-    item => `<td>${item.lotNumber ? `<span class="badge">${escapeHtml(item.lotNumber)}</span>` : '<span class="muted">No vence</span>'}</td><td>${formatDateOnly(item.expirationDate)}</td><td>${item.unitCost === null ? '—' : formatMoney(item.unitCost)}</td>`);
+    item => `<td>${item.lotNumber ? `<span class="badge">${escapeHtml(item.lotNumber)}</span>` : '<span class="muted">No vence</span>'}</td><td>${formatDateOnly(item.expirationDate)}</td>`);
 }
 
 window.removeStockModalItem = (index) => {
@@ -234,7 +229,6 @@ document.getElementById('form-create-stock-entry-modal')?.addEventListener('subm
     showToast('Ingreso de stock registrado exitosamente', 'success');
     closeModal('modal-create-stock-entry');
   }
-  await loadBaseData(); // el costo de los productos pudo cambiar
   afterStockChange();
 });
 

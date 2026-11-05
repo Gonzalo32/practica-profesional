@@ -147,22 +147,21 @@ async function loadBranchStockPanel() {
 
   if (!sel.value && branches.length) sel.value = branches[0].id;
   if (sel.value) await loadStockForBranch(sel.value);
-  else renderEmptyRow(document.getElementById('table-branch-stock-body'), 9, 'No tenés una sucursal asignada', 'Pedile al administrador que te asigne una.');
+  else renderEmptyRow(document.getElementById('table-branch-stock-body'), 8, 'No tenés una sucursal asignada', 'Pedile al administrador que te asigne una.');
 }
 
 async function loadStockForBranch(branchId) {
   const tbody = document.getElementById('table-branch-stock-body');
-  setTableLoading(tbody, 9);
+  setTableLoading(tbody, 8);
   try {
-    const { branch, stockItems, totalValue } = await apiFetch(`/branches/${branchId}/stock`);
+    const { branch, stockItems } = await apiFetch(`/branches/${branchId}/stock`);
     currentStockItems = stockItems;
     currentStockBranch = branch;
     const typeLabel = branch.name.toLowerCase().startsWith((branch.type || '').toLowerCase()) ? '' : ` (${capitalize(branch.type)})`;
     document.getElementById('stock-view-branch-title').textContent = `Stock — ${branch.name}${typeLabel}`;
-    document.getElementById('stock-view-total-value').textContent = `Valor total: ${formatMoney(totalValue)}`;
     renderStockTable();
   } catch (err) {
-    renderErrorRow(tbody, 9, err.message);
+    renderErrorRow(tbody, 8, err.message);
   }
   movementFilters.page = 1;
   loadMovementsTraceability();
@@ -192,7 +191,7 @@ function renderStockTable() {
   const items = filteredStockItems();
   if (!items.length) {
     const onlyLow = document.getElementById('stock-view-filter').value === 'low';
-    renderEmptyRow(tbody, 9, stockSearch ? 'Sin resultados' : onlyLow ? 'No hay productos con stock bajo' : 'Esta sucursal no tiene stock registrado aún');
+    renderEmptyRow(tbody, 8, stockSearch ? 'Sin resultados' : onlyLow ? 'No hay productos con stock bajo' : 'Esta sucursal no tiene stock registrado aún');
     return;
   }
   tbody.innerHTML = items.map(item => {
@@ -210,7 +209,6 @@ function renderStockTable() {
         <td><span class="stock-qty ${stockClass}">${available}</span></td>
         <td><span class="muted">${minStock}</span></td>
         <td>${expirationCell(item.nextExpiration)}</td>
-        <td>${item.costPrice ? formatMoney(item.stockValue) : '<span class="muted">—</span>'}</td>
       </tr>`;
   }).join('');
 }
@@ -234,9 +232,7 @@ registerExporter('stock', async () => ({
     { header: 'Reservado', value: i => i.reservedQuantity },
     { header: 'Disponible', value: i => i.availableQuantity },
     { header: 'Mínimo', value: i => i.effectiveMinStock },
-    { header: 'Próximo vencimiento', value: i => (i.nextExpiration ? formatDateOnly(i.nextExpiration) : '') },
-    { header: 'Costo unitario', value: i => i.costPrice },
-    { header: 'Valor', value: i => i.stockValue }
+    { header: 'Próximo vencimiento', value: i => (i.nextExpiration ? formatDateOnly(i.nextExpiration) : '') }
   ],
   rows: filteredStockItems()
 }));

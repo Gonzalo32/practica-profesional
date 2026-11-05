@@ -9,13 +9,13 @@ Proyecto Final de Práctica Profesional II — IFES. Grupo: Guerrero, Marambio.
 ## Funcionalidades
 
 - Inicio de sesión con roles: Administrador, Usuario Responsable, Solicitante, Despachante y Proveedor.
-- Catálogo de productos con categorías, SKU, costo y stock mínimo.
+- Catálogo de productos con categorías, SKU y stock mínimo.
 - Ingresos de stock con lote y vencimiento, ingresos extraordinarios, egresos y mermas.
 - Pedidos entre sucursales con aprobación, panel de despacho (Kanban) y trazabilidad de cada estado.
 - Proveedores y órdenes de compra.
 - Alertas de stock bajo y de vencimientos, con salida FEFO (primero vence, primero sale).
 - Conteo físico de inventario con ajuste de diferencias.
-- Panel con gráficos, valorización del inventario y exportación a Excel y PDF.
+- Panel con gráficos y exportación a Excel y PDF.
 - Modo para comercios de un solo local.
 - Auditoría de las acciones de los usuarios.
 
@@ -129,6 +129,6 @@ La API REST se publica bajo `/api` y, salvo el inicio de sesión, exige un token
 | `/api/alerts` | Alertas de stock y vencimientos, indicadores |
 | `/api/suppliers` | Proveedores y órdenes de compra |
 | `/api/counts` | Conteos físicos de inventario |
-| `/api/reports` | Datos del panel y valorización |
+| `/api/reports` | Datos del panel |
 | `/api/spaces` | Espacios físicos |
 | `/api/settings` | Configuración del negocio |

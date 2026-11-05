@@ -2,8 +2,7 @@ const { mongoose } = require('../config/database');
 
 const purchaseOrderItemSchema = new mongoose.Schema({
   productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
-  quantity: { type: Number, required: true, min: 1 },
-  unitCost: { type: Number, default: null, min: 0 }
+  quantity: { type: Number, required: true, min: 1 }
 }, { _id: false });
 
 const purchaseOrderSchema = new mongoose.Schema({

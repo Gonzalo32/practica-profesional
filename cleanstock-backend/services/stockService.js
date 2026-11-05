@@ -114,8 +114,7 @@ const consumeLots = async (branchId, productId, qty) => {
       lotNumber: lot.lotNumber,
       expirationDate: lot.expirationDate,
       quantity: take,
-      supplierId: lot.supplierId || null,
-      unitCost: lot.unitCost ?? null
+      supplierId: lot.supplierId || null
     });
   }
   return used;

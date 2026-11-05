@@ -116,10 +116,8 @@ const formatPurchaseOrder = (po) => ({
     productId: toId(i.productId),
     productName: i.productId?.name || null,
     perishable: i.productId?.perishable !== false,
-    quantity: i.quantity,
-    unitCost: i.unitCost
-  })),
-  total: (po.items || []).reduce((acc, i) => acc + i.quantity * (i.unitCost || 0), 0)
+    quantity: i.quantity
+  }))
 });
 
 const populatePurchaseOrder = (query) => query
@@ -166,8 +164,7 @@ const createPurchaseOrder = async (req, res) => {
       notes: notes || null,
       items: items.map(i => ({
         productId: i.productId,
-        quantity: parseInt(i.quantity, 10),
-        unitCost: i.unitCost !== undefined && i.unitCost !== null && i.unitCost !== '' ? Number(i.unitCost) : null
+        quantity: parseInt(i.quantity, 10)
       })),
       createdBy: req.user.id
     });
@@ -225,14 +222,10 @@ const receivePurchaseOrder = async (req, res) => {
           expirationDate: lot.expirationDate,
           quantity: item.quantity,
           supplierId: po.supplierId._id,
-          unitCost: item.unitCost,
           registeredBy: req.user.id
         });
       }
       await stock.increaseStock(po.branchId._id, item.productId, item.quantity);
-      if (item.unitCost !== null && item.unitCost !== undefined) {
-        await Product.updateOne({ _id: item.productId }, { costPrice: item.unitCost });
-      }
       await stock.recordMovement({
         type: 'INGRESO',
         subtype: 'ORDEN_COMPRA',
@@ -242,7 +235,6 @@ const receivePurchaseOrder = async (req, res) => {
         lotNumber: lot ? lot.lotNumber : null,
         expirationDate: lot ? lot.expirationDate : null,
         supplierId: po.supplierId._id,
-        unitCost: item.unitCost,
         purchaseOrderId: po._id,
         reason: `Recepción de ${code}`,
         userId: req.user.id

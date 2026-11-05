@@ -49,7 +49,7 @@ const seedScenario = async () => {
     { name: 'Norte', type: 'sucursal' }
   ]);
   const category = await Category.create({ name: 'Limpieza' });
-  const product = await Product.create({ name: 'Lavandina 1L', categoryId: category._id, minimumStock: 5, costPrice: 100 });
+  const product = await Product.create({ name: 'Lavandina 1L', categoryId: category._id, minimumStock: 5 });
 
   const admin = await createUser('Administrador');
   const responsable = await createUser('Usuario Responsable', { physicalSpaceId: central._id });

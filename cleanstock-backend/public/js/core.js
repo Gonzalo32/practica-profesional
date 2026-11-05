@@ -116,11 +116,6 @@ function formatOrderCode(order) {
   return `#${String(order.id || order._id || '').substring(0, 8).toUpperCase()}`;
 }
 
-const moneyFormatter = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 });
-function formatMoney(value) {
-  return moneyFormatter.format(Number(value) || 0);
-}
-
 function formatNumber(value) {
   return new Intl.NumberFormat('es-AR').format(Number(value) || 0);
 }

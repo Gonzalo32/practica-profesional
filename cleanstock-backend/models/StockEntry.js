@@ -27,7 +27,6 @@ const stockEntrySchema = new mongoose.Schema({
     ref: 'Supplier',
     default: null
   },
-  unitCost: { type: Number, default: null, min: 0 },
   registeredBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
