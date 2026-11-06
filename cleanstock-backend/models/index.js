@@ -2,6 +2,7 @@ const { connectDB, mongoose } = require('../config/database');
 const User = require('./User');
 const ActivityLog = require('./ActivityLog');
 const Category = require('./Category');
+const Brand = require('./Brand');
 const Product = require('./Product');
 const StockEntry = require('./StockEntry');
 const Order = require('./Order');
@@ -27,6 +28,7 @@ module.exports = {
   User,
   ActivityLog,
   Category,
+  Brand,
   Product,
   StockEntry,
   Order,

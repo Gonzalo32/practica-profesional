@@ -9,6 +9,7 @@ const provisionItemSchema = new mongoose.Schema({
   quantity: { type: Number, required: true, min: 1 },
   lotNumber: { type: String, default: null },
   expirationDate: { type: Date, default: null },
+  brandId: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand', default: null },
   // Lo que generó al aprobarse
   stockEntryId: { type: mongoose.Schema.Types.ObjectId, ref: 'StockEntry', default: null },
   movementId: { type: mongoose.Schema.Types.ObjectId, ref: 'StockMovement', default: null }

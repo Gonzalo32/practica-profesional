@@ -120,6 +120,7 @@ const NAV_ICONS = {
   admin: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
   catalog: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
   categories: '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
+  brands: '<path d="M12 2l2.9 6.26L22 9.27l-5 4.87L18.18 21 12 17.27 5.82 21 7 14.14l-5-4.87 7.1-1.01L12 2z"/>',
   branches: '<path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/>',
   'stock-view': '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
   expirations: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
@@ -138,6 +139,7 @@ const NAV_BY_ROLE = {
     ['admin', 'Control Administrador'],
     ['catalog', 'Catálogo'],
     ['categories', 'Categorías'],
+    ['brands', 'Marcas'],
     ['branches', 'Sucursales'],
     ['stock-view', 'Stock por Sucursal'],
     ['movements', 'Movimientos'],
@@ -160,7 +162,8 @@ const NAV_BY_ROLE = {
     ['provisions', 'Provisiones'],
     ['suppliers', 'Proveedores'],
     ['catalog', 'Catálogo'],
-    ['categories', 'Categorías']
+    ['categories', 'Categorías'],
+    ['brands', 'Marcas']
   ],
   Despachante: [
     ['despachante', 'Panel Despacho']
@@ -232,6 +235,7 @@ function refreshPanelData(panelId) {
     'panel-admin': loadAdminPanel,
     'panel-catalog': loadCatalogPanel,
     'panel-categories': loadCategoriesPanel,
+    'panel-brands': loadBrandsPanel,
     'panel-branches': loadBranchesPanel,
     'panel-stock-view': loadBranchStockPanel,
     'panel-movements': loadMovementsPanel,

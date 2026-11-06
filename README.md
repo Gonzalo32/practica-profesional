@@ -9,7 +9,7 @@ Proyecto Final de Práctica Profesional II — IFES. Grupo: Guerrero, Marambio.
 ## Funcionalidades
 
 - Inicio de sesión con roles: Administrador, Usuario Responsable, Solicitante, Despachante y Proveedor.
-- Catálogo de productos con categorías, SKU y stock mínimo.
+- Catálogo de productos con categorías, marcas (elegidas de una lista con buscador, sin duplicados), SKU y stock mínimo.
 - Ingresos de stock con lote y vencimiento, ingresos extraordinarios, egresos y mermas.
 - Pedidos entre sucursales con aprobación, panel de despacho (Kanban) y trazabilidad de cada estado.
 - Provisiones: la mercadería de los proveedores se carga pendiente y entra al stock recién cuando el Responsable o el Administrador la aprueba; se puede ver y corregir.
@@ -118,7 +118,7 @@ Con `DEMO_DATA=true` en el `.env`, los mismos datos se cargan al iniciar el serv
 npm test
 ```
 
-Corre 60 pruebas automatizadas sobre una base de datos en memoria, sin tocar la base real. Cubren autenticación, permisos por rol y por sucursal, pedidos, stock, proveedores, conteos, configuración, espacios físicos y reportes.
+Corre 66 pruebas automatizadas sobre una base de datos en memoria, sin tocar la base real. Cubren autenticación, permisos por rol y por sucursal, pedidos, stock, provisiones, marcas, proveedores, conteos, configuración, espacios físicos y reportes.
 
 ## Estructura del proyecto
 

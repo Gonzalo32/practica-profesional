@@ -1,4 +1,4 @@
-const { Category, Product, StockEntry, ActivityLog, PhysicalSpace, Supplier } = require('../models');
+const { Category, Product, StockEntry, ActivityLog, PhysicalSpace, Supplier, Brand } = require('../models');
 const { canAccessBranch } = require('../middlewares/authMiddleware');
 const { effectiveBranchId } = require('../services/settingsService');
 const stock = require('../services/stockService');
@@ -69,16 +69,18 @@ const deleteCategory = async (req, res) => {
 const duplicateProductMessage = (error) => {
   const field = Object.keys(error.keyPattern || {})[0];
   if (field === 'sku') return 'Ya existe un producto con ese código interno.';
-  return 'Ya existe un producto con ese nombre estandarizado.';
+  return 'Ya existe un producto con ese nombre y esa marca.';
 };
 
 const createProduct = async (req, res) => {
   try {
-    const { name, categoryId, description, minimumStock, sku, perishable } = req.body;
+    const { name, categoryId, description, minimumStock, sku, perishable, brandId } = req.body;
+    if (brandId && !(await Brand.exists({ _id: brandId }))) return res.status(404).json({ message: 'Marca no encontrada' });
 
     const product = await Product.create({
       name,
       categoryId: categoryId || null,
+      brandId: brandId || null,
       description,
       minimumStock,
       sku: sku || null,
@@ -109,6 +111,8 @@ const formatProduct = (p) => ({
   sku: p.sku || null,
   perishable: p.perishable !== false,
   categoryId: p.categoryId ? toId(p.categoryId) : null,
+  brandId: p.brandId ? toId(p.brandId) : null,
+  Brand: p.brandId && typeof p.brandId === 'object' ? { id: p.brandId._id.toString(), name: p.brandId.name } : null,
   Category: p.categoryId && typeof p.categoryId === 'object' ? {
     id: p.categoryId._id.toString(),
     name: p.categoryId.name,
@@ -127,6 +131,7 @@ const getProducts = async (req, res) => {
 
     const products = await Product.find(filter)
       .populate('categoryId')
+      .populate('brandId', 'name')
       .sort({ name: 1 })
       .lean();
 
@@ -139,13 +144,15 @@ const getProducts = async (req, res) => {
 const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, categoryId, description, minimumStock, sku, perishable } = req.body;
+    const { name, categoryId, description, minimumStock, sku, perishable, brandId } = req.body;
+    if (brandId && !(await Brand.exists({ _id: brandId }))) return res.status(404).json({ message: 'Marca no encontrada' });
 
     const product = await Product.findById(id);
     if (!product) return res.status(404).json({ message: 'Producto no encontrado' });
 
     if (name) product.name = name;
     if (categoryId !== undefined) product.categoryId = categoryId || null;
+    if (brandId !== undefined) product.brandId = brandId || null;
     if (description !== undefined) product.description = description;
     if (minimumStock !== undefined) product.minimumStock = minimumStock;
     if (sku !== undefined) product.sku = sku || null;
@@ -171,17 +178,19 @@ const updateProduct = async (req, res) => {
 // --- Ingresos de Stock (T3.2) ---
 const registerStockEntry = async (req, res) => {
   try {
-    const { productId, lotNumber, expirationDate, branchId, supplierId } = req.body;
+    const { productId, lotNumber, expirationDate, branchId, supplierId, brandId } = req.body;
     const quantity = parseInt(req.body.quantity, 10);
 
-    const [prod, branch, supplier] = await Promise.all([
+    const [prod, branch, supplier, brand] = await Promise.all([
       Product.findById(productId),
       PhysicalSpace.findById(branchId),
-      supplierId ? Supplier.findById(supplierId) : null
+      supplierId ? Supplier.findById(supplierId) : null,
+      brandId ? Brand.findById(brandId).lean() : null
     ]);
     if (!prod) return res.status(404).json({ message: 'Producto no encontrado' });
     if (!branch) return res.status(404).json({ message: 'Sucursal no encontrada' });
     if (supplierId && !supplier) return res.status(404).json({ message: 'Proveedor no encontrado' });
+    if (brandId && !brand) return res.status(404).json({ message: 'Marca no encontrada' });
 
     // Lote y vencimiento son obligatorios solo para productos perecederos
     const hasLot = !!(lotNumber && expirationDate);
@@ -198,6 +207,7 @@ const registerStockEntry = async (req, res) => {
         expirationDate,
         quantity,
         supplierId: supplierId || null,
+        brandId: brandId || null,
         registeredBy: req.user.id
       })
       : null;
@@ -212,6 +222,7 @@ const registerStockEntry = async (req, res) => {
       lotNumber: hasLot ? lotNumber : null,
       expirationDate: hasLot ? expirationDate : null,
       supplierId: supplierId || null,
+      brandId: brandId || null,
       stockEntryId: stockEntry?._id || null,
       userId: req.user.id
     });
@@ -219,7 +230,7 @@ const registerStockEntry = async (req, res) => {
     await ActivityLog.create({
       userId: req.user.id,
       action: 'REGISTER_STOCK',
-      details: `Registró ${quantity} unidades de "${prod.name}"${hasLot ? ` (Lote: ${lotNumber})` : ''} en sucursal "${branch.name}"${supplier ? ` del proveedor "${supplier.name}"` : ''}`
+      details: `Registró ${quantity} unidades de "${prod.name}"${brand ? ` marca ${brand.name}` : ''}${hasLot ? ` (Lote: ${lotNumber})` : ''} en sucursal "${branch.name}"${supplier ? ` del proveedor "${supplier.name}"` : ''}`
     });
 
     res.status(201).json(stockEntry || { productId, branchId, quantity, newStock: branchStock.quantity });
@@ -350,6 +361,7 @@ const getLots = async (req, res) => {
       .populate('productId', 'name')
       .populate('branchId', 'name')
       .populate('supplierId', 'name')
+      .populate('brandId', 'name')
       .sort({ expirationDate: 1 })
       .limit(1000)
       .lean();
@@ -366,6 +378,8 @@ const getLots = async (req, res) => {
       branchId: toId(l.branchId),
       branchName: l.branchId?.name || null,
       supplierName: l.supplierId?.name || null,
+      brandId: toId(l.brandId),
+      brandName: l.brandId?.name || null,
       createdAt: l.createdAt
     })));
   } catch (error) {

@@ -27,6 +27,12 @@ const stockEntrySchema = new mongoose.Schema({
     ref: 'Supplier',
     default: null
   },
+  // Marca de la mercadería de este lote (se elige al ingresarla)
+  brandId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Brand',
+    default: null
+  },
   registeredBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

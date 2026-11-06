@@ -113,6 +113,18 @@ const category = [
   validate
 ];
 
+const brand = [
+  requiredText('name', 'El nombre de la marca', 60),
+  body('force').optional().isBoolean().withMessage('Valor inválido').toBoolean(),
+  validate
+];
+
+const brandUpdate = [
+  idParam(),
+  requiredText('name', 'El nombre de la marca', 60),
+  validate
+];
+
 const categoryUpdate = [
   idParam(),
   body('name').optional().isString().trim().notEmpty().withMessage('El nombre no puede quedar vacío').isLength({ max: 80 }),
@@ -122,6 +134,7 @@ const categoryUpdate = [
 
 const productFields = [
   optionalMongoId('categoryId', 'Categoría'),
+  optionalMongoId('brandId', 'Marca'),
   optionalText('description', 'La descripción', 500),
   body('minimumStock').optional().isInt({ min: 0 }).withMessage('El stock mínimo debe ser un número entero mayor o igual a 0').toInt(),
   body('sku').optional({ values: 'falsy' }).isString().trim().isLength({ max: 40 }).withMessage('El SKU no puede superar 40 caracteres'),
@@ -149,6 +162,7 @@ const stockEntry = [
   optionalText('lotNumber', 'El número de lote', 60),
   body('expirationDate').optional({ values: 'falsy' }).isISO8601().withMessage('El vencimiento debe ser una fecha válida'),
   optionalMongoId('supplierId', 'Proveedor'),
+  optionalMongoId('brandId', 'Marca'),
   validate
 ];
 
@@ -162,6 +176,7 @@ const provisionCreate = [
   body("items.*.quantity").isInt({ min: 1 }).withMessage("La cantidad de cada producto debe ser un número entero mayor a 0").toInt(),
   body("items.*.lotNumber").optional({ values: "falsy" }).isString().trim().isLength({ max: 60 }).withMessage("El número de lote es demasiado largo"),
   body("items.*.expirationDate").optional({ values: "falsy" }).isISO8601().withMessage("El vencimiento debe ser una fecha válida"),
+  body("items.*.brandId").optional({ values: "falsy" }).isMongoId().withMessage("Marca inválida"),
   validate
 ];
 
@@ -175,6 +190,7 @@ const provisionUpdate = [
   body("items.*.quantity").optional().isInt({ min: 1 }).withMessage("La cantidad de cada producto debe ser un número entero mayor a 0").toInt(),
   body("items.*.lotNumber").optional({ values: "null" }).isString().trim().isLength({ max: 60 }).withMessage("El número de lote es demasiado largo"),
   body("items.*.expirationDate").optional({ values: "falsy" }).isISO8601().withMessage("El vencimiento debe ser una fecha válida"),
+  body("items.*.brandId").optional({ values: "falsy" }).isMongoId().withMessage("Marca inválida"),
   validate
 ];
 
@@ -306,6 +322,8 @@ module.exports = {
   provisionUpdate,
   category,
   categoryUpdate,
+  brand,
+  brandUpdate,
   createProduct,
   updateProduct,
   stockEntry,

@@ -28,6 +28,7 @@ const state = {
   user: getStoredUser(),
   products: [],
   categories: [],
+  brands: [],
   branches: [],
   suppliers: [],
   settings: null,
@@ -192,7 +193,11 @@ async function apiFetch(path, options = {}) {
   }
 
   if (!response.ok) {
-    throw new Error(data.message || 'Ocurrió un error en la solicitud');
+    // El error lleva la respuesta completa: algunas pantallas usan sus datos (ej: marcas parecidas)
+    const error = new Error(data.message || 'Ocurrió un error en la solicitud');
+    error.status = response.status;
+    error.data = data;
+    throw error;
   }
   return data;
 }
@@ -200,13 +205,15 @@ async function apiFetch(path, options = {}) {
 // Datos que usan varios paneles (productos, categorías, sucursales)
 async function loadBaseData() {
   try {
-    const [products, categories, branches] = await Promise.all([
+    const [products, categories, branches, brands] = await Promise.all([
       apiFetch('/inventory/products'),
       apiFetch('/inventory/categories'),
-      apiFetch('/branches')
+      apiFetch('/branches'),
+      apiFetch('/inventory/brands').catch(() => [])
     ]);
     state.products = products;
     state.categories = categories;
+    state.brands = brands;
     state.branches = branches;
   } catch (err) {
     console.error('Error cargando datos base:', err.message);

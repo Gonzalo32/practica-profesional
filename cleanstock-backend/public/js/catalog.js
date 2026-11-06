@@ -7,14 +7,14 @@ const CATALOG_PER_PAGE = 10;
 
 async function loadCatalogPanel() {
   const tbody = document.getElementById('table-catalog-body');
-  if (!state.products.length) setTableLoading(tbody, 6);
+  if (!state.products.length) setTableLoading(tbody, 7);
   try {
     await loadBaseData();
     fillSelect(document.getElementById('catalog-filter-category'), state.categories, { placeholder: 'Todas las Categorías', value: catalogFilters.category });
     document.getElementById('btn-open-create-product-modal').classList.toggle('hidden', !hasRole('Administrador', 'Usuario Responsable'));
     renderCatalogTable();
   } catch (err) {
-    renderErrorRow(tbody, 6, err.message);
+    renderErrorRow(tbody, 7, err.message);
   }
 }
 
@@ -35,14 +35,14 @@ function renderCatalogTable() {
   const q = catalogFilters.search;
 
   const filtered = state.products.filter(p => {
-    const haystack = [p.name, p.description, p.sku].join(' ').toLowerCase();
+    const haystack = [p.name, p.Brand?.name, p.description, p.sku].join(' ').toLowerCase();
     const matchesSearch = !q || haystack.includes(q);
     const matchesCategory = !catalogFilters.category || String(p.categoryId) === String(catalogFilters.category);
     return matchesSearch && matchesCategory;
   });
 
   if (!filtered.length) {
-    renderEmptyRow(tbody, 6, 'No se encontraron productos', 'Probá con otra búsqueda o categoría.');
+    renderEmptyRow(tbody, 7, 'No se encontraron productos', 'Probá con otra búsqueda o categoría.');
     const pagContainer = document.getElementById('catalog-pagination');
     if (pagContainer) pagContainer.innerHTML = '';
     return;
@@ -54,6 +54,7 @@ function renderCatalogTable() {
   tbody.innerHTML = pageData.items.map(p => `
     <tr>
       <td><strong>${escapeHtml(p.name)}</strong>${p.perishable ? '<div class="cell-detail">Con vencimiento</div>' : ''}</td>
+      <td>${p.Brand ? escapeHtml(p.Brand.name) : '<span class="muted">—</span>'}</td>
       <td>
         ${p.sku ? `<span class="badge">${escapeHtml(p.sku)}</span>` : '<span class="muted">—</span>'}
       </td>
@@ -82,6 +83,7 @@ window.openProductModal = async (productId = null) => {
   document.getElementById('prod-description').value = product?.description || '';
   document.getElementById('prod-minstock').value = product ? (product.minimumStock || 0) : 10;
   document.getElementById('prod-sku').value = product?.sku || '';
+  setBrandPickerValue(product?.brandId || null);
   // Productos nuevos: sin vencimiento por defecto (lo más común en un almacén)
   document.getElementById('prod-perishable').checked = product ? product.perishable !== false : false;
 
@@ -97,6 +99,7 @@ document.getElementById('form-product')?.addEventListener('submit', async (e) =>
   const data = {
     name: document.getElementById('prod-name').value.trim(),
     categoryId: document.getElementById('prod-category').value,
+    brandId: productBrandPicker?.value || null,
     description: document.getElementById('prod-description').value.trim(),
     minimumStock: parseInt(document.getElementById('prod-minstock').value, 10) || 0,
     sku: document.getElementById('prod-sku').value.trim() || null,

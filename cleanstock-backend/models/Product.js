@@ -4,7 +4,6 @@ const productSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
-    unique: true,
     set: val => (val ? val.toUpperCase().trim() : val)
   },
   description: { type: String, default: null },
@@ -21,12 +20,21 @@ const productSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category',
     default: null
+  },
+  // Marca elegida de la lista de marcas (no se escribe a mano)
+  brandId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Brand',
+    default: null
   }
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
+
+// El mismo nombre puede repetirse con distinta marca ("LAVANDINA 1L" de Ayudín y de Magistral)
+productSchema.index({ name: 1, brandId: 1 }, { unique: true });
 
 // Código interno (SKU) único solo cuando está cargado
 productSchema.index({ sku: 1 }, { unique: true, partialFilterExpression: { sku: { $type: 'string' } } });

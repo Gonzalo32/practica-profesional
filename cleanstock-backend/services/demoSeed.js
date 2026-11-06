@@ -63,17 +63,28 @@ const seedDemo = async (app, password) => {
     const higiene = await category('Higiene personal');
     const descartables = await category('Descartables');
 
-    const product = async (name, categoryId, minimumStock, sku, perishable = true) =>
-      idOf(await call(admin, 'POST', '/inventory/products', { name, categoryId, minimumStock, sku, perishable }));
+    // Marcas: se eligen de una lista, así no quedan escritas de distintas formas
+    const brand = async (name) => idOf(await call(admin, 'POST', '/inventory/brands', { name, force: true }));
+    const b = {
+      ayudin: await brand('Ayudín'),
+      magistral: await brand('Magistral'),
+      lysoform: await brand('Lysoform'),
+      dove: await brand('Dove'),
+      elite: await brand('Elite'),
+      cleanPro: await brand('CleanPro')
+    };
+
+    const product = async (name, categoryId, minimumStock, sku, perishable = true, brandId = null) =>
+      idOf(await call(admin, 'POST', '/inventory/products', { name, categoryId, minimumStock, sku, perishable, brandId }));
     const p = {
-      lavandina: await product('Lavandina 1L', limpieza, 20, 'LIM-001'),
-      detergente: await product('Detergente 750ml', limpieza, 15, 'LIM-002'),
-      desinfectante: await product('Desinfectante de pisos 900ml', limpieza, 12, 'LIM-003'),
-      alcoholGel: await product('Alcohol en gel 500ml', higiene, 10, 'HIG-001'),
-      jabon: await product('Jabón líquido 1L', higiene, 10, 'HIG-002'),
-      papel: await product('Papel higiénico x4', descartables, 30, 'DES-001', false),
-      bolsas: await product('Bolsas de residuos x10', descartables, 25, 'DES-002', false),
-      guantes: await product('Guantes de látex x100', descartables, 5, 'DES-003', false),
+      lavandina: await product('Lavandina 1L', limpieza, 20, 'LIM-001', true, b.ayudin),
+      detergente: await product('Detergente 750ml', limpieza, 15, 'LIM-002', true, b.magistral),
+      desinfectante: await product('Desinfectante de pisos 900ml', limpieza, 12, 'LIM-003', true, b.lysoform),
+      alcoholGel: await product('Alcohol en gel 500ml', higiene, 10, 'HIG-001', true, b.cleanPro),
+      jabon: await product('Jabón líquido 1L', higiene, 10, 'HIG-002', true, b.dove),
+      papel: await product('Papel higiénico x4', descartables, 30, 'DES-001', false, b.elite),
+      bolsas: await product('Bolsas de residuos x10', descartables, 25, 'DES-002', false, b.cleanPro),
+      guantes: await product('Guantes de látex x100', descartables, 5, 'DES-003', false, b.cleanPro),
       // Nunca se cargó stock: aparece como crítico en las alertas del administrador
       trapo: await product('Trapo de piso', limpieza, 8, 'LIM-004', false)
     };
@@ -101,13 +112,19 @@ const seedDemo = async (app, password) => {
     const solSur = await login('sur@cleanstock.com');
     const despachante = await login('despachante@cleanstock.com');
 
-    // Ingresos de stock en el depósito, con lotes y vencimientos variados
-    const entry = (productId, quantity, lotNumber, days, supplierId, branchId = central) => call(responsable, 'POST', '/inventory/stock', {
-      productId, branchId, quantity, supplierId,
+    // Marca habitual de cada producto: se usa al ingresar mercadería si no se indica otra
+    const brandOf = {
+      [p.lavandina]: b.ayudin, [p.detergente]: b.magistral, [p.desinfectante]: b.lysoform,
+      [p.alcoholGel]: b.cleanPro, [p.jabon]: b.dove, [p.papel]: b.elite, [p.bolsas]: b.cleanPro, [p.guantes]: b.cleanPro
+    };
+
+    // Ingresos de stock en el depósito, con lotes, vencimientos y marcas
+    const entry = (productId, quantity, lotNumber, days, supplierId, brandId = brandOf[productId]) => call(responsable, 'POST', '/inventory/stock', {
+      productId, branchId: central, quantity, supplierId, brandId,
       ...(lotNumber ? { lotNumber, expirationDate: daysFromNow(days) } : {})
     });
     await entry(p.lavandina, 80, 'LAV-2611', 240, quimica);
-    await entry(p.lavandina, 15, 'LAV-2605', 5, quimica); // vence en 5 días: urgente
+    await entry(p.lavandina, 15, 'LAV-2605', 5, quimica, b.magistral); // otra marca; vence en 5 días: urgente
     await entry(p.detergente, 60, 'DET-2702', 300, quimica);
     await entry(p.desinfectante, 8, 'DES-2610', 20, quimica); // por debajo del mínimo y por vencer
     await entry(p.alcoholGel, 40, 'ALC-2701', 180, quimica);
@@ -118,9 +135,10 @@ const seedDemo = async (app, password) => {
     await entry(p.guantes, 3, null, 0, papelera); // stock bajo
     await markExpiredLots();
 
-    // Provisiones de proveedores (cada una es una entrega con varios productos):
+    // Provisiones de proveedores (cada una es una entrega con varios productos, cada uno con su marca):
     // una ya aprobada (ingresó al stock) y dos pendientes de aprobar
-    const lotItem = (productId, quantity, lotNumber, days) => ({ productId, quantity, lotNumber, expirationDate: daysFromNow(days) });
+    const lotItem = (productId, quantity, lotNumber, days, brandId = brandOf[productId]) =>
+      ({ productId, quantity, lotNumber, expirationDate: daysFromNow(days), brandId });
     const provision = async (supplierId, notes, items) => idOf(await call(responsable, 'POST', '/inventory/provisions', {
       branchId: central, supplierId, notes, items
     }));
@@ -130,13 +148,13 @@ const seedDemo = async (app, password) => {
     ]);
     await call(responsable, 'POST', `/inventory/provisions/${aprobada}/approve`);
     await provision(quimica, 'Llegó sin remito, a confirmar', [
-      lotItem(p.lavandina, 30, 'LAV-2612', 250),
+      lotItem(p.lavandina, 30, 'LAV-2612', 250, b.magistral),
       lotItem(p.alcoholGel, 18, 'ALC-2703', 200),
       lotItem(p.desinfectante, 10, 'DES-2704', 220)
     ]);
     await provision(papelera, 'Remito 0003-00000877', [
-      { productId: p.guantes, quantity: 20 },
-      { productId: p.bolsas, quantity: 50 }
+      { productId: p.guantes, quantity: 20, brandId: b.cleanPro },
+      { productId: p.bolsas, quantity: 50, brandId: b.cleanPro }
     ]);
 
     // Pedidos de las sucursales al depósito, en distintos estados

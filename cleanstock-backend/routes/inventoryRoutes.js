@@ -4,6 +4,7 @@ const {
   createProduct, getProducts, updateProduct,
   registerStockEntry, registerInformalEntry, registerExit, getLots
 } = require('../controllers/inventoryController');
+const { getBrands, createBrand, updateBrand, deleteBrand } = require('../controllers/brandController');
 const { getProvisions, createProvision, approveProvision, updateProvision } = require('../controllers/provisionController');
 const { verifyToken, requireRole } = require('../middlewares/authMiddleware');
 const v = require('../validators');
@@ -19,6 +20,12 @@ router.get('/categories', getCategories);
 router.post('/categories', requireRole(STOCK_ROLES), v.category, createCategory);
 router.put('/categories/:id', requireRole(STOCK_ROLES), v.categoryUpdate, updateCategory);
 router.delete('/categories/:id', requireRole(STOCK_ROLES), v.onlyId, deleteCategory);
+
+// Marcas: lista única para elegir en los productos (sin duplicados escritos distinto)
+router.get('/brands', getBrands);
+router.post('/brands', requireRole(STOCK_ROLES), v.brand, createBrand);
+router.put('/brands/:id', requireRole(STOCK_ROLES), v.brandUpdate, updateBrand);
+router.delete('/brands/:id', requireRole(STOCK_ROLES), v.onlyId, deleteBrand);
 
 // Productos (?q= búsqueda por nombre, descripción o código interno)
 router.get('/products', getProducts);

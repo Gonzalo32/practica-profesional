@@ -858,6 +858,7 @@
                 <thead>
                   <tr>
                     <th>Nombre del Insumo</th>
+                    <th>Marca</th>
                     <th>Código interno</th>
                     <th>Categoría / Rubro</th>
                     <th>Descripción Técnica</th>
@@ -894,6 +895,36 @@
               </table>
             </div>
             <div class="pagination-container" id="categories-pagination"></div>
+          </div>
+        </section>
+
+        <!-- PANEL MARCAS -->
+        <section id="panel-brands" class="panel hidden">
+          <div class="panel-header-row">
+            <h2>Marcas</h2>
+            <button id="btn-open-brand-modal" class="btn btn-primary">Agregar Marca</button>
+          </div>
+          <p class="hint-text">Las marcas se eligen de esta lista al cargar un producto, así no quedan escritas de distintas formas. Si renombrás una, se corrige en todos sus productos.</p>
+          <div class="card glass table-card">
+            <div class="table-toolbar">
+              <div class="search-box">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="brand-search" placeholder="Buscar marca..." />
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Marca</th>
+                    <th>Productos</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="table-brands-body"></tbody>
+              </table>
+            </div>
+            <div class="pagination-container" id="brands-pagination"></div>
           </div>
         </section>
       </main>
@@ -1178,7 +1209,7 @@
       <p class="hint-text" id="stock-lots-summary"></p>
       <div class="table-responsive">
         <table>
-          <thead><tr><th>Lote</th><th>Cantidad</th><th>Vencimiento</th><th>Proveedor</th><th>Ingresó</th></tr></thead>
+          <thead><tr><th>Lote</th><th>Marca</th><th>Cantidad</th><th>Vencimiento</th><th>Proveedor</th><th>Ingresó</th></tr></thead>
           <tbody id="stock-lots-body"></tbody>
         </table>
       </div>
@@ -1215,7 +1246,7 @@
           <label>Variantes del producto <span class="opt">(cargá el ajuste en cada lote que quieras cambiar: + suma, - resta)</span></label>
           <div class="table-responsive">
             <table class="adjust-variants-table">
-              <thead><tr><th>Lote</th><th>Vence</th><th>En stock</th><th>Ajuste</th><th>Queda</th></tr></thead>
+              <thead><tr><th>Lote</th><th>Marca</th><th>Vence</th><th>En stock</th><th>Ajuste</th><th>Queda</th></tr></thead>
               <tbody id="adjust-variants-body"></tbody>
             </table>
           </div>
@@ -1315,6 +1346,10 @@
           <label for="prod-name">Nombre del Insumo <span class="req">*</span></label>
           <input type="text" id="prod-name" placeholder="Ej: Guantes de Latex Talle M" required>
         </div>
+        <div class="form-group span-2 select-search-group">
+          <label>Marca habitual <span class="opt">(opcional: se propone al ingresar mercadería de este producto)</span></label>
+          <div id="prod-brand-picker"></div>
+        </div>
         <div class="form-group">
           <label for="prod-category">Categoría / Rubro <span class="req">*</span></label>
           <select id="prod-category" required></select>
@@ -1335,11 +1370,32 @@
         </div>
         <div class="form-group span-2">
           <label for="prod-description">Descripción Técnica <span class="req">*</span></label>
-          <textarea id="prod-description" rows="3" placeholder="Especificaciones técnicas, talle, marca o características..." required></textarea>
+          <textarea id="prod-description" rows="3" placeholder="Especificaciones técnicas, talle o características..." required></textarea>
         </div>
         <div class="modal-actions span-2">
           <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
           <button type="submit" class="btn btn-primary" id="btn-product-submit">Agregar Producto</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Crear / Renombrar Marca -->
+  <div id="modal-brand" class="modal hidden">
+    <div class="modal-content glass card modal-md">
+      <div class="modal-header">
+        <h3 id="modal-brand-title">Agregar Marca</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
+      </div>
+      <form id="form-brand" class="form-grid">
+        <input type="hidden" id="brand-id">
+        <div class="form-group span-2">
+          <label for="brand-name">Nombre de la marca <span class="req">*</span></label>
+          <input type="text" id="brand-name" maxlength="60" placeholder="Ej: Ayudín" required>
+        </div>
+        <div class="modal-actions span-2">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-brand-submit">Agregar Marca</button>
         </div>
       </form>
     </div>
@@ -1474,6 +1530,10 @@
               <select id="stock-modal-product-select"></select>
             </div>
             <div>
+              <label class="mini-label">Marca</label>
+              <div id="stock-modal-brand-picker"></div>
+            </div>
+            <div>
               <label class="mini-label">Cantidad <span class="req">*</span></label>
               <input type="number" id="stock-modal-product-qty" min="1" value="1">
             </div>
@@ -1502,6 +1562,7 @@
                 <tr>
                   <th>Insumo / Producto</th>
                   <th class="col-center">Cantidad</th>
+                  <th>Marca</th>
                   <th>Lote</th>
                   <th>Vencimiento</th>
                   <th class="col-center">Acción</th>
@@ -1726,7 +1787,7 @@
       <div id="view-provision-content" class="details-grid"></div>
       <div class="table-responsive">
         <table>
-          <thead><tr><th>Producto</th><th>Cantidad</th><th>Lote</th><th>Vencimiento</th><th class="view-provision-used-col">Ya salieron</th></tr></thead>
+          <thead><tr><th>Producto</th><th>Marca</th><th>Cantidad</th><th>Lote</th><th>Vencimiento</th><th class="view-provision-used-col">Ya salieron</th></tr></thead>
           <tbody id="view-provision-items"></tbody>
         </table>
       </div>
@@ -1749,7 +1810,7 @@
           <label>Productos de la provisión</label>
           <div class="table-responsive">
             <table class="adjust-variants-table">
-              <thead><tr><th>Producto</th><th>Cantidad</th><th>Lote</th><th>Vencimiento</th></tr></thead>
+              <thead><tr><th>Producto</th><th>Marca</th><th>Cantidad</th><th>Lote</th><th>Vencimiento</th></tr></thead>
               <tbody id="edit-entry-items"></tbody>
             </table>
           </div>
@@ -1785,6 +1846,7 @@
   <script src="js/dispatch.js"></script>
   <script src="js/inventory.js"></script>
   <script src="js/catalog.js"></script>
+  <script src="js/brands.js"></script>
   <script src="js/branches.js"></script>
   <script src="js/expirations.js"></script>
   <script src="js/counts.js"></script>

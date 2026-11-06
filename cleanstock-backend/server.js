@@ -2,7 +2,7 @@ require('dotenv').config();
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const app = require('./app');
-const { syncDatabase, User } = require('./models');
+const { syncDatabase, User, Product } = require('./models');
 const { markExpiredLots } = require('./services/stockService');
 const { seedDemo, isDatabaseEmpty } = require('./services/demoSeed');
 
@@ -67,9 +67,20 @@ const autoSeedDemo = async () => {
   }
 };
 
+// Bases creadas antes de las marcas tenían el nombre del producto único a secas;
+// ahora es único por nombre + marca. syncIndexes deja los índices como dice el modelo.
+const syncProductIndexes = async () => {
+  try {
+    await Product.syncIndexes();
+  } catch (error) {
+    console.error('No se pudieron actualizar los índices de productos:', error.message);
+  }
+};
+
 // Start Server
 const startServer = async () => {
   await syncDatabase();
+  await syncProductIndexes();
   await autoSeedAdmin();
   await autoSeedDemo();
   scheduleExpirationCheck();

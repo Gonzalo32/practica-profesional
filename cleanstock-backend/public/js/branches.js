@@ -212,6 +212,7 @@ function openStockLotsModal(productId) {
   const rows = lots.map(l => `
       <tr>
         <td><span class="badge">${escapeHtml(l.lotNumber || 'Sin número')}</span></td>
+        <td>${l.brandName ? escapeHtml(l.brandName) : '<span class="muted">—</span>'}</td>
         <td><strong>${l.remaining}</strong> u.</td>
         <td>${expirationCell(l.expirationDate)}</td>
         <td>${l.supplierName ? escapeHtml(l.supplierName) : '<span class="muted">—</span>'}</td>
@@ -220,6 +221,7 @@ function openStockLotsModal(productId) {
   const extra = withoutLot > 0 ? `
       <tr>
         <td><span class="muted">Sin lote</span></td>
+        <td><span class="muted">—</span></td>
         <td><strong>${withoutLot}</strong> u.</td>
         <td><span class="muted">—</span></td>
         <td colspan="2"><span class="muted">Ingresos sin lote o ajustes generales</span></td>
@@ -419,16 +421,17 @@ async function loadAdjustLots() {
   if (!adjustLots.length) return;
 
   adjustWithoutLot = Math.max(0, total - adjustLots.reduce((sum, l) => sum + (l.remaining || 0), 0));
-  const row = (lotId, label, expiration, inStock) => `
+  const row = (lotId, label, expiration, inStock, brand = '') => `
     <tr>
       <td>${label}</td>
+      <td>${brand || '<span class="muted">—</span>'}</td>
       <td>${expiration}</td>
       <td><strong>${inStock}</strong></td>
       <td><input type="number" class="adjust-variant-qty" data-lot="${escapeHtml(lotId)}" data-stock="${inStock}" value="0" step="1" aria-label="Ajuste"></td>
       <td class="adjust-variant-result">${inStock}</td>
     </tr>`;
   document.getElementById('adjust-variants-body').innerHTML = [
-    ...adjustLots.map(l => row(l.id, `<span class="badge">${escapeHtml(l.lotNumber || 'Sin número')}</span>`, expirationCell(l.expirationDate), l.remaining)),
+    ...adjustLots.map(l => row(l.id, `<span class="badge">${escapeHtml(l.lotNumber || 'Sin número')}</span>`, expirationCell(l.expirationDate), l.remaining, l.brandName ? escapeHtml(l.brandName) : '')),
     row('', '<span class="muted">Sin lote</span>', '<span class="muted">—</span>', adjustWithoutLot)
   ].join('');
   setAdjustVariantsMode(true);

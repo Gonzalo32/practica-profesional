@@ -22,6 +22,7 @@ const stockMovementSchema = new mongoose.Schema({
   lotNumber: { type: String, default: null },
   expirationDate: { type: Date, default: null },
   supplierId: { type: mongoose.Schema.Types.ObjectId, ref: 'Supplier', default: null },
+  brandId: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand', default: null },
   orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', default: null },
   purchaseOrderId: { type: mongoose.Schema.Types.ObjectId, ref: 'PurchaseOrder', default: null },
   countId: { type: mongoose.Schema.Types.ObjectId, ref: 'InventoryCount', default: null },

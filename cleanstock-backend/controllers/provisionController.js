@@ -1,4 +1,4 @@
-const { Provision, StockMovement, StockEntry, Product, Supplier, BranchStock, PhysicalSpace, ActivityLog, User } = require('../models');
+const { Provision, StockMovement, StockEntry, Product, Supplier, BranchStock, PhysicalSpace, ActivityLog, User, Brand } = require('../models');
 const { canAccessBranch } = require('../middlewares/authMiddleware');
 const { effectiveBranchId } = require('../services/settingsService');
 const stock = require('../services/stockService');
@@ -30,6 +30,8 @@ const format = (p) => ({
     quantity: i.quantity,
     lotNumber: i.lotNumber,
     expirationDate: i.expirationDate,
+    brandId: toId(i.brandId),
+    brandName: i.brandId?.name || null,
     // Unidades del lote que ya salieron (solo aprobadas): no se puede bajar la cantidad por debajo de eso
     used: i.stockEntryId && typeof i.stockEntryId === 'object'
       ? i.stockEntryId.quantity - (i.stockEntryId.remaining ?? i.stockEntryId.quantity)
@@ -46,6 +48,7 @@ const format = (p) => ({
 const populateAll = (query) => query
   .populate('items.productId', 'name perishable')
   .populate('items.stockEntryId', 'quantity remaining')
+  .populate('items.brandId', 'name')
   .populate('branchId', 'name')
   .populate('supplierId', 'name')
   .populate('createdBy', 'username firstName lastName')
@@ -109,14 +112,18 @@ const createProvision = async (req, res) => {
       productId: i.productId,
       quantity: parseInt(i.quantity, 10),
       lotNumber: i.lotNumber ? String(i.lotNumber).trim() : null,
-      expirationDate: i.expirationDate || null
+      expirationDate: i.expirationDate || null,
+      brandId: i.brandId || null
     }));
 
-    const [branch, supplier, products] = await Promise.all([
+    const brandIds = [...new Set(items.map(i => i.brandId).filter(Boolean).map(String))];
+    const [branch, supplier, products, brandCount] = await Promise.all([
       PhysicalSpace.findById(branchId).lean(),
       supplierId ? Supplier.findById(supplierId).lean() : null,
-      Product.find({ _id: { $in: items.map(i => i.productId) } }).lean()
+      Product.find({ _id: { $in: items.map(i => i.productId) } }).lean(),
+      brandIds.length ? Brand.countDocuments({ _id: { $in: brandIds } }) : 0
     ]);
+    if (brandCount !== brandIds.length) return res.status(404).json({ message: 'Marca no encontrada' });
     if (!branch) return res.status(404).json({ message: 'Sucursal no encontrada' });
     if (supplierId && !supplier) return res.status(404).json({ message: 'Proveedor no encontrado' });
     if (!(await canAccessBranch(req.user, branchId))) {
@@ -188,6 +195,7 @@ const approveProvision = async (req, res) => {
           expirationDate: item.expirationDate,
           quantity: item.quantity,
           supplierId: provision.supplierId,
+          brandId: item.brandId || null,
           registeredBy: req.user.id
         })
         : null;
@@ -201,6 +209,7 @@ const approveProvision = async (req, res) => {
         lotNumber: item.lotNumber,
         expirationDate: item.expirationDate,
         supplierId: provision.supplierId,
+        brandId: item.brandId || null,
         stockEntryId: lot?._id || null,
         reason: 'Provisión aprobada',
         userId: req.user.id
@@ -252,6 +261,12 @@ const updateProvision = async (req, res) => {
     }
 
     const products = await Product.find({ _id: { $in: provision.items.map(i => i.productId) } }).lean();
+    const brandIdsSent = [...new Set((req.body.items || []).map(i => i.brandId).filter(Boolean).map(String))];
+    const brands = brandIdsSent.length || provision.items.some(i => i.brandId)
+      ? await Brand.find({ _id: { $in: [...brandIdsSent, ...provision.items.map(i => i.brandId).filter(Boolean)] } }).lean()
+      : [];
+    const brandsById = new Map(brands.map(b => [b._id.toString(), b]));
+    if (brandIdsSent.some(id => !brandsById.has(id))) return res.status(404).json({ message: 'Marca no encontrada' });
     const productsById = new Map(products.map(p => [p._id.toString(), p]));
     const editsById = new Map((req.body.items || []).map(i => [String(i.id), i]));
     for (const id of editsById.keys()) {
@@ -268,7 +283,8 @@ const updateProvision = async (req, res) => {
         product: productsById.get(String(item.productId)),
         newQty: edit.quantity !== undefined ? parseInt(edit.quantity, 10) : item.quantity,
         newLot: edit.lotNumber !== undefined ? (String(edit.lotNumber).trim() || null) : item.lotNumber,
-        newExp: edit.expirationDate !== undefined ? (edit.expirationDate || null) : item.expirationDate
+        newExp: edit.expirationDate !== undefined ? (edit.expirationDate || null) : item.expirationDate,
+        newBrand: edit.brandId !== undefined ? (edit.brandId || null) : (item.brandId ? String(item.brandId) : null)
       };
     });
 
@@ -324,6 +340,7 @@ const updateProvision = async (req, res) => {
               lotNumber: newLot,
               expirationDate: expDate,
               supplierId: newSupplierId,
+              brandId: step.newBrand,
               status: { $cond: [{ $lte: [remainingAfter, 0] }, 'AGOTADO', { $cond: [{ $lt: [expDate, todayAsUTCDate()] }, 'VENCIDO', 'DISPONIBLE'] }] }
             }
           }], { returnDocument: 'after', updatePipeline: true });
@@ -340,7 +357,7 @@ const updateProvision = async (req, res) => {
       for (const step of plan) {
         if (!step.item.movementId) continue;
         await StockMovement.updateOne({ _id: step.item.movementId }, {
-          $set: { quantity: step.newQty, lotNumber: step.newLot, expirationDate: step.newExp, supplierId: newSupplierId, editedAt: new Date(), editedBy: req.user.id }
+          $set: { quantity: step.newQty, lotNumber: step.newLot, expirationDate: step.newExp, supplierId: newSupplierId, brandId: step.newBrand, editedAt: new Date(), editedBy: req.user.id }
         });
       }
     }
@@ -350,6 +367,7 @@ const updateProvision = async (req, res) => {
       set[`items.${index}.quantity`] = step.newQty;
       set[`items.${index}.lotNumber`] = step.newLot;
       set[`items.${index}.expirationDate`] = step.newExp;
+      set[`items.${index}.brandId`] = step.newBrand;
     });
     await Provision.updateOne({ _id: provision._id }, { $set: set });
 
@@ -359,6 +377,10 @@ const updateProvision = async (req, res) => {
       if (step.delta) changes.push(`${name}: cantidad ${step.item.quantity} → ${step.newQty}`);
       if ((step.newLot || null) !== (step.item.lotNumber || null)) changes.push(`${name}: lote ${step.item.lotNumber || '—'} → ${step.newLot || '—'}`);
       if (dateOnly(step.newExp) !== dateOnly(step.item.expirationDate)) changes.push(`${name}: vencimiento ${dateOnly(step.item.expirationDate)} → ${dateOnly(step.newExp)}`);
+      const oldBrand = step.item.brandId ? String(step.item.brandId) : null;
+      if ((step.newBrand || null) !== oldBrand) {
+        changes.push(`${name}: marca ${brandsById.get(oldBrand)?.name || '—'} → ${brandsById.get(step.newBrand)?.name || '—'}`);
+      }
     }
     if (String(newSupplierId || '') !== String(toId(provision.supplierId) || '')) changes.push(`proveedor → ${supplier?.name || 'sin proveedor'}`);
     if ((newNotes || null) !== (provision.notes || null)) changes.push('notas');

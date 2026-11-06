@@ -137,6 +137,7 @@ async function openCreateStockEntryModal(mode = 'direct') {
   fillSelect(document.getElementById('stock-modal-supplier'), suppliers, { placeholder: 'Sin proveedor' });
   fillSelect(document.getElementById('stock-modal-product-select'), state.products, { placeholder: 'Seleccioná insumo...' });
   draftStockEntryItems = [];
+  entryBrandPicker()?.clear();
   updateLotFields(null);
   ['stock-modal-lot-number', 'stock-modal-expiration-date'].forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('stock-modal-product-qty').value = 1;
@@ -157,9 +158,19 @@ function updateLotFields(product) {
   document.querySelectorAll('#modal-create-stock-entry .lot-req').forEach(el => el.classList.toggle('hidden', !needsLot));
 }
 
-// Al elegir un producto se muestran u ocultan los campos de lote
+// Marca de lo que se ingresa (buscador; se propone la marca habitual del producto)
+let stockEntryBrandPicker = null;
+function entryBrandPicker() {
+  const host = document.getElementById('stock-modal-brand-picker');
+  if (!stockEntryBrandPicker && host) stockEntryBrandPicker = createBrandPicker(host, { placeholder: 'Buscar marca...' });
+  return stockEntryBrandPicker;
+}
+
+// Al elegir un producto se muestran u ocultan los campos de lote y se propone su marca
 document.getElementById('stock-modal-product-select')?.addEventListener('change', (e) => {
-  updateLotFields(state.products.find(p => p.id === e.target.value));
+  const product = state.products.find(p => p.id === e.target.value);
+  updateLotFields(product);
+  entryBrandPicker()?.set(product?.brandId || null);
 });
 
 document.getElementById('btn-stock-modal-add-item')?.addEventListener('click', () => {
@@ -177,19 +188,23 @@ document.getElementById('btn-stock-modal-add-item')?.addEventListener('click', (
     showToast('Atención: la fecha de vencimiento ya pasó. El lote quedará marcado como vencido.', 'info');
   }
 
+  const brandId = entryBrandPicker()?.value || null;
+  const brandName = entryBrandPicker()?.name || null;
+
   const existing = draftStockEntryItems.find(item =>
-    item.productId === productId && item.lotNumber.toLowerCase() === lotNumber.toLowerCase() && item.expirationDate === expirationDate
+    item.productId === productId && item.lotNumber.toLowerCase() === lotNumber.toLowerCase() && item.expirationDate === expirationDate && item.brandId === brandId
   );
   if (existing) {
     existing.quantity += quantity;
     showToast(`Se sumaron ${quantity} unidades al mismo lote.`, 'info');
   } else {
-    draftStockEntryItems.push({ productId, productName: getProductName(productId), quantity, lotNumber, expirationDate });
+    draftStockEntryItems.push({ productId, productName: getProductName(productId), quantity, lotNumber, expirationDate, brandId, brandName });
   }
 
   document.getElementById('stock-modal-product-select').value = '';
   document.getElementById('stock-modal-product-qty').value = 1;
   ['stock-modal-lot-number', 'stock-modal-expiration-date'].forEach(id => { document.getElementById(id).value = ''; });
+  entryBrandPicker()?.clear();
   updateLotFields(null);
   renderStockModalItemsTable();
 });
@@ -197,7 +212,7 @@ document.getElementById('btn-stock-modal-add-item')?.addEventListener('click', (
 function renderStockModalItemsTable() {
   renderDraftItems('table-stock-modal-items-body', 'stock-modal-items-count', draftStockEntryItems, 'removeStockModalItem',
     'Aún no agregaste insumos a la lista de ingreso.',
-    item => `<td>${item.lotNumber ? `<span class="badge">${escapeHtml(item.lotNumber)}</span>` : '<span class="muted">No vence</span>'}</td><td>${formatDateOnly(item.expirationDate)}</td>`);
+    item => `<td>${item.brandName ? escapeHtml(item.brandName) : '<span class="muted">—</span>'}</td><td>${item.lotNumber ? `<span class="badge">${escapeHtml(item.lotNumber)}</span>` : '<span class="muted">No vence</span>'}</td><td>${formatDateOnly(item.expirationDate)}</td>`);
 }
 
 window.removeStockModalItem = (index) => {
@@ -237,7 +252,7 @@ document.getElementById('form-create-stock-entry-modal')?.addEventListener('subm
         body: JSON.stringify({
           branchId,
           supplierId,
-          items: draftStockEntryItems.map(({ productId, quantity, lotNumber, expirationDate }) => ({ productId, quantity, lotNumber, expirationDate }))
+          items: draftStockEntryItems.map(({ productId, quantity, lotNumber, expirationDate, brandId }) => ({ productId, quantity, lotNumber, expirationDate, brandId }))
         })
       });
       showToast(`Provisión cargada con ${total} producto${total === 1 ? '' : 's'}. Ingresa al stock cuando se apruebe.`, 'success', 6000);

@@ -2525,3 +2525,7 @@ body.single-branch #panel-admin .grid-dashboard { grid-template-columns: repeat(
 .provision-items-list small { display: block; }
 #edit-entry-items input { min-width: 0; }
 #edit-entry-items .edit-item-qty { width: 90px; }
+
+/* Buscador de marcas: aviso de "hay más" y opción de crear */
+.select-search-more { padding: 8px 14px; font-size: 0.8rem; color: var(--text-muted); }
+.select-search-create .select-search-item-name { color: var(--color-primary); font-weight: 600; }

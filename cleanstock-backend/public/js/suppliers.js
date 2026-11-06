@@ -87,7 +87,7 @@ async function loadProvisionEntries() {
           <td class="cell-date">${formatDateTime(p.createdAt)}</td>
           <td class="provisions-branch-col">${escapeHtml(p.branchName || '—')}</td>
           <td><ul class="provision-items-list">${p.items.map(i => `
-            <li><strong>${escapeHtml(i.productName || '—')}</strong> · ${i.quantity} u.${i.lotNumber ? `<small class="muted">lote ${escapeHtml(i.lotNumber)}</small>` : ''}</li>`).join('')}
+            <li><strong>${escapeHtml(i.productName || '—')}</strong>${i.brandName ? ` ${escapeHtml(i.brandName)}` : ''} · ${i.quantity} u.${i.lotNumber ? `<small class="muted">lote ${escapeHtml(i.lotNumber)}</small>` : ''}</li>`).join('')}
           </ul></td>
           <td><strong>${p.totalUnits}</strong> u.<br><small class="muted">${p.items.length} producto${p.items.length === 1 ? '' : 's'}</small></td>
           <td>${p.supplierName ? escapeHtml(p.supplierName) : '<span class="muted">Sin proveedor</span>'}</td>
@@ -172,6 +172,7 @@ window.openViewProvisionModal = (provisionId) => {
   document.getElementById('view-provision-items').innerHTML = p.items.map(i => `
     <tr>
       <td><strong>${escapeHtml(i.productName || '—')}</strong></td>
+      <td>${i.brandName ? escapeHtml(i.brandName) : '<span class="muted">—</span>'}</td>
       <td>${i.quantity} u.</td>
       <td>${i.lotNumber ? `<span class="badge">${escapeHtml(i.lotNumber)}</span>` : '<span class="muted">Sin lote</span>'}</td>
       <td>${i.expirationDate ? formatDateOnly(i.expirationDate) : '<span class="muted">No vence</span>'}</td>
@@ -185,6 +186,7 @@ window.openViewProvisionModal = (provisionId) => {
 // Lápiz: corregir una provisión, producto por producto en la misma lista.
 // Pendiente: solo los datos. Aprobada: también el stock y los lotes, y pide un motivo.
 let editingEntry = null;
+let editBrandPickers = new Map();
 
 window.openEditEntryModal = async (provisionId) => {
   editingEntry = loadedProvisions.find(e => e.id === provisionId);
@@ -202,11 +204,19 @@ window.openEditEntryModal = async (provisionId) => {
     return `
       <tr data-item="${escapeHtml(i.id)}">
         <td><strong>${escapeHtml(i.productName || '—')}</strong>${approved && i.used ? `<br><small class="muted">ya salieron ${i.used} u.</small>` : ''}</td>
+        <td><div class="edit-item-brand"></div></td>
         <td><input type="number" class="edit-item-qty" value="${i.quantity}" min="${min}" step="1" required aria-label="Cantidad"></td>
         <td>${needsLot ? `<input type="text" class="edit-item-lot" value="${escapeHtml(i.lotNumber || '')}" maxlength="60" ${i.perishable ? 'required' : ''} aria-label="Lote">` : '<span class="muted">No vence</span>'}</td>
         <td>${needsLot ? `<input type="date" class="edit-item-exp" value="${i.expirationDate ? String(i.expirationDate).slice(0, 10) : ''}" ${i.perishable ? 'required' : ''} aria-label="Vencimiento">` : '<span class="muted">—</span>'}</td>
       </tr>`;
   }).join('');
+  // Un buscador de marca por producto
+  editBrandPickers = new Map();
+  document.querySelectorAll('#edit-entry-items tr[data-item]').forEach(tr => {
+    const picker = createBrandPicker(tr.querySelector('.edit-item-brand'));
+    picker.set(editingEntry.items.find(i => i.id === tr.dataset.item)?.brandId || null);
+    editBrandPickers.set(tr.dataset.item, picker);
+  });
 
   // El motivo se pide solo si ya ingresó al stock
   document.getElementById('edit-entry-reason-group').classList.toggle('hidden', !approved);
@@ -224,7 +234,11 @@ document.getElementById('form-edit-entry')?.addEventListener('submit', async (e)
   if (!editingEntry) return;
   const approved = editingEntry.status === 'APROBADA';
   const items = [...document.querySelectorAll('#edit-entry-items tr[data-item]')].map(tr => {
-    const item = { id: tr.dataset.item, quantity: parseInt(tr.querySelector('.edit-item-qty').value, 10) };
+    const item = {
+      id: tr.dataset.item,
+      quantity: parseInt(tr.querySelector('.edit-item-qty').value, 10),
+      brandId: editBrandPickers.get(tr.dataset.item)?.value || null
+    };
     const lot = tr.querySelector('.edit-item-lot');
     const exp = tr.querySelector('.edit-item-exp');
     if (lot) item.lotNumber = lot.value.trim();
