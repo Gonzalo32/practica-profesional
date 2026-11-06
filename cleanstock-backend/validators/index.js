@@ -108,6 +108,13 @@ const category = [
   validate
 ];
 
+const categoryUpdate = [
+  idParam(),
+  body('name').optional().isString().trim().notEmpty().withMessage('El nombre no puede quedar vacío').isLength({ max: 80 }),
+  optionalText('description', 'La descripción', 300),
+  validate
+];
+
 const productFields = [
   optionalMongoId('categoryId', 'Categoría'),
   optionalText('description', 'La descripción', 500),
@@ -265,6 +272,7 @@ module.exports = {
   spaceUpdate,
   stockAdjust,
   category,
+  categoryUpdate,
   createProduct,
   updateProduct,
   stockEntry,

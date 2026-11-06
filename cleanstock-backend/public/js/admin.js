@@ -32,6 +32,22 @@ async function loadAdminStats() {
   }
 }
 
+document.getElementById('card-admin-alerts')?.addEventListener('click', () => {
+  const tab = document.querySelector('#panel-admin .btn-tab[data-sub="admin-alerts"]');
+  if (tab) {
+    tab.click();
+    document.getElementById('subpanel-admin-alerts')?.scrollIntoView({ behavior: 'smooth' });
+  }
+});
+
+document.getElementById('card-admin-approvals')?.addEventListener('click', () => {
+  const tab = document.querySelector('#panel-admin .btn-tab[data-sub="admin-approvals"]');
+  if (tab) {
+    tab.click();
+    document.getElementById('subpanel-admin-approvals')?.scrollIntoView({ behavior: 'smooth' });
+  }
+});
+
 // --------------------------------------------------------------------------
 // Gráficos (Chart.js)
 // --------------------------------------------------------------------------
@@ -271,8 +287,24 @@ function setupSupplierRoleToggle(roleSelectId, groupId, supplierSelectId) {
   roleSelect.addEventListener('change', update);
   return update;
 }
+
+function setupBranchRoleToggle(roleSelectId, spaceSelectId, reqId) {
+  const roleSelect = document.getElementById(roleSelectId);
+  const spaceSelect = document.getElementById(spaceSelectId);
+  const reqEl = document.getElementById(reqId);
+  const update = () => {
+    const requiresBranch = roleSelect.value !== 'Administrador' && roleSelect.value !== 'Proveedor';
+    if (spaceSelect) spaceSelect.required = requiresBranch;
+    if (reqEl) reqEl.classList.toggle('hidden', !requiresBranch);
+  };
+  roleSelect?.addEventListener('change', update);
+  return update;
+}
+
 const updateNewUserSupplierField = setupSupplierRoleToggle('new-user-role', 'new-user-supplier-group', 'new-user-supplier');
 const updateEditUserSupplierField = setupSupplierRoleToggle('edit-user-role', 'edit-user-supplier-group', 'edit-user-supplier');
+const updateNewUserBranchField = setupBranchRoleToggle('new-user-role', 'new-user-space', 'new-user-space-req');
+const updateEditUserBranchField = setupBranchRoleToggle('edit-user-role', 'edit-user-space', 'edit-user-space-req');
 
 async function prepareUserFormSelects(prefix, user = null) {
   const suppliers = await apiFetch('/suppliers');
@@ -284,6 +316,7 @@ document.getElementById('btn-open-create-user-modal')?.addEventListener('click',
   document.getElementById('form-create-user').reset();
   await prepareUserFormSelects('new-user');
   updateNewUserSupplierField();
+  updateNewUserBranchField();
   openModal('modal-create-user');
 });
 
@@ -305,6 +338,7 @@ window.openEditUserModal = async (userId) => {
   document.getElementById('edit-user-zipcode').value = user.zipCode || '';
   document.getElementById('edit-user-role').value = user.role;
   updateEditUserSupplierField();
+  updateEditUserBranchField();
   openModal('modal-edit-user');
 };
 
@@ -333,8 +367,8 @@ function readUserForm(prefix) {
 document.getElementById('form-create-user')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const data = { ...readUserForm('new-user'), password: document.getElementById('new-user-password').value };
-  if (!isSingleBranch() && data.role !== 'Proveedor' && !data.physicalSpaceId) {
-    showToast('Seleccioná la sucursal del usuario.', 'error');
+  if (data.role !== 'Administrador' && data.role !== 'Proveedor' && !data.physicalSpaceId) {
+    showToast('Los usuarios que no sean Administrador o Proveedor deben tener una sucursal asignada.', 'error');
     return;
   }
   try {
@@ -354,6 +388,10 @@ document.getElementById('form-edit-user')?.addEventListener('submit', async (e) 
   const data = readUserForm('edit-user');
   const password = document.getElementById('edit-user-password').value;
   if (password) data.password = password;
+  if (data.role !== 'Administrador' && data.role !== 'Proveedor' && !data.physicalSpaceId) {
+    showToast('Los usuarios que no sean Administrador o Proveedor deben tener una sucursal asignada.', 'error');
+    return;
+  }
   try {
     await apiFetch(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) });
     showToast('Usuario actualizado exitosamente', 'success');

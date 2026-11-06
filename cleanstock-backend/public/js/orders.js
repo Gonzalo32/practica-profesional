@@ -3,7 +3,7 @@
 // ==========================================================================
 
 let loadedSolicitanteOrders = [];
-const solicitanteFilters = { search: '', status: '', page: 1 };
+const solicitanteFilters = { search: '', status: 'PENDIENTE', page: 1 };
 const ORDERS_PER_PAGE = 10;
 
 async function loadSolicitanteOrders() {
@@ -81,6 +81,17 @@ document.getElementById('solicitante-search-orders')?.addEventListener('input', 
   solicitanteFilters.page = 1;
   renderSolicitanteOrdersTable();
 }, 200));
+
+document.querySelectorAll('#orders-status-tabs .order-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('#orders-status-tabs .order-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    solicitanteFilters.status = tab.dataset.status;
+    solicitanteFilters.page = 1;
+    renderSolicitanteOrdersTable();
+  });
+});
+
 document.getElementById('solicitante-filter-status')?.addEventListener('change', (e) => {
   solicitanteFilters.status = e.target.value;
   solicitanteFilters.page = 1;
@@ -227,6 +238,11 @@ document.getElementById('form-create-order-modal')?.addEventListener('submit', a
     // El servidor decide si el pedido requiere aprobación del administrador (más de 50 unidades de un producto)
     showToast(`Pedido ${res.order.code} creado${res.order.requiresValidation ? '. Requiere aprobación del administrador.' : ' y enviado.'}`, 'success');
     closeModal('modal-create-order');
+    solicitanteFilters.status = 'PENDIENTE';
+    solicitanteFilters.page = 1;
+    document.querySelectorAll('#orders-status-tabs .order-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.status === 'PENDIENTE');
+    });
     loadSolicitanteOrders();
   } catch (err) {
     showToast(err.message, 'error');

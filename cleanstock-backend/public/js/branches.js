@@ -159,6 +159,7 @@ async function loadStockForBranch(branchId) {
     currentStockBranch = branch;
     const typeLabel = branch.name.toLowerCase().startsWith((branch.type || '').toLowerCase()) ? '' : ` (${capitalize(branch.type)})`;
     document.getElementById('stock-view-branch-title').textContent = `Stock — ${branch.name}${typeLabel}`;
+    stockPage = 1;
     renderStockTable();
   } catch (err) {
     renderErrorRow(tbody, 8, err.message);
@@ -186,15 +187,24 @@ function expirationCell(date) {
   return `<span class="${cls}">${formatDateOnly(date)}</span>`;
 }
 
+let stockPage = 1;
+const STOCK_PER_PAGE = 10;
+
 function renderStockTable() {
   const tbody = document.getElementById('table-branch-stock-body');
   const items = filteredStockItems();
   if (!items.length) {
     const onlyLow = document.getElementById('stock-view-filter').value === 'low';
     renderEmptyRow(tbody, 8, stockSearch ? 'Sin resultados' : onlyLow ? 'No hay productos con stock bajo' : 'Esta sucursal no tiene stock registrado aún');
+    const pag = document.getElementById('stock-view-pagination');
+    if (pag) pag.innerHTML = '';
     return;
   }
-  tbody.innerHTML = items.map(item => {
+
+  const pageData = paginate(items, stockPage, STOCK_PER_PAGE);
+  stockPage = pageData.page;
+
+  tbody.innerHTML = pageData.items.map(item => {
     const product = item.Producto;
     const minStock = item.effectiveMinStock || 0;
     const available = item.availableQuantity;
@@ -211,14 +221,23 @@ function renderStockTable() {
         <td>${expirationCell(item.nextExpiration)}</td>
       </tr>`;
   }).join('');
+
+  renderPagination('stock-view-pagination', pageData, 'productos', (p) => {
+    stockPage = p;
+    renderStockTable();
+  });
 }
 
 document.getElementById('stock-view-branch-select')?.addEventListener('change', (e) => {
   if (e.target.value) loadStockForBranch(e.target.value);
 });
-document.getElementById('stock-view-filter')?.addEventListener('change', renderStockTable);
+document.getElementById('stock-view-filter')?.addEventListener('change', () => {
+  stockPage = 1;
+  renderStockTable();
+});
 document.getElementById('stock-view-search')?.addEventListener('input', debounce((e) => {
   stockSearch = e.target.value.toLowerCase().trim();
+  stockPage = 1;
   renderStockTable();
 }, 200));
 
@@ -242,13 +261,81 @@ registerExporter('stock', async () => ({
 // --------------------------------------------------------------------------
 let pendingAdjustData = null;
 
+function setupAdjustProductSearch() {
+  const searchInput = document.getElementById('adjust-product-search');
+  const hiddenInput = document.getElementById('adjust-product');
+  const dropdown = document.getElementById('adjust-product-dropdown');
+  const toggleBtn = document.getElementById('adjust-product-toggle');
+
+  if (!searchInput || !dropdown) return;
+
+  function renderDropdown(filterText = '') {
+    const q = filterText.toLowerCase().trim();
+    const list = state.products
+      .filter(p => !q || [p.name, p.sku, p.Category?.name].join(' ').toLowerCase().includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    if (!list.length) {
+      dropdown.innerHTML = '<div style="padding:10px 14px; color:var(--text-muted); font-size:0.85rem;">No se encontraron productos</div>';
+      dropdown.classList.remove('hidden');
+      return;
+    }
+
+    dropdown.innerHTML = list.map(p => `
+      <div class="select-search-item ${hiddenInput.value === p.id ? 'highlighted' : ''}" data-id="${p.id}" data-name="${escapeHtml(p.name)}">
+        <span class="select-search-item-name">${escapeHtml(p.name)}</span>
+        <span class="select-search-item-sub">${p.sku ? `SKU: ${escapeHtml(p.sku)} · ` : ''}${escapeHtml(p.Category?.name || 'Sin categoría')}</span>
+      </div>
+    `).join('');
+    dropdown.classList.remove('hidden');
+  }
+
+  searchInput.addEventListener('focus', () => {
+    renderDropdown(searchInput.value);
+  });
+
+  searchInput.addEventListener('input', () => {
+    hiddenInput.value = '';
+    renderDropdown(searchInput.value);
+  });
+
+  toggleBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (dropdown.classList.contains('hidden')) {
+      searchInput.focus();
+      renderDropdown('');
+    } else {
+      dropdown.classList.add('hidden');
+    }
+  });
+
+  dropdown.addEventListener('click', (e) => {
+    const item = e.target.closest('.select-search-item');
+    if (!item) return;
+    hiddenInput.value = item.dataset.id;
+    searchInput.value = item.dataset.name;
+    dropdown.classList.add('hidden');
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!document.getElementById('adjust-product-container')?.contains(e.target)) {
+      dropdown.classList.add('hidden');
+    }
+  });
+}
+
+setupAdjustProductSearch();
+
 document.getElementById('btn-toggle-stock-adjust')?.addEventListener('click', () => {
   if (!hasRole('Administrador', 'Usuario Responsable')) return showToast('Tu rol no puede ajustar stock.', 'error');
   const branches = operableBranches();
   const current = document.getElementById('stock-view-branch-select').value;
   fillSelect(document.getElementById('adjust-branch'), branches, { getLabel: branchLabel, value: current });
-  fillSelect(document.getElementById('adjust-product'), state.products, { placeholder: '— Seleccionar Producto —' });
   document.getElementById('form-stock-adjust').reset();
+  document.getElementById('adjust-product').value = '';
+  document.getElementById('adjust-product-search').value = '';
+  document.getElementById('adjust-product-dropdown')?.classList.add('hidden');
   document.getElementById('adjust-branch').value = current;
   document.getElementById('adjust-reason-other-group').classList.add('hidden');
   openModal('modal-stock-adjust');

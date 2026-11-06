@@ -31,6 +31,40 @@ const getCategories = async (req, res) => {
   }
 };
 
+const updateCategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description } = req.body;
+    const category = await Category.findByIdAndUpdate(
+      id,
+      { $set: { name, description } },
+      { returnDocument: 'after', runValidators: true }
+    );
+    if (!category) return res.status(404).json({ message: 'Categoría no encontrada' });
+    res.json({ ...category.toObject(), id: category._id.toString() });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'Ya existe una categoría con ese nombre.' });
+    }
+    res.status(500).json({ message: 'Error actualizando categoría', error: error.message });
+  }
+};
+
+const deleteCategory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const linkedProducts = await Product.countDocuments({ categoryId: id });
+    if (linkedProducts > 0) {
+      return res.status(400).json({ message: `No se puede eliminar la categoría porque tiene ${linkedProducts} producto(s) vinculado(s).` });
+    }
+    const deleted = await Category.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ message: 'Categoría no encontrada' });
+    res.json({ message: 'Categoría eliminada con éxito' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error eliminando categoría', error: error.message });
+  }
+};
+
 // --- Productos ---
 const duplicateProductMessage = (error) => {
   const field = Object.keys(error.keyPattern || {})[0];
@@ -343,6 +377,8 @@ module.exports = {
   EXIT_TYPES,
   createCategory,
   getCategories,
+  updateCategory,
+  deleteCategory,
   createProduct,
   getProducts,
   updateProduct,

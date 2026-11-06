@@ -33,9 +33,12 @@ function filteredExpirations() {
 
 function renderExpirations() {
   const list = filteredExpirations();
-  document.getElementById('exp-stat-expired').textContent = list.filter(e => e.daysLeft < 0).length;
-  document.getElementById('exp-stat-urgent').textContent = list.filter(e => e.daysLeft >= 0 && e.daysLeft <= 7).length;
-  document.getElementById('exp-stat-upcoming').textContent = list.filter(e => e.daysLeft >= 0).length;
+  const expExpired = document.getElementById('exp-stat-expired');
+  if (expExpired) expExpired.textContent = list.filter(e => e.daysLeft < 0).length;
+  const expUrgent = document.getElementById('exp-stat-urgent');
+  if (expUrgent) expUrgent.textContent = list.filter(e => e.daysLeft >= 0 && e.daysLeft <= 7).length;
+  const expUpcoming = document.getElementById('exp-stat-upcoming');
+  if (expUpcoming) expUpcoming.textContent = list.filter(e => e.daysLeft >= 0).length;
 
   const tbody = document.getElementById('table-expirations-body');
   if (!list.length) {

@@ -142,7 +142,6 @@ const NAV_BY_ROLE = {
     ['counts', 'Conteo de Inventario'],
     ['suppliers', 'Proveedores'],
     ['solicitante', 'Pedidos'],
-    ['responsable', 'Ingresos y Egresos'],
     ['despachante', 'Panel Despacho']
   ],
   Solicitante: [
@@ -150,7 +149,6 @@ const NAV_BY_ROLE = {
   ],
   'Usuario Responsable': [
     ['home', 'Inicio'],
-    ['responsable', 'Ingresos y Egresos'],
     ['stock-view', 'Stock de mi Sucursal'],
     ['expirations', 'Vencimientos'],
     ['counts', 'Conteo de Inventario'],
@@ -234,7 +232,6 @@ function refreshPanelData(panelId) {
     'panel-counts': loadCountsPanel,
     'panel-suppliers': loadSuppliersPanel,
     'panel-solicitante': loadSolicitanteOrders,
-    'panel-responsable': loadResponsablePanel,
     'panel-despachante': loadDespachantePanel
   };
   const loader = loaders[panelId];

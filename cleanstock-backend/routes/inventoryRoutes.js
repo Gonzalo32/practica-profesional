@@ -1,6 +1,6 @@
 const express = require('express');
 const {
-  createCategory, getCategories,
+  createCategory, getCategories, updateCategory, deleteCategory,
   createProduct, getProducts, updateProduct,
   registerStockEntry, registerInformalEntry, registerExit, getLots
 } = require('../controllers/inventoryController');
@@ -16,6 +16,8 @@ const STOCK_ROLES = ['Administrador', 'Usuario Responsable'];
 // Categorías
 router.get('/categories', getCategories);
 router.post('/categories', requireRole(STOCK_ROLES), v.category, createCategory);
+router.put('/categories/:id', requireRole(STOCK_ROLES), v.categoryUpdate, updateCategory);
+router.delete('/categories/:id', requireRole(STOCK_ROLES), v.onlyId, deleteCategory);
 
 // Productos (?q= búsqueda por nombre, descripción o código interno)
 router.get('/products', getProducts);

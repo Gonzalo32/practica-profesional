@@ -129,17 +129,7 @@
             <p class="home-subtitle" id="home-subtitle"></p>
           </div>
 
-          <div class="home-actions">
-            <button type="button" class="home-tile home-tile-sale" id="home-btn-sale">
-              <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-              <span class="home-tile-title">Registrar venta</span>
-              <span class="home-tile-desc">Descontar del stock los productos vendidos</span>
-            </button>
-            <button type="button" class="home-tile home-tile-entry" id="home-btn-entry">
-              <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-              <span class="home-tile-title">Cargar mercadería</span>
-              <span class="home-tile-desc">Registrar los productos que ingresan al local</span>
-            </button>
+          <div class="home-actions home-actions-compact">
             <button type="button" class="home-tile home-tile-low" id="home-btn-low">
               <span class="home-tile-count" id="home-count-low">0</span>
               <span class="home-tile-title">Productos con stock bajo</span>
@@ -166,7 +156,7 @@
 
         <!-- PANEL ADMINISTRADOR -->
         <section id="panel-admin" class="panel hidden">
-          <div class="grid-dashboard">
+          <div class="grid-dashboard grid-dashboard-4">
             <div class="card glass stat-card">
               <h3>Usuarios Activos</h3>
               <p class="stat-number" id="admin-stat-users">0</p>
@@ -179,15 +169,15 @@
               <h3>Pedidos Realizados</h3>
               <p class="stat-number" id="admin-stat-orders">0</p>
             </div>
-            <div class="card glass stat-card stat-card-alert">
+            <div class="card glass stat-card stat-card-alert clickable" id="card-admin-alerts" title="Ver alertas de stock">
               <h3>Alertas de Stock</h3>
               <p class="stat-number" id="admin-stat-alerts">0</p>
               <span class="stat-sub" id="admin-stat-critical">0 críticas</span>
             </div>
-            <div class="card glass stat-card stat-card-warning multi-only">
+            <div class="card glass stat-card stat-card-warning multi-only clickable" id="card-admin-approvals" title="Ver pedidos pendientes de aprobación">
               <h3>Pedidos por Aprobar</h3>
               <p class="stat-number" id="admin-stat-approvals">0</p>
-              <span class="stat-sub">más de 50 unidades</span>
+              <span class="stat-sub">Esperan validación</span>
             </div>
             <div class="card glass stat-card stat-card-transit multi-only">
               <h3>En Tránsito</h3>
@@ -198,7 +188,7 @@
               <p class="stat-number" id="admin-stat-today">0</p>
             </div>
             <div class="card glass stat-card stat-card-expiring">
-              <h3>Lotes por Vencer (30 días)</h3>
+              <h3>Lotes por Vencer</h3>
               <p class="stat-number" id="admin-stat-expiring">0</p>
               <span class="stat-sub" id="admin-stat-expired">0 vencidos</span>
             </div>
@@ -229,48 +219,7 @@
             <button class="btn btn-tab active" data-sub="admin-users">Gestión de Usuarios</button>
             <button class="btn btn-tab multi-only" data-sub="admin-approvals">Aprobación de Pedidos</button>
             <button class="btn btn-tab" data-sub="admin-alerts">Alertas de Stock</button>
-            <button class="btn btn-tab" data-sub="admin-logs">Historial de Auditoría</button>
-            <button class="btn btn-tab" data-sub="admin-settings">Configuración del Negocio</button>
-          </div>
-
-          <!-- Subpanel: Configuración del negocio -->
-          <div id="subpanel-admin-settings" class="subpanel hidden">
-            <div class="card glass table-card">
-              <h3>Configuración del Negocio</h3>
-              <form id="form-settings" class="form-stack settings-form">
-                <div class="form-group">
-                  <label for="settings-business-name">Nombre del negocio</label>
-                  <input type="text" id="settings-business-name" maxlength="80" required>
-                </div>
-                <div class="form-group">
-                  <label>Modo de trabajo</label>
-                  <div class="mode-options">
-                    <label class="mode-option">
-                      <input type="radio" name="settings-mode" value="single">
-                      <span class="mode-option-body">
-                        <strong>Un solo local</strong>
-                        <span>Para despensas, almacenes y comercios con un único punto de venta. Se ocultan las sucursales, los pedidos entre sucursales y el despacho.</span>
-                      </span>
-                    </label>
-                    <label class="mode-option">
-                      <input type="radio" name="settings-mode" value="multi">
-                      <span class="mode-option-body">
-                        <strong>Varias sucursales</strong>
-                        <span>Para empresas con más de un local o depósito. Incluye pedidos y transferencias entre sucursales.</span>
-                      </span>
-                    </label>
-                  </div>
-                </div>
-                <div class="form-group" id="settings-main-branch-group">
-                  <label for="settings-main-branch">Local principal</label>
-                  <select id="settings-main-branch"></select>
-                  <p class="hint-text" id="settings-main-branch-hint">Todas las operaciones se registran en este local.</p>
-                </div>
-                <div class="modal-actions">
-                  <button type="submit" class="btn btn-primary">Guardar configuración</button>
-                </div>
-              </form>
-            </div>
+            <button class="btn btn-tab" data-sub="admin-logs">Logs</button>
           </div>
 
           <!-- Subpanel: Users CRUD -->
@@ -428,18 +377,17 @@
                 <input type="text" id="solicitante-search-orders" placeholder="Buscar por número, insumo o sucursal..." />
               </div>
               <div class="filter-box">
-                <select id="solicitante-filter-status">
-                  <option value="">Todos los Estados</option>
-                  <option value="PENDIENTE_VALIDACION">Esperando validación</option>
-                  <option value="PENDIENTE">Pendiente</option>
-                  <option value="EN_PREPARACION">En preparación</option>
-                  <option value="DESPACHADO">Despachado</option>
-                  <option value="ENTREGADO">Entregado</option>
-                  <option value="RECHAZADO">Rechazado</option>
-                </select>
-                <button class="btn btn-secondary btn-sm" data-export="orders" data-format="xlsx">Excel</button>
-                <button class="btn btn-secondary btn-sm" data-export="orders" data-format="pdf">PDF</button>
               </div>
+            </div>
+
+            <div class="orders-status-tabs" id="orders-status-tabs">
+              <button type="button" class="order-tab active" data-status="PENDIENTE">Pendientes</button>
+              <button type="button" class="order-tab" data-status="EN_PREPARACION">En preparación</button>
+              <button type="button" class="order-tab" data-status="DESPACHADO">Despachados</button>
+              <button type="button" class="order-tab" data-status="ENTREGADO">Entregados</button>
+              <button type="button" class="order-tab" data-status="PENDIENTE_VALIDACION">Esperando validación</button>
+              <button type="button" class="order-tab" data-status="RECHAZADO">Rechazados</button>
+              <button type="button" class="order-tab" data-status="">Todos</button>
             </div>
 
             <div class="table-responsive">
@@ -459,70 +407,6 @@
               </table>
             </div>
             <div class="pagination-container" id="solicitante-orders-pagination"></div>
-          </div>
-        </section>
-
-        <!-- PANEL USUARIO RESPONSABLE: INGRESOS Y EGRESOS -->
-        <section id="panel-responsable" class="panel hidden">
-          <div class="panel-header-row">
-            <h2>Ingresos y Egresos de Stock</h2>
-            <div class="btn-row">
-              <button id="btn-open-quick-sale" class="btn btn-success">Registrar Venta</button>
-              <button id="btn-open-stock-entry-modal" class="btn btn-primary">Agregar Ingreso</button>
-              <button id="btn-open-informal-entry-modal" class="btn btn-secondary">Ingreso Extraordinario</button>
-              <button id="btn-open-exit-modal" class="btn btn-danger-soft">Registrar Egreso</button>
-            </div>
-          </div>
-
-          <!-- Pedidos despachados que llegan a la sucursal -->
-          <div class="card glass table-card multi-only" id="card-deliveries">
-            <h3>Pedidos por Recibir</h3>
-            <div class="table-responsive">
-              <table>
-                <thead>
-                  <tr>
-                    <th>N° Pedido</th>
-                    <th>Origen</th>
-                    <th>Destino</th>
-                    <th>Insumos</th>
-                    <th>Despachado</th>
-                    <th>Acción</th>
-                  </tr>
-                </thead>
-                <tbody id="table-resp-deliveries-body"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="card glass table-card">
-            <div class="card-title-row">
-              <h3>Últimos Ingresos y Egresos</h3>
-              <div class="filter-box">
-                <select id="resp-movements-type">
-                  <option value="INGRESO,INGRESO_EXTRAORDINARIO,EGRESO">Ingresos y egresos</option>
-                  <option value="INGRESO">Solo ingresos con lote</option>
-                  <option value="INGRESO_EXTRAORDINARIO">Solo ingresos extraordinarios</option>
-                  <option value="EGRESO">Solo egresos</option>
-                </select>
-              </div>
-            </div>
-            <div class="table-responsive">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Sucursal</th>
-                    <th>Producto / Insumo</th>
-                    <th>Cantidad</th>
-                    <th>Lote</th>
-                    <th>Vencimiento</th>
-                    <th>Tipo / Detalles</th>
-                  </tr>
-                </thead>
-                <tbody id="table-resp-recent-stock"></tbody>
-              </table>
-            </div>
-            <div class="pagination-container" id="resp-movements-pagination"></div>
           </div>
         </section>
 
@@ -616,6 +500,7 @@
                 <tbody id="table-branch-stock-body"></tbody>
               </table>
             </div>
+            <div class="pagination-container" id="stock-view-pagination"></div>
           </div>
 
           <!-- Trazabilidad de movimientos -->
@@ -676,7 +561,6 @@
           </div>
           <div class="grid-dashboard grid-compact">
             <div class="card glass stat-card stat-card-alert"><h3>Vencidos con stock</h3><p class="stat-number" id="exp-stat-expired">0</p></div>
-            <div class="card glass stat-card stat-card-warning"><h3>Vencen en 7 días</h3><p class="stat-number" id="exp-stat-urgent">0</p></div>
             <div class="card glass stat-card stat-card-transit"><h3>Vencen en el período</h3><p class="stat-number" id="exp-stat-upcoming">0</p></div>
           </div>
           <div class="card glass table-card">
@@ -786,15 +670,10 @@
         <!-- PANEL PROVEEDORES -->
         <section id="panel-suppliers" class="panel hidden">
           <div class="panel-header-row">
-            <h2 id="suppliers-panel-title">Proveedores y Órdenes de Compra</h2>
+            <h2 id="suppliers-panel-title">Proveedores</h2>
           </div>
 
-          <div class="sub-nav" id="suppliers-sub-nav">
-            <button class="btn btn-tab active" data-sub="suppliers-list">Proveedores</button>
-            <button class="btn btn-tab" data-sub="suppliers-po">Órdenes de Compra</button>
-          </div>
-
-          <div id="subpanel-suppliers-list" class="subpanel">
+          <div id="subpanel-suppliers-list">
             <div class="card glass table-card">
               <div class="card-title-row">
                 <h3>Proveedores Registrados</h3>
@@ -821,39 +700,7 @@
                   <tbody id="table-suppliers-body"></tbody>
                 </table>
               </div>
-            </div>
-          </div>
-
-          <div id="subpanel-suppliers-po" class="subpanel hidden">
-            <div class="card glass table-card">
-              <div class="card-title-row">
-                <h3>Órdenes de Compra</h3>
-                <div class="btn-row">
-                  <select id="po-filter-status">
-                    <option value="">Todos los estados</option>
-                    <option value="PENDIENTE">Pendientes</option>
-                    <option value="RECIBIDA">Recibidas</option>
-                    <option value="CANCELADA">Canceladas</option>
-                  </select>
-                  <button class="btn btn-primary" id="btn-open-po-modal">Nueva Orden de Compra</button>
-                </div>
-              </div>
-              <div class="table-responsive">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>N° Orden</th>
-                      <th>Proveedor</th>
-                      <th>Sucursal destino</th>
-                      <th>Productos</th>
-                      <th>Estado</th>
-                      <th>Fecha</th>
-                      <th>Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody id="table-po-body"></tbody>
-                </table>
-              </div>
+              <div class="pagination-container" id="suppliers-pagination"></div>
             </div>
           </div>
         </section>
@@ -959,6 +806,7 @@
                 <tbody id="table-catalog-body"></tbody>
               </table>
             </div>
+            <div class="pagination-container" id="catalog-pagination"></div>
           </div>
         </section>
 
@@ -977,11 +825,13 @@
                     <th>Nombre de Rubro / Categoría</th>
                     <th>Descripción</th>
                     <th>Insumos Vinculados</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody id="table-categories-body"></tbody>
               </table>
             </div>
+            <div class="pagination-container" id="categories-pagination"></div>
           </div>
         </section>
       </main>
@@ -1178,7 +1028,7 @@
           </select>
         </div>
         <div class="form-group multi-only">
-          <label for="edit-user-space">Sucursal Asignada</label>
+          <label for="edit-user-space" id="edit-user-space-label">Sucursal Asignada <span class="req" id="edit-user-space-req">*</span></label>
           <select id="edit-user-space">
             <option value="">Seleccionar Sucursal...</option>
           </select>
@@ -1268,9 +1118,16 @@
           <label for="adjust-branch">Sucursal <span class="req">*</span></label>
           <select id="adjust-branch" required></select>
         </div>
-        <div class="form-group">
-          <label for="adjust-product">Producto <span class="req">*</span></label>
-          <select id="adjust-product" required></select>
+        <div class="form-group select-search-group">
+          <label for="adjust-product-search">Producto <span class="req">*</span></label>
+          <div class="select-search-container" id="adjust-product-container">
+            <input type="text" id="adjust-product-search" class="select-search-input" placeholder="Escribí para buscar o seleccioná..." autocomplete="off">
+            <input type="hidden" id="adjust-product" required>
+            <button type="button" class="select-search-toggle" id="adjust-product-toggle" aria-label="Ver opciones">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <div class="select-search-dropdown hidden" id="adjust-product-dropdown"></div>
+          </div>
         </div>
         <div class="form-group">
           <label for="adjust-quantity">Cantidad <span class="opt">(+ suma, - resta)</span> <span class="req">*</span></label>
@@ -1396,14 +1253,15 @@
     </div>
   </div>
 
-  <!-- Modal: Crear Categoría -->
+  <!-- Modal: Crear / Editar Categoría -->
   <div id="modal-create-category" class="modal hidden">
     <div class="modal-content glass card modal-md">
       <div class="modal-header">
-        <h3>Crear Nueva Categoría (Rubro)</h3>
+        <h3 id="modal-category-title">Crear Nueva Categoría (Rubro)</h3>
         <button type="button" class="close-btn" data-close-modal>&times;</button>
       </div>
       <form id="form-create-category" class="form-stack">
+        <input type="hidden" id="cat-id">
         <div class="form-group">
           <label for="cat-name">Nombre de Rubro / Categoría <span class="req">*</span></label>
           <input type="text" id="cat-name" placeholder="Ej: Descartables" required>
@@ -1414,9 +1272,23 @@
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
-          <button type="submit" class="btn btn-primary">Agregar Rubro</button>
+          <button type="submit" class="btn btn-primary" id="btn-category-submit">Agregar Rubro</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal: Ver Categoría -->
+  <div id="modal-view-category" class="modal hidden">
+    <div class="modal-content glass card modal-md">
+      <div class="modal-header">
+        <h3>Detalles de la Categoría</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
+      </div>
+      <div id="view-category-details-content" class="details-grid"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" data-close-modal>Cerrar</button>
+      </div>
     </div>
   </div>
 
@@ -1741,6 +1613,20 @@
           <button type="submit" class="btn btn-primary">Guardar Proveedor</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal: Ver Proveedor -->
+  <div id="modal-view-supplier" class="modal hidden">
+    <div class="modal-content glass card modal-md">
+      <div class="modal-header">
+        <h3>Detalles de Proveedor</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
+      </div>
+      <div id="view-supplier-details-content" class="details-grid"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" data-close-modal>Cerrar</button>
+      </div>
     </div>
   </div>
 

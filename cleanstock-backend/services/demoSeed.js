@@ -93,7 +93,7 @@ const seedDemo = async (app, password) => {
     await user('responsable@cleanstock.com', 'Usuario Responsable', { physicalSpaceId: central, firstName: 'Carla', lastName: 'Méndez' });
     await user('norte@cleanstock.com', 'Solicitante', { physicalSpaceId: norte, firstName: 'Diego', lastName: 'Sosa' });
     await user('sur@cleanstock.com', 'Solicitante', { physicalSpaceId: sur, firstName: 'Paula', lastName: 'Ferreyra' });
-    await user('despachante@cleanstock.com', 'Despachante', { firstName: 'Nicolás', lastName: 'Acosta' });
+    await user('despachante@cleanstock.com', 'Despachante', { physicalSpaceId: central, firstName: 'Nicolás', lastName: 'Acosta' });
     await user('proveedor@cleanstock.com', 'Proveedor', { supplierId: quimica, firstName: 'Laura', lastName: 'Gómez' });
 
     const responsable = await login('responsable@cleanstock.com');

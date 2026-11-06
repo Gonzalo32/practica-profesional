@@ -18,12 +18,17 @@ const createUser = async (req, res) => {
 
     // En modo de un solo local, todos trabajan en el local principal
     const settings = await getSettings();
+    const targetRole = role || 'Solicitante';
     const branchId = physicalSpaceId || (settings.singleBranchMode ? settings.mainBranchId : null);
+
+    if (targetRole !== 'Administrador' && targetRole !== 'Proveedor' && !branchId) {
+      return res.status(400).json({ message: 'Los usuarios que no sean Administrador o Proveedor deben tener una sucursal asignada obligatoriamente.' });
+    }
 
     const newUser = await User.create({
       username,
       passwordHash,
-      role: role || 'Solicitante',
+      role: targetRole,
       physicalSpaceId: branchId || null,
       supplierId: role === 'Proveedor' ? (supplierId || null) : null,
       firstName: firstName || null,
@@ -118,6 +123,14 @@ const updateUser = async (req, res) => {
     if (physicalSpaceId !== undefined) user.physicalSpaceId = physicalSpaceId || null;
     if (supplierId !== undefined) user.supplierId = supplierId || null;
     if (user.role !== 'Proveedor') user.supplierId = null;
+
+    if (user.role !== 'Administrador' && user.role !== 'Proveedor' && !user.physicalSpaceId) {
+      const settings = await getSettings();
+      if (!settings.singleBranchMode || !settings.mainBranchId) {
+        return res.status(400).json({ message: 'Los usuarios que no sean Administrador o Proveedor deben tener una sucursal asignada obligatoriamente.' });
+      }
+      user.physicalSpaceId = settings.mainBranchId;
+    }
     if (firstName !== undefined) user.firstName = firstName || null;
     if (lastName !== undefined) user.lastName = lastName || null;
     if (email !== undefined) user.email = email || null;

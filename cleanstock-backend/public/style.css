@@ -2299,3 +2299,188 @@ body.single-branch #panel-admin .grid-dashboard { grid-template-columns: repeat(
   text-transform: uppercase;
   color: var(--color-primary);
 }
+
+/* ==========================================================================
+   ✨ REFINEMENTS & RECENT UI ENHANCEMENTS
+   ========================================================================== */
+
+/* Grid Dashboard de 4 columnas */
+.grid-dashboard-4 {
+  grid-template-columns: repeat(4, 1fr) !important;
+}
+
+@media (max-width: 1280px) {
+  .grid-dashboard-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 680px) {
+  .grid-dashboard-4 {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Tarjetas interactivas / clickeables */
+.stat-card.clickable {
+  cursor: pointer;
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.22s ease, border-color 0.22s ease;
+}
+
+.stat-card.clickable:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.45), 0 0 16px var(--color-primary-glow);
+  border-color: var(--color-primary);
+}
+
+.stat-card.clickable:active {
+  transform: translateY(-1px);
+}
+
+/* Inicio: 2 cards de acceso directo principales */
+.home-actions-compact {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  max-width: 820px;
+  margin: 0 auto 2.2rem;
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .home-actions-compact {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Solapas de estados de pedidos */
+.orders-status-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 6px 2px 14px;
+  margin-bottom: 15px;
+  border-bottom: 1px solid var(--surface-2);
+  scrollbar-width: thin;
+}
+
+.order-tab {
+  background: var(--surface-1);
+  border: 1px solid var(--surface-2);
+  color: var(--text-muted);
+  padding: 8px 18px;
+  border-radius: var(--radius-md);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+}
+
+.order-tab:hover {
+  background: var(--surface-2);
+  color: var(--text-main);
+  border-color: var(--surface-3);
+  transform: translateY(-1px);
+}
+
+.order-tab.active {
+  background: var(--color-primary-glow);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  font-weight: 700;
+  box-shadow: 0 2px 10px rgba(56, 189, 248, 0.25);
+}
+
+/* Searchable Combobox / SelectSearch */
+.select-search-container {
+  position: relative;
+  width: 100%;
+}
+
+.select-search-input {
+  width: 100%;
+  padding: 10px 36px 10px 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--text-main);
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: var(--transition-smooth);
+}
+
+.select-search-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-glow);
+}
+
+.select-search-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 4px;
+  transition: color 0.15s ease;
+}
+
+.select-search-toggle:hover {
+  color: var(--color-primary);
+}
+
+.select-search-dropdown {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  max-height: 230px;
+  overflow-y: auto;
+  background: hsl(224, 32%, 13%);
+  border: 1px solid var(--surface-3);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+  z-index: 1050;
+  padding: 6px;
+  scrollbar-width: thin;
+}
+
+[data-theme="light"] .select-search-dropdown {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+}
+
+.select-search-item {
+  padding: 9px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transition: background 0.15s ease;
+}
+
+.select-search-item:hover,
+.select-search-item.highlighted {
+  background: var(--surface-2);
+}
+
+.select-search-item-name {
+  font-weight: 600;
+  color: var(--text-main);
+  font-size: 0.88rem;
+}
+
+.select-search-item-sub {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}

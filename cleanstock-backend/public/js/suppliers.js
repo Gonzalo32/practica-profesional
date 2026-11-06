@@ -1,28 +1,23 @@
 // ==========================================================================
 // PROVEEDORES Y ÓRDENES DE COMPRA
-// El rol Proveedor entra en modo lectura y solo ve las órdenes de su empresa.
 // ==========================================================================
 
 let supplierSearch = '';
 let loadedPurchaseOrders = [];
+let suppliersPage = 1;
+const SUPPLIERS_PER_PAGE = 10;
 
 async function loadSuppliersPanel() {
   await ensureBaseData();
   const isSupplierUser = hasRole('Proveedor');
   const canManage = hasRole('Administrador', 'Usuario Responsable');
 
-  document.getElementById('suppliers-panel-title').textContent = isSupplierUser ? 'Mis Órdenes de Compra' : 'Proveedores y Órdenes de Compra';
-  document.getElementById('btn-open-supplier-modal').classList.toggle('hidden', !canManage);
-  document.getElementById('btn-open-po-modal').classList.toggle('hidden', !canManage);
-  document.getElementById('suppliers-sub-nav').classList.toggle('hidden', isSupplierUser);
+  document.getElementById('suppliers-panel-title').textContent = isSupplierUser ? 'Mis Órdenes de Compra' : 'Proveedores';
+  document.getElementById('btn-open-supplier-modal')?.classList.toggle('hidden', !canManage);
+  document.getElementById('btn-open-po-modal')?.classList.toggle('hidden', !canManage);
+  document.getElementById('suppliers-sub-nav')?.classList.add('hidden');
 
-  if (isSupplierUser) {
-    document.querySelector('[data-sub="suppliers-po"]').click();
-    return;
-  }
   await renderSuppliersTable();
-  const active = document.querySelector('#suppliers-sub-nav .btn-tab.active')?.dataset.sub;
-  if (active === 'suppliers-po') loadPurchaseOrders();
 }
 
 async function renderSuppliersTable() {
@@ -34,35 +29,62 @@ async function renderSuppliersTable() {
       [s.name, s.cuit, s.contactName, s.email].join(' ').toLowerCase().includes(supplierSearch));
     if (!list.length) {
       renderEmptyRow(tbody, 6, supplierSearch ? 'Sin resultados' : 'Todavía no hay proveedores', 'Registrá a quién le comprás para asociarlo a los ingresos y armar órdenes de compra.');
+      const pag = document.getElementById('suppliers-pagination');
+      if (pag) pag.innerHTML = '';
       return;
     }
+
+    const pageData = paginate(list, suppliersPage, SUPPLIERS_PER_PAGE);
+    suppliersPage = pageData.page;
+
     const isAdmin = hasRole('Administrador');
-    tbody.innerHTML = list.map(s => `
+    tbody.innerHTML = pageData.items.map(s => `
       <tr>
         <td><strong>${escapeHtml(s.name)}</strong>${s.notes ? `<div class="cell-detail">${escapeHtml(s.notes)}</div>` : ''}</td>
         <td>${s.cuit ? escapeHtml(s.cuit) : '<span class="muted">—</span>'}</td>
         <td>${s.contactName ? escapeHtml(s.contactName) : '<span class="muted">—</span>'}</td>
         <td>${escapeHtml(s.phone || '')}${s.phone && s.email ? '<br>' : ''}<span class="muted">${escapeHtml(s.email || '')}</span>${!s.phone && !s.email ? '<span class="muted">—</span>' : ''}</td>
-        <td><span class="cell-detail">${s.Products.length ? s.Products.map(p => escapeHtml(p.name)).join(', ') : '—'}</span></td>
+        <td><span class="cell-detail">${s.Products?.length ? s.Products.map(p => escapeHtml(p.name)).join(', ') : '—'}</span></td>
         <td>
           <div class="action-btn-group">
+            <button class="btn-icon" title="Ver Detalle" onclick="openViewSupplierModal('${s.id}')">${ICON_VIEW}</button>
             <button class="btn-icon" title="Editar" onclick="openSupplierModal('${s.id}')">${ICON_EDIT}</button>
             ${isAdmin ? `<button class="btn-icon btn-icon-danger" title="Dar de baja" onclick="deactivateSupplier('${s.id}')">${ICON_DELETE}</button>` : ''}
           </div>
         </td>
       </tr>`).join('');
+
+    renderPagination('suppliers-pagination', pageData, 'proveedores', (p) => {
+      suppliersPage = p;
+      renderSuppliersTable();
+    });
   } catch (err) {
     renderErrorRow(tbody, 6, err.message);
   }
 }
 
+window.openViewSupplierModal = (supplierId) => {
+  const s = state.suppliers.find(x => String(x.id) === String(supplierId));
+  if (!s) return;
+  const prods = (s.Products || []).map(p => escapeHtml(p.name)).join(', ') || 'Ninguno asignado';
+  document.getElementById('view-supplier-details-content').innerHTML = `
+    <div class="span-2"><strong>Razón Social:</strong> ${escapeHtml(s.name)}</div>
+    <div><strong>CUIT:</strong> ${escapeHtml(s.cuit || 'Sin registrar')}</div>
+    <div><strong>Persona de Contacto:</strong> ${escapeHtml(s.contactName || 'Sin registrar')}</div>
+    <div><strong>Teléfono:</strong> ${escapeHtml(s.phone || 'Sin registrar')}</div>
+    <div><strong>Email:</strong> ${escapeHtml(s.email || 'Sin registrar')}</div>
+    <div class="span-2"><strong>Dirección:</strong> ${escapeHtml(s.address || 'Sin registrar')}</div>
+    <div class="span-2"><strong>Productos que provee:</strong> ${prods}</div>
+    <div class="span-2"><strong>Notas:</strong> ${escapeHtml(s.notes || 'Sin notas')}</div>
+  `;
+  openModal('modal-view-supplier');
+};
+
 document.getElementById('supplier-search')?.addEventListener('input', debounce((e) => {
   supplierSearch = e.target.value.toLowerCase().trim();
+  suppliersPage = 1;
   renderSuppliersTable();
 }, 250));
-
-onSubTab('subpanel-suppliers-list', renderSuppliersTable);
-onSubTab('subpanel-suppliers-po', () => loadPurchaseOrders());
 
 // --------------------------------------------------------------------------
 // Alta / edición de proveedor
