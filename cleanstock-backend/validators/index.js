@@ -97,8 +97,12 @@ const spaceUpdate = [
 const stockAdjust = [
   idParam(),
   mongoId('productId', 'Producto'),
-  body('quantity').isInt().withMessage('La cantidad debe ser un número entero').toInt(),
+  // Formato simple { quantity, lotId } o varias variantes juntas { adjustments: [{ lotId, quantity }] }
+  body('quantity').if(body('adjustments').not().exists()).isInt().withMessage('La cantidad debe ser un número entero').toInt(),
   optionalMongoId('lotId', 'Lote'),
+  body('adjustments').optional().isArray({ min: 1, max: 100 }).withMessage('Indicá al menos una variante a ajustar'),
+  body('adjustments.*.quantity').isInt().withMessage('La cantidad de cada variante debe ser un número entero').toInt(),
+  body('adjustments.*.lotId').optional({ values: 'falsy' }).isMongoId().withMessage('Lote inválido'),
   requiredText('reason', 'El motivo', 200),
   validate
 ];

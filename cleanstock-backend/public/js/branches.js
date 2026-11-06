@@ -143,7 +143,6 @@ async function loadBranchStockPanel() {
   fillSelect(sel, branches, { placeholder: branches.length > 1 ? '— Seleccionar sucursal —' : null, getLabel: branchLabel, value: sel.value || userBranchId() || branches[0]?.id });
   sel.disabled = branches.length <= 1;
 
-  fillSelect(document.getElementById('movements-filter-product'), state.products, { placeholder: 'Todos los productos' });
 
   if (!sel.value && branches.length) sel.value = branches[0].id;
   if (sel.value) await loadStockForBranch(sel.value);
@@ -172,8 +171,6 @@ async function loadStockForBranch(branchId) {
   } catch (err) {
     renderErrorRow(tbody, 8, err.message);
   }
-  movementFilters.page = 1;
-  loadMovementsTraceability();
 }
 
 function filteredStockItems() {
@@ -383,47 +380,87 @@ function setupAdjustProductSearch() {
 
 setupAdjustProductSearch();
 
-// Lotes del producto elegido en la sucursal elegida: el ajuste puede ir a un lote puntual
+// Variantes (lotes) del producto elegido en la sucursal elegida: se ajustan todas en un solo movimiento
 let adjustLots = [];
+let adjustWithoutLot = 0;
 let adjustLotsRequest = 0;
 
+const variantsMode = () => !document.getElementById('adjust-variants-group').classList.contains('hidden');
+
+function setAdjustVariantsMode(on) {
+  document.getElementById('adjust-variants-group').classList.toggle('hidden', !on);
+  document.getElementById('adjust-quantity-group').classList.toggle('hidden', on);
+  document.getElementById('adjust-quantity').required = !on;
+}
+
 async function loadAdjustLots() {
-  const group = document.getElementById('adjust-lot-group');
-  const select = document.getElementById('adjust-lot');
   const branchId = document.getElementById('adjust-branch').value;
   const productId = document.getElementById('adjust-product').value;
   const request = ++adjustLotsRequest;
   adjustLots = [];
-  select.innerHTML = '';
-  group.classList.add('hidden');
+  adjustWithoutLot = 0;
+  document.getElementById('adjust-variants-body').innerHTML = '';
+  setAdjustVariantsMode(false);
   if (!branchId || !productId) return;
 
+  let total = 0;
   try {
-    const lots = await apiFetch(`/inventory/lots?branchId=${encodeURIComponent(branchId)}&productId=${encodeURIComponent(productId)}&withStock=true`);
+    const [lots, branchStock] = await Promise.all([
+      apiFetch(`/inventory/lots?branchId=${encodeURIComponent(branchId)}&productId=${encodeURIComponent(productId)}&withStock=true`),
+      apiFetch(`/branches/${branchId}/stock`)
+    ]);
     if (request !== adjustLotsRequest) return; // llegó una respuesta vieja
     adjustLots = lots;
+    const item = branchStock.stockItems.find(i => String(i.Producto?.id || i.productId) === String(productId));
+    total = item?.quantity || 0;
   } catch {
     return;
   }
   if (!adjustLots.length) return;
 
-  select.innerHTML = [
-    '<option value="">Sin lote específico (general)</option>',
-    ...adjustLots.map(l => `<option value="${escapeHtml(l.id)}">Lote ${escapeHtml(l.lotNumber || 'sin número')} — ${l.remaining} u.${l.expirationDate ? ` — vence ${formatDateOnly(l.expirationDate)}` : ''}</option>`)
+  adjustWithoutLot = Math.max(0, total - adjustLots.reduce((sum, l) => sum + (l.remaining || 0), 0));
+  const row = (lotId, label, expiration, inStock) => `
+    <tr>
+      <td>${label}</td>
+      <td>${expiration}</td>
+      <td><strong>${inStock}</strong></td>
+      <td><input type="number" class="adjust-variant-qty" data-lot="${escapeHtml(lotId)}" data-stock="${inStock}" value="0" step="1" aria-label="Ajuste"></td>
+      <td class="adjust-variant-result">${inStock}</td>
+    </tr>`;
+  document.getElementById('adjust-variants-body').innerHTML = [
+    ...adjustLots.map(l => row(l.id, `<span class="badge">${escapeHtml(l.lotNumber || 'Sin número')}</span>`, expirationCell(l.expirationDate), l.remaining)),
+    row('', '<span class="muted">Sin lote</span>', '<span class="muted">—</span>', adjustWithoutLot)
   ].join('');
-  select.value = adjustLots[0].id;
-  updateAdjustLotHint();
-  group.classList.remove('hidden');
+  setAdjustVariantsMode(true);
+  updateAdjustVariantsTotal();
 }
 
-function updateAdjustLotHint() {
-  const hint = document.getElementById('adjust-lot-hint');
-  hint.textContent = document.getElementById('adjust-lot').value
-    ? 'El ajuste se aplica solo a este lote (y al total del producto).'
-    : 'Sin lote: si restás, se descuenta del lote que vence primero; si sumás, queda como stock sin lote.';
+function readAdjustVariants() {
+  return [...document.querySelectorAll('.adjust-variant-qty')].map(input => ({
+    input,
+    lotId: input.dataset.lot || null,
+    inStock: Number(input.dataset.stock) || 0,
+    quantity: parseInt(input.value, 10) || 0
+  }));
 }
 
-document.getElementById('adjust-lot')?.addEventListener('change', updateAdjustLotHint);
+function updateAdjustVariantsTotal() {
+  const variants = readAdjustVariants();
+  let net = 0;
+  for (const v of variants) {
+    const result = v.inStock + v.quantity;
+    const cell = v.input.closest('tr').querySelector('.adjust-variant-result');
+    cell.textContent = result;
+    cell.className = `adjust-variant-result ${v.quantity > 0 ? 'qty-in' : v.quantity < 0 ? 'qty-out' : ''} ${result < 0 && v.lotId ? 'text-danger' : ''}`;
+    net += v.quantity;
+  }
+  const changed = variants.filter(v => v.quantity).length;
+  document.getElementById('adjust-variants-total').textContent = changed
+    ? `${changed} variante${changed === 1 ? '' : 's'} con cambios. Diferencia total: ${net > 0 ? '+' : ''}${net} u.`
+    : 'Sin cambios todavía. En "Sin lote", si restás, se descuenta del lote que vence primero.';
+}
+
+document.getElementById('adjust-variants-body')?.addEventListener('input', updateAdjustVariantsTotal);
 document.getElementById('adjust-branch')?.addEventListener('change', loadAdjustLots);
 
 document.getElementById('btn-toggle-stock-adjust')?.addEventListener('click', () => {
@@ -455,27 +492,41 @@ document.getElementById('form-stock-adjust')?.addEventListener('submit', async (
   e.preventDefault();
   const branchId = document.getElementById('adjust-branch').value;
   const productId = document.getElementById('adjust-product').value;
-  const quantity = parseInt(adjustQty.value, 10);
   const reasonSelect = document.getElementById('adjust-reason-select').value;
   const reason = reasonSelect === 'Otro' ? document.getElementById('adjust-reason-other').value.trim() : reasonSelect;
+  const withVariants = variantsMode();
 
-  if (!branchId || !productId || !quantity || !reason) {
-    return showToast('Completá todos los campos. La cantidad no puede ser 0.', 'error');
+  // Con variantes: una línea por lote cambiado. Sin variantes: una sola cantidad.
+  const lines = withVariants
+    ? readAdjustVariants().filter(v => v.quantity)
+    : [{ lotId: null, quantity: parseInt(adjustQty.value, 10) || 0, inStock: null }].filter(v => v.quantity);
+
+  if (!branchId || !productId || !reason) {
+    return showToast('Completá todos los campos.', 'error');
   }
-  const lotId = document.getElementById('adjust-lot').value || null;
-  const lot = adjustLots.find(l => l.id === lotId);
-  if (lot && quantity < 0 && -quantity > lot.remaining) {
-    return showToast(`El lote ${lot.lotNumber} tiene ${lot.remaining} u.; no se pueden descontar ${-quantity}.`, 'error');
+  if (!lines.length) {
+    return showToast(withVariants ? 'Cargá el ajuste en al menos una variante.' : 'La cantidad no puede ser 0.', 'error');
+  }
+  const tooMuch = lines.find(v => v.lotId && v.inStock + v.quantity < 0);
+  if (tooMuch) {
+    const lot = adjustLots.find(l => l.id === tooMuch.lotId);
+    return showToast(`El lote ${lot?.lotNumber || ''} tiene ${tooMuch.inStock} u.; no se pueden descontar ${-tooMuch.quantity}.`, 'error');
   }
 
+  const fmt = (q) => q > 0 ? `<span class="qty-in strong">+${q}</span>` : `<span class="qty-out strong">${q}</span>`;
+  const lineLabel = (v) => {
+    const lot = adjustLots.find(l => l.id === v.lotId);
+    return lot ? `Lote ${escapeHtml(lot.lotNumber)}` : withVariants ? 'Sin lote' : 'Ajuste';
+  };
+  const net = lines.reduce((sum, v) => sum + v.quantity, 0);
   const ok = await confirmDialog({
     title: 'Confirmar ajuste de stock',
     html: `
       <div class="confirm-summary">
         <div><strong>Sucursal:</strong> ${escapeHtml(getBranchName(branchId))}</div>
         <div><strong>Producto:</strong> ${escapeHtml(getProductName(productId))}</div>
-        <div><strong>Lote:</strong> ${lot ? escapeHtml(lot.lotNumber) : adjustLots.length ? 'Sin lote específico' : '—'}</div>
-        <div><strong>Ajuste:</strong> ${quantity > 0 ? `<span class="qty-in strong">+${quantity} unidades</span>` : `<span class="qty-out strong">${quantity} unidades</span>`}</div>
+        ${lines.map(v => `<div><strong>${lineLabel(v)}:</strong> ${fmt(v.quantity)} u.</div>`).join('')}
+        ${lines.length > 1 ? `<div><strong>Diferencia total:</strong> ${fmt(net)} u.</div>` : ''}
         <div><strong>Motivo:</strong> ${escapeHtml(reason)}</div>
       </div>`,
     confirmText: 'Aplicar ajuste'
@@ -483,8 +534,11 @@ document.getElementById('form-stock-adjust')?.addEventListener('submit', async (
   if (!ok) return;
 
   try {
-    await apiFetch(`/branches/${branchId}/stock/adjust`, { method: 'POST', body: JSON.stringify({ productId, quantity, reason, lotId }) });
-    showToast('Ajuste de stock aplicado correctamente', 'success');
+    await apiFetch(`/branches/${branchId}/stock/adjust`, {
+      method: 'POST',
+      body: JSON.stringify({ productId, reason, adjustments: lines.map(v => ({ lotId: v.lotId, quantity: v.quantity })) })
+    });
+    showToast(lines.length > 1 ? `Ajuste aplicado en ${lines.length} variantes` : 'Ajuste de stock aplicado correctamente', 'success');
     closeModal('modal-stock-adjust');
     document.getElementById('stock-view-branch-select').value = branchId;
     loadStockForBranch(branchId);
@@ -499,9 +553,39 @@ document.getElementById('form-stock-adjust')?.addEventListener('submit', async (
 // --------------------------------------------------------------------------
 const movementFilters = { page: 1, type: '', productId: '', from: '', to: '' };
 
+// Menú "Movimientos": la misma sucursal por defecto que en "Stock por sucursal"
+async function loadMovementsPanel() {
+  await ensureBaseData();
+  const branches = operableBranches();
+  const sel = document.getElementById('movements-branch-select');
+  const preferred = sel.value || document.getElementById('stock-view-branch-select').value || userBranchId() || branches[0]?.id;
+  fillSelect(sel, branches, { placeholder: branches.length > 1 ? '— Seleccionar sucursal —' : null, getLabel: branchLabel, value: preferred });
+  sel.disabled = branches.length <= 1;
+  if (!sel.value && branches.length) sel.value = branches[0].id;
+
+  const productSel = document.getElementById('movements-filter-product');
+  fillSelect(productSel, state.products, { placeholder: 'Todos los productos', value: movementFilters.productId });
+
+  updateMovementsTitle();
+  movementFilters.page = 1;
+  if (sel.value) loadMovementsTraceability();
+  else renderEmptyRow(document.getElementById('table-movements-body'), 7, 'No tenés una sucursal asignada', 'Pedile al administrador que te asigne una.');
+}
+
+function updateMovementsTitle() {
+  const branchId = document.getElementById('movements-branch-select').value;
+  document.getElementById('movements-branch-title').textContent = branchId ? `Movimientos — ${getBranchName(branchId)}` : 'Movimientos de Stock';
+}
+
+document.getElementById('movements-branch-select')?.addEventListener('change', () => {
+  updateMovementsTitle();
+  movementFilters.page = 1;
+  loadMovementsTraceability();
+});
+
 function movementsQuery(extra = {}) {
   const params = new URLSearchParams({ page: movementFilters.page, limit: 15, ...extra });
-  const branchId = document.getElementById('stock-view-branch-select').value;
+  const branchId = document.getElementById('movements-branch-select').value;
   if (branchId) params.set('branchId', branchId);
   ['type', 'productId', 'from', 'to'].forEach(k => { if (movementFilters[k]) params.set(k, movementFilters[k]); });
   return `/branches/movements?${params}`;
@@ -544,7 +628,7 @@ async function loadMovementsTraceability() {
 });
 
 registerExporter('movements', async () => ({
-  title: `Movimientos ${currentStockBranch?.name || ''}`.trim(),
+  title: `Movimientos ${getBranchName(document.getElementById('movements-branch-select').value) || ''}`.trim(),
   columns: [
     { header: 'Fecha', value: m => formatDateTime(m.createdAt) },
     { header: 'Tipo', value: m => (MOVEMENT_LABELS[m.type]?.[0] || m.type) + (m.subtype ? ` (${m.subtype})` : '') },

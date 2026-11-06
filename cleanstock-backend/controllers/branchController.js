@@ -209,91 +209,123 @@ const getBranchStock = async (req, res) => {
 const adjustBranchStock = async (req, res) => {
   try {
     const { id } = req.params;
-    const { productId, reason, lotId } = req.body;
-    const quantity = parseInt(req.body.quantity, 10);
+    const { productId, reason } = req.body;
 
-    if (!quantity) {
+    // Varias variantes (lotes) en un solo ajuste: [{ lotId, quantity }]. lotId vacío = stock general.
+    // También se acepta el formato simple { quantity, lotId }.
+    const lines = (Array.isArray(req.body.adjustments)
+      ? req.body.adjustments
+      : [{ lotId: req.body.lotId, quantity: req.body.quantity }])
+      .map(l => ({ lotId: l.lotId ? String(l.lotId) : null, quantity: parseInt(l.quantity, 10) || 0 }))
+      .filter(l => l.quantity !== 0);
+
+    if (!lines.length) {
       return res.status(400).json({ message: 'La cantidad del ajuste no puede ser 0' });
     }
+    const lotIds = lines.filter(l => l.lotId).map(l => l.lotId);
+    if (new Set(lotIds).size !== lotIds.length) {
+      return res.status(400).json({ message: 'Hay un lote repetido en el ajuste' });
+    }
+    if (lines.filter(l => !l.lotId).length > 1) {
+      return res.status(400).json({ message: 'El ajuste sin lote se indica una sola vez' });
+    }
 
-    const [branch, product] = await Promise.all([
+    const [branch, product, lotDocs] = await Promise.all([
       PhysicalSpace.findById(id),
-      Product.findById(productId)
+      Product.findById(productId),
+      lotIds.length ? StockEntry.find({ _id: { $in: lotIds }, branchId: id, productId }).lean() : []
     ]);
     if (!branch) return res.status(404).json({ message: 'Sucursal no encontrada' });
     if (!product) return res.status(404).json({ message: 'Producto no encontrado' });
+    if (lotDocs.length !== lotIds.length) {
+      return res.status(404).json({ message: 'El lote no corresponde a ese producto en esta sucursal' });
+    }
+    const lotsById = new Map(lotDocs.map(l => [l._id.toString(), l]));
 
-    let stockRecord;
-    let lots = [];
-    let lot = null;
-    if (lotId) {
-      lot = await StockEntry.findOne({ _id: lotId, branchId: id, productId }).lean();
-      if (!lot) return res.status(404).json({ message: 'El lote no corresponde a ese producto en esta sucursal' });
+    // Se valida todo antes de tocar nada
+    for (const line of lines) {
+      const lot = line.lotId && lotsById.get(line.lotId);
+      if (lot && line.quantity < 0 && -line.quantity > lot.remaining) {
+        return res.status(400).json({ message: `El lote ${lot.lotNumber} tiene ${lot.remaining} u.; no se pueden descontar ${-line.quantity}.` });
+      }
     }
 
-    if (lot) {
-      // Ajuste de un lote puntual: se mueve ese lote y el total de la sucursal
-      if (quantity < 0) {
-        const take = -quantity;
-        const updatedLot = await StockEntry.findOneAndUpdate(
-          { _id: lot._id, remaining: { $gte: take } },
-          [{ $set: { remaining: { $subtract: ['$remaining', take] }, status: { $cond: [{ $eq: [{ $subtract: ['$remaining', take] }, 0] }, 'AGOTADO', '$status'] } } }],
-          { returnDocument: 'after', updatePipeline: true }
-        );
-        if (!updatedLot) {
-          return res.status(400).json({ message: `El lote ${lot.lotNumber} tiene ${lot.remaining} u.; no se pueden descontar ${take}.` });
-        }
-        stockRecord = await stock.decreaseAvailableStock(id, productId, take);
-        if (!stockRecord) {
-          // Se devuelve lo descontado del lote: el total no alcanzaba (hay unidades reservadas para pedidos)
-          await StockEntry.updateOne({ _id: lot._id }, { $inc: { remaining: take }, $set: { status: lot.status } });
-          const current = await BranchStock.findOne({ branchId: id, productId }).lean();
-          return res.status(400).json({
-            message: `Stock insuficiente. Stock actual: ${current?.quantity || 0}, reservado para pedidos: ${current?.reservedQuantity || 0}, ajuste solicitado: ${quantity}`
-          });
-        }
-      } else {
-        stockRecord = await stock.increaseStock(id, productId, quantity);
-        await StockEntry.updateOne(
-          { _id: lot._id },
-          [{ $set: { remaining: { $add: ['$remaining', quantity] }, status: { $cond: [{ $eq: ['$status', 'AGOTADO'] }, 'DISPONIBLE', '$status'] } } }],
-          { updatePipeline: true }
-        );
-      }
-      lots = [{ lotNumber: lot.lotNumber }];
-    } else if (quantity > 0) {
-      stockRecord = await stock.increaseStock(id, productId, quantity);
-    } else {
-      // Atómico: no deja bajar por debajo de lo reservado para pedidos
-      stockRecord = await stock.decreaseAvailableStock(id, productId, -quantity);
+    // 1) Total de la sucursal: se mueve una sola vez por la diferencia neta (atómico, respeta lo reservado)
+    const net = lines.reduce((sum, l) => sum + l.quantity, 0);
+    let stockRecord;
+    if (net < 0) {
+      stockRecord = await stock.decreaseAvailableStock(id, productId, -net);
       if (!stockRecord) {
         const current = await BranchStock.findOne({ branchId: id, productId }).lean();
-        const total = current ? current.quantity : 0;
-        const reservedQty = current ? (current.reservedQuantity || 0) : 0;
         return res.status(400).json({
-          message: `Stock insuficiente. Stock actual: ${total}, reservado para pedidos: ${reservedQty}, ajuste solicitado: ${quantity}`
+          message: `Stock insuficiente. Stock actual: ${current?.quantity || 0}, reservado para pedidos: ${current?.reservedQuantity || 0}, ajuste solicitado: ${net}`
         });
       }
-      lots = await stock.consumeLots(id, productId, -quantity);
+    } else if (net > 0) {
+      stockRecord = await stock.increaseStock(id, productId, net);
+    } else {
+      stockRecord = await BranchStock.findOne({ branchId: id, productId });
     }
 
-    await stock.recordMovement({
-      type: 'AJUSTE',
-      branchId: id,
-      productId,
-      quantity,
-      lotNumber: lots.map(l => l.lotNumber).join(', ') || null,
-      reason: reason || 'Sin motivo',
-      userId: req.user.id
-    });
+    // 2) Cada lote elegido. Si uno falla (otro usuario lo modificó recién), se deshace todo.
+    const applied = [];
+    const undo = async () => {
+      for (const a of applied) {
+        await StockEntry.updateOne({ _id: a.lot._id }, { $inc: { remaining: -a.quantity }, $set: { status: a.lot.status } });
+      }
+      if (net < 0) await stock.increaseStock(id, productId, -net);
+      else if (net > 0) await stock.decreaseAvailableStock(id, productId, net);
+    };
+    for (const line of lines.filter(l => l.lotId)) {
+      const lot = lotsById.get(line.lotId);
+      const newRemaining = { $add: ['$remaining', line.quantity] };
+      const updated = await StockEntry.findOneAndUpdate(
+        { _id: lot._id, remaining: { $gte: Math.max(0, -line.quantity) } },
+        [{ $set: {
+          remaining: newRemaining,
+          status: { $cond: [{ $eq: [newRemaining, 0] }, 'AGOTADO', { $cond: [{ $eq: ['$status', 'AGOTADO'] }, 'DISPONIBLE', '$status'] }] }
+        } }],
+        { returnDocument: 'after', updatePipeline: true }
+      );
+      if (!updated) {
+        await undo();
+        return res.status(409).json({ message: `El lote ${lot.lotNumber} cambió mientras se ajustaba. Volvé a abrir el ajuste e intentá de nuevo.` });
+      }
+      applied.push({ lot, quantity: line.quantity });
+    }
 
+    // 3) Ajuste general (sin lote): si resta, descuenta del lote que vence primero
+    const general = lines.find(l => !l.lotId);
+    let generalLots = [];
+    if (general && general.quantity < 0) {
+      generalLots = await stock.consumeLots(id, productId, -general.quantity);
+    }
+
+    // Un movimiento por variante, para la trazabilidad
+    for (const line of lines) {
+      const lot = line.lotId && lotsById.get(line.lotId);
+      await stock.recordMovement({
+        type: 'AJUSTE',
+        branchId: id,
+        productId,
+        quantity: line.quantity,
+        lotNumber: lot ? lot.lotNumber : (generalLots.map(l => l.lotNumber).join(', ') || null),
+        reason: reason || 'Sin motivo',
+        userId: req.user.id
+      });
+    }
+
+    const detail = lines.map(l => {
+      const lot = l.lotId && lotsById.get(l.lotId);
+      return `${l.quantity > 0 ? '+' : ''}${l.quantity}${lot ? ` (lote ${lot.lotNumber})` : lines.length > 1 ? ' (sin lote)' : ''}`;
+    }).join(', ');
     await ActivityLog.create({
       userId: req.user.id,
-      action: quantity > 0 ? 'STOCK_ENTRY' : 'STOCK_EXIT',
-      details: `Ajuste manual de stock: ${quantity > 0 ? '+' : ''}${quantity} unidades de "${product.name}"${lot ? ` (lote ${lot.lotNumber})` : ''} en sucursal "${branch.name}". Motivo: ${reason || 'Sin motivo'}`
+      action: net >= 0 ? 'STOCK_ENTRY' : 'STOCK_EXIT',
+      details: `Ajuste manual de stock de "${product.name}" en sucursal "${branch.name}": ${detail} unidades. Motivo: ${reason || 'Sin motivo'}`
     });
 
-    res.json({ message: 'Stock ajustado correctamente', stockRecord });
+    res.json({ message: 'Stock ajustado correctamente', stockRecord, adjusted: lines.length });
   } catch (error) {
     res.status(500).json({ message: 'Error ajustando stock', error: error.message });
   }

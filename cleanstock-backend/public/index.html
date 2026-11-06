@@ -503,8 +503,23 @@
             </div>
             <div class="pagination-container" id="stock-view-pagination"></div>
           </div>
+        </section>
 
-          <!-- Trazabilidad de movimientos -->
+        <!-- PANEL MOVIMIENTOS DE STOCK -->
+        <section id="panel-movements" class="panel hidden">
+          <div class="panel-header-row">
+            <h2 id="movements-branch-title">Movimientos de Stock</h2>
+          </div>
+
+          <div class="card glass filter-card multi-only">
+            <div class="filter-row">
+              <label for="movements-branch-select" class="inline-label">Sucursal:</label>
+              <select id="movements-branch-select" class="select-md">
+                <option value="">— Seleccionar sucursal —</option>
+              </select>
+            </div>
+          </div>
+
           <div class="card glass table-card">
             <div class="card-title-row">
               <h3>Historial de Movimientos de Stock</h3>
@@ -1150,12 +1165,17 @@
             <div class="select-search-dropdown hidden" id="adjust-product-dropdown"></div>
           </div>
         </div>
-        <div class="form-group span-2 hidden" id="adjust-lot-group">
-          <label for="adjust-lot">Lote</label>
-          <select id="adjust-lot"></select>
-          <p class="hint-text" id="adjust-lot-hint"></p>
+        <div class="form-group span-2 hidden" id="adjust-variants-group">
+          <label>Variantes del producto <span class="opt">(cargá el ajuste en cada lote que quieras cambiar: + suma, - resta)</span></label>
+          <div class="table-responsive">
+            <table class="adjust-variants-table">
+              <thead><tr><th>Lote</th><th>Vence</th><th>En stock</th><th>Ajuste</th><th>Queda</th></tr></thead>
+              <tbody id="adjust-variants-body"></tbody>
+            </table>
+          </div>
+          <p class="hint-text" id="adjust-variants-total"></p>
         </div>
-        <div class="form-group">
+        <div class="form-group" id="adjust-quantity-group">
           <label for="adjust-quantity">Cantidad <span class="opt">(+ suma, - resta)</span> <span class="req">*</span></label>
           <div class="qty-stepper">
             <button type="button" class="btn btn-secondary" id="btn-adjust-qty-minus">-</button>

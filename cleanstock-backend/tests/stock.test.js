@@ -112,6 +112,32 @@ describe('Ingresos, egresos y lotes', () => {
     expect((await stockOf(s.central)).quantity).toBe(9);
   });
 
+  test('se ajustan varias variantes en un solo movimiento, y si una no alcanza no se cambia nada', async () => {
+    await addEntry(s.tokens.admin, { lotNumber: 'A', expirationDate: '2029-01-01', quantity: 10 });
+    await addEntry(s.tokens.admin, { lotNumber: 'B', expirationDate: '2030-01-01', quantity: 10 });
+    await addEntry(s.tokens.admin, { lotNumber: 'C', expirationDate: '2031-01-01', quantity: 10 });
+    const [a, b, c] = await Promise.all(['A', 'B', 'C'].map(n => StockEntry.findOne({ lotNumber: n }).lean()));
+    const adjust = (adjustments) => request(app).post(`/api/branches/${s.central._id}/stock/adjust`).set(auth(s.tokens.responsable))
+      .send({ productId: s.product._id, reason: 'Corrección de conteo', adjustments });
+    const remaining = async () => (await StockEntry.find().sort({ lotNumber: 1 }).lean()).map(l => l.remaining);
+
+    const ok = await adjust([{ lotId: a._id, quantity: -3 }, { lotId: b._id, quantity: 2 }, { lotId: c._id, quantity: -10 }]);
+    expect(ok.status).toBe(200);
+    expect(await remaining()).toEqual([7, 12, 0]);
+    expect((await StockEntry.findOne({ lotNumber: 'C' })).status).toBe('AGOTADO');
+    expect((await stockOf(s.central)).quantity).toBe(19);
+    expect(await StockMovement.countDocuments({ type: 'AJUSTE' })).toBe(3);
+
+    // B no tiene 20: no se toca ningún lote ni el total
+    const bad = await adjust([{ lotId: a._id, quantity: -1 }, { lotId: b._id, quantity: -20 }]);
+    expect(bad.status).toBe(400);
+    expect(await remaining()).toEqual([7, 12, 0]);
+    expect((await stockOf(s.central)).quantity).toBe(19);
+
+    // Un lote repetido se rechaza
+    expect((await adjust([{ lotId: a._id, quantity: -1 }, { lotId: a._id, quantity: -1 }])).status).toBe(400);
+  });
+
   test('el ajuste por lote rechaza lotes de otro producto o sucursal y respeta lo reservado', async () => {
     await addEntry(s.tokens.admin, { lotNumber: 'L-A', quantity: 10 });
     const lot = await StockEntry.findOne({ lotNumber: 'L-A' }).lean();

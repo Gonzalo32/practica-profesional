@@ -2507,3 +2507,9 @@ body.single-branch #panel-admin .grid-dashboard { grid-template-columns: repeat(
   padding: 1px 8px;
   white-space: nowrap;
 }
+
+/* Ajuste manual: tabla de variantes (lotes) con un ajuste por fila */
+.adjust-variants-table { width: 100%; }
+.adjust-variants-table th, .adjust-variants-table td { padding: 6px 8px; vertical-align: middle; }
+.adjust-variants-table input.adjust-variant-qty { width: 100px; max-width: 100px; text-align: right; }
+.adjust-variant-result { font-weight: 700; }

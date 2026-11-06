@@ -111,6 +111,7 @@ document.getElementById('resp-movements-type')?.addEventListener('change', (e) =
 function afterStockChange() {
   if (state.currentTab === 'panel-responsable') loadRecentStockTable();
   if (state.currentTab === 'panel-stock-view') loadBranchStockPanel();
+  if (state.currentTab === 'panel-movements') loadMovementsTraceability();
   if (state.currentTab === 'panel-expirations') loadExpirationsPanel();
   refreshNotifications();
 }
