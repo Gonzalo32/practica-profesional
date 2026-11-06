@@ -5,7 +5,7 @@ const orderSchema = new mongoose.Schema({
   number: { type: Number, default: null },
   status: {
     type: String,
-    enum: ['PENDIENTE_VALIDACION', 'PENDIENTE', 'EN_PREPARACION', 'DESPACHADO', 'ENTREGADO', 'RECHAZADO'],
+    enum: ['PENDIENTE_VALIDACION', 'PENDIENTE', 'EN_PREPARACION', 'DESPACHADO', 'ENTREGADO', 'RECHAZADO', 'CANCELADO'],
     default: 'PENDIENTE'
   },
   requiresValidation: { type: Boolean, default: false },

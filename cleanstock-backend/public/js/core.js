@@ -140,7 +140,8 @@ const STATUS_LABELS = {
   EN_PREPARACION: 'En preparación',
   DESPACHADO: 'Despachado',
   ENTREGADO: 'Entregado',
-  RECHAZADO: 'Rechazado'
+  RECHAZADO: 'Rechazado',
+  CANCELADO: 'Cancelado'
 };
 
 function statusLabel(status) {
@@ -152,6 +153,7 @@ function getStatusClass(status) {
   if (status === 'EN_PREPARACION') return 'preparacion';
   if (status === 'DESPACHADO') return 'despachado';
   if (status === 'ENTREGADO') return 'entregado';
+  if (status === 'CANCELADO') return 'cancelado';
   return 'rechazado';
 }
 

@@ -1,6 +1,4 @@
-const jwt = require('jsonwebtoken');
 const { Order, OrderItem, Product, ActivityLog, PhysicalSpace, BranchStock, nextSequence } = require('../models');
-const { JWT_SECRET } = require('../middlewares/authMiddleware');
 const stock = require('../services/stockService');
 const { toId, formatOrderCode, parsePagination } = require('../utils/format');
 
@@ -203,26 +201,15 @@ const getOrders = async (req, res) => {
   }
 };
 
-// T4.3 Flujo de Aprobación de Administrador (usando el validation token)
+// T4.3 Aprobación del administrador (la ruta ya exige el rol Administrador)
 const approveOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const { validationToken } = req.body;
-
-    let decoded;
-    try {
-      decoded = jwt.verify(validationToken, JWT_SECRET);
-      if (decoded.type !== 'validation_token' || decoded.orderId !== orderId) {
-        throw new Error('Token no válido para esta orden');
-      }
-    } catch (err) {
-      return res.status(403).json({ message: 'Token de validación inválido o expirado' });
-    }
 
     // Cambio de estado atómico: solo se aprueba si sigue esperando validación
     const order = await Order.findOneAndUpdate(
       { _id: orderId, status: 'PENDIENTE_VALIDACION' },
-      { $set: { status: 'PENDIENTE', validatorId: decoded.adminId } },
+      { $set: { status: 'PENDIENTE', validatorId: req.user.id } },
       { returnDocument: 'after' }
     );
     if (!order) {
@@ -233,9 +220,9 @@ const approveOrder = async (req, res) => {
     }
 
     await ActivityLog.create({
-      userId: decoded.adminId,
+      userId: req.user.id,
       action: 'APPROVE_ORDER',
-      details: `Administrador aprobó el pedido ${formatOrderCode(order)} mediante token`,
+      details: `Administrador aprobó el pedido ${formatOrderCode(order)}`,
       orderId: order._id
     });
 
@@ -263,9 +250,121 @@ const canTransition = (order, status, user) => {
     return false;
   }
   if (status === 'RECHAZADO') {
-    return !['ENTREGADO', 'RECHAZADO'].includes(current) && role === 'Administrador';
+    return !['ENTREGADO', 'RECHAZADO', 'CANCELADO'].includes(current) && role === 'Administrador';
+  }
+  if (status === 'CANCELADO') {
+    // Solo antes de empezar a prepararlo, y lo cancela quien lo pidió o el administrador
+    return canEditOrder(order, user);
   }
   return false;
+};
+
+// Un pedido se puede modificar o cancelar mientras nadie empezó a prepararlo
+const EDITABLE_STATUSES = ['PENDIENTE_VALIDACION', 'PENDIENTE'];
+const canEditOrder = (order, user) => EDITABLE_STATUSES.includes(order.status) && (
+  user.role === 'Administrador' || String(order.solicitanteId) === String(user.id)
+);
+
+/**
+ * PUT /api/orders/:orderId  { items: [{ productId, quantity }], notes? }
+ * Agregar, quitar o cambiar productos de un pedido que todavía no se empezó a preparar.
+ * Ajusta las reservas por la diferencia (si algo no alcanza, no cambia nada) y vuelve a
+ * decidir si necesita la aprobación del administrador (más de 50 unidades de un producto).
+ */
+const updateOrder = async (req, res) => {
+  const applied = [];
+  try {
+    const { orderId } = req.params;
+    const current = await Order.findById(orderId).lean();
+    if (!current) return res.status(404).json({ message: 'Orden no encontrada' });
+    if (!canEditOrder(current, req.user)) {
+      return res.status(400).json({ message: EDITABLE_STATUSES.includes(current.status)
+        ? 'Solo quien hizo el pedido o el administrador pueden modificarlo.'
+        : 'El pedido ya se empezó a preparar: no se puede modificar.' });
+    }
+
+    const items = mergeItems(req.body.items);
+    const products = await Product.find({ _id: { $in: items.map(i => i.productId) } }).lean();
+    if (products.length !== items.length) {
+      return res.status(400).json({ message: 'Uno o más productos del pedido no existen.' });
+    }
+    const productName = (id) => products.find(p => String(p._id) === String(id))?.name || 'Producto';
+
+    // Diferencia por producto contra lo que ya estaba reservado
+    const before = await OrderItem.find({ orderId }).lean();
+    const oldQty = new Map(before.map(i => [String(i.productId), i.quantity]));
+    const newQty = new Map(items.map(i => [String(i.productId), i.quantity]));
+    const deltas = [...new Set([...oldQty.keys(), ...newQty.keys()])]
+      .map(productId => ({ productId, delta: (newQty.get(productId) || 0) - (oldQty.get(productId) || 0) }))
+      .filter(d => d.delta !== 0);
+
+    if (current.fromBranchId) {
+      // Primero se reservan los aumentos (atómico); si alguno no alcanza se deshace todo
+      for (const d of deltas.filter(x => x.delta > 0)) {
+        const ok = await stock.reserveStock(current.fromBranchId, d.productId, d.delta);
+        if (!ok) {
+          const record = await BranchStock.findOne({ branchId: current.fromBranchId, productId: d.productId }).lean();
+          const available = record ? Math.max(0, record.quantity - (record.reservedQuantity || 0)) : 0;
+          const err = new Error(`No hay stock suficiente de "${productName(d.productId)}" para sumar ${d.delta} u. Disponible: ${available}.`);
+          err.status = 400;
+          throw err;
+        }
+        applied.push(d);
+      }
+    }
+
+    const requiresValidation = items.some(item => item.quantity > VALIDATION_THRESHOLD);
+    const newStatus = requiresValidation ? 'PENDIENTE_VALIDACION' : 'PENDIENTE';
+    // Atómico: si mientras tanto se empezó a preparar, no se toca
+    const order = await Order.findOneAndUpdate(
+      { _id: orderId, status: current.status },
+      { $set: { status: newStatus, requiresValidation, ...(req.body.notes !== undefined ? { notes: req.body.notes || null } : {}) } },
+      { returnDocument: 'after' }
+    );
+    if (!order) {
+      const err = new Error('El pedido cambió mientras se modificaba (puede que ya se esté preparando). Actualizá la pantalla.');
+      err.status = 409;
+      throw err;
+    }
+
+    // Se liberan las reservas de lo que se quitó o bajó, y se reemplazan los ítems
+    if (current.fromBranchId) {
+      for (const d of deltas.filter(x => x.delta < 0)) {
+        await stock.releaseReservation(current.fromBranchId, d.productId, -d.delta);
+      }
+    }
+    await OrderItem.deleteMany({ orderId });
+    await OrderItem.insertMany(items.map(item => ({ orderId, productId: item.productId, quantity: item.quantity })));
+
+    const changes = deltas.map(d => {
+      const from = oldQty.get(d.productId) || 0;
+      const to = newQty.get(d.productId) || 0;
+      return from === 0 ? `agregó ${to} u. de "${productName(d.productId)}"`
+        : to === 0 ? `quitó "${productName(d.productId) || 'producto'}"`
+          : `"${productName(d.productId)}" ${from} → ${to}`;
+    });
+    if (newStatus !== current.status) {
+      changes.push(newStatus === 'PENDIENTE_VALIDACION' ? 'ahora necesita aprobación del administrador' : 'ya no necesita aprobación');
+    }
+    await ActivityLog.create({
+      userId: req.user.id,
+      action: 'UPDATE_ORDER',
+      details: `Modificó el pedido ${formatOrderCode(order)}: ${changes.join(', ') || 'sin cambios en los productos'}`,
+      orderId: order._id
+    });
+
+    res.json({ message: 'Pedido modificado', changes, order: { ...order.toObject(), id: order._id.toString(), code: formatOrderCode(order) } });
+  } catch (error) {
+    // Se devuelven las reservas que se habían tomado
+    const fromBranchId = (await Order.findById(req.params.orderId).select('fromBranchId').lean().catch(() => null))?.fromBranchId;
+    for (const d of applied) {
+      if (fromBranchId) await stock.releaseReservation(fromBranchId, d.productId, d.delta).catch(() => {});
+    }
+    res.status(error.status || 500).json({
+      message: error.status ? error.message : 'Error modificando el pedido',
+      ...(error.status ? {} : { error: error.message })
+    });
+  }
 };
 
 // T5.2 y T5.3: Actualizar el estado del pedido (Máquina de Estados)
@@ -311,8 +410,8 @@ const updateOrderStatus = async (req, res) => {
     const fromName = fromSpace ? fromSpace.name : 'Central';
     const toName = toSpace ? toSpace.name : 'General';
 
-    // Módulo 5: liberar la reserva si el pedido es RECHAZADO
-    if (status === 'RECHAZADO' && order.fromBranchId) {
+    // Módulo 5: liberar la reserva si el pedido es RECHAZADO o CANCELADO
+    if (['RECHAZADO', 'CANCELADO'].includes(status) && order.fromBranchId) {
       for (const item of orderItems) {
         if (!item.productId) continue;
         await stock.releaseReservation(order.fromBranchId, item.productId._id, item.quantity);
@@ -320,7 +419,7 @@ const updateOrderStatus = async (req, res) => {
       await ActivityLog.create({
         userId: req.user.id,
         action: 'RESERVATION_RELEASED',
-        details: `Reserva liberada por rechazo del pedido ${code} en sucursal "${fromName}"`,
+        details: `Reserva liberada por ${status === 'CANCELADO' ? 'cancelación' : 'rechazo'} del pedido ${code} en sucursal "${fromName}"`,
         orderId: order._id
       });
     }
@@ -447,6 +546,7 @@ module.exports = {
   createOrder,
   getOrders,
   approveOrder,
+  updateOrder,
   updateOrderStatus,
   getOrderHistory
 };

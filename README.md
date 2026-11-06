@@ -118,7 +118,7 @@ Con `DEMO_DATA=true` en el `.env`, los mismos datos se cargan al iniciar el serv
 npm test
 ```
 
-Corre 66 pruebas automatizadas sobre una base de datos en memoria, sin tocar la base real. Cubren autenticación, permisos por rol y por sucursal, pedidos, stock, provisiones, marcas, proveedores, conteos, configuración, espacios físicos y reportes.
+Corre 72 pruebas automatizadas sobre una base de datos en memoria, sin tocar la base real. Cubren autenticación, permisos por rol y por sucursal, pedidos, stock, provisiones, marcas, proveedores, conteos, configuración, espacios físicos y reportes.
 
 ## Estructura del proyecto
 
@@ -145,11 +145,11 @@ La API REST se publica bajo `/api` y, salvo el inicio de sesión, exige un token
 
 | Recurso | Uso |
 | --- | --- |
-| `/api/auth` | Inicio de sesión y token de validación de pedidos |
+| `/api/auth` | Inicio de sesión |
 | `/api/users` | Usuarios y auditoría |
 | `/api/branches` | Sucursales, stock por sucursal y movimientos |
 | `/api/inventory` | Categorías, productos, ingresos, egresos y lotes |
-| `/api/orders` | Pedidos, aprobación, estados e historial |
+| `/api/orders` | Pedidos: alta, modificación, cancelación, aprobación, estados e historial |
 | `/api/alerts` | Alertas de stock y vencimientos, indicadores |
 | `/api/suppliers` | Proveedores y órdenes de compra |
 | `/api/counts` | Conteos físicos de inventario |

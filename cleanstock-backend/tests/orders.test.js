@@ -136,4 +136,63 @@ describe('Pedidos entre sucursales', () => {
     expect(res.body.items).toHaveLength(2);
     expect(res.body.items[0].OrderItems[0].Product.name).toBe('LAVANDINA 1L');
   });
+
+  test("el administrador aprueba un pedido grande sin token", async () => {
+    // 60 unidades: se agrega stock para poder reservarlas
+    await request(app).post("/api/inventory/stock").set(auth(s.tokens.admin)).send({
+      productId: s.product._id, branchId: s.central._id, quantity: 60, lotNumber: "L-B", expirationDate: "2030-06-01"
+    });
+    const order = (await createOrder(s.tokens.solicitante, 55)).body.order;
+    expect(order.status).toBe("PENDIENTE_VALIDACION");
+    const approve = (token) => request(app).post(`/api/orders/${order.id}/approve`).set(auth(token)).send({});
+    expect((await approve(s.tokens.solicitante)).status).toBe(403);
+    const ok = await approve(s.tokens.admin);
+    expect(ok.status).toBe(200);
+    expect(ok.body.order.status).toBe("PENDIENTE");
+    expect((await approve(s.tokens.admin)).status).toBe(400); // ya no espera aprobación
+  });
+
+  test("modificar un pedido ajusta la reserva por la diferencia y no deja pasarse del stock", async () => {
+    const order = (await createOrder(s.tokens.solicitante, 4)).body.order;
+    const edit = (quantity, token = s.tokens.solicitante) => request(app).put(`/api/orders/${order.id}`).set(auth(token))
+      .send({ items: [{ productId: s.product._id, quantity }] });
+
+    expect((await edit(7)).status).toBe(200);
+    expect((await stockOf(s.central)).reservedQuantity).toBe(7);
+    expect((await edit(2)).status).toBe(200);
+    expect((await stockOf(s.central)).reservedQuantity).toBe(2);
+
+    // Hay 10: no se puede llevar a 11 y la reserva queda como estaba
+    expect((await edit(11)).status).toBe(400);
+    expect((await stockOf(s.central)).reservedQuantity).toBe(2);
+
+    // Otro usuario que no es el dueño ni admin no puede modificarlo
+    const otro = await createUser("Solicitante", { physicalSpaceId: s.norte._id });
+    expect((await edit(3, await login(otro))).status).toBe(400);
+
+    // Una vez en preparación ya no se puede modificar ni cancelar
+    await setStatus(s.tokens.despachante, order.id, "EN_PREPARACION");
+    expect((await edit(3)).status).toBe(400);
+    expect((await setStatus(s.tokens.solicitante, order.id, "CANCELADO")).status).toBe(400);
+  });
+
+  test("modificar puede hacer que el pedido necesite (o ya no) la aprobación del administrador", async () => {
+    await request(app).post("/api/inventory/stock").set(auth(s.tokens.admin)).send({
+      productId: s.product._id, branchId: s.central._id, quantity: 60, lotNumber: "L-C", expirationDate: "2030-06-01"
+    });
+    const order = (await createOrder(s.tokens.solicitante, 5)).body.order;
+    const edit = (quantity) => request(app).put(`/api/orders/${order.id}`).set(auth(s.tokens.solicitante))
+      .send({ items: [{ productId: s.product._id, quantity }] });
+    expect((await edit(60)).body.order.status).toBe("PENDIENTE_VALIDACION");
+    expect((await edit(10)).body.order.status).toBe("PENDIENTE");
+  });
+
+  test("cancelar un pedido libera la reserva", async () => {
+    const order = (await createOrder(s.tokens.solicitante, 6)).body.order;
+    expect((await stockOf(s.central)).reservedQuantity).toBe(6);
+    const res = await setStatus(s.tokens.solicitante, order.id, "CANCELADO");
+    expect(res.status).toBe(200);
+    expect((await stockOf(s.central)).reservedQuantity).toBe(0);
+    expect((await stockOf(s.central)).quantity).toBe(10);
+  });
 });

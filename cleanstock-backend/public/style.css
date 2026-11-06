@@ -2529,3 +2529,10 @@ body.single-branch #panel-admin .grid-dashboard { grid-template-columns: repeat(
 /* Buscador de marcas: aviso de "hay más" y opción de crear */
 .select-search-more { padding: 8px 14px; font-size: 0.8rem; color: var(--text-muted); }
 .select-search-create .select-search-item-name { color: var(--color-primary); font-weight: 600; }
+
+/* Pedido cancelado por quien lo pidió */
+.status-cancelado {
+  background: rgba(148, 163, 184, 0.14);
+  color: var(--text-muted);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}

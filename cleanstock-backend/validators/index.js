@@ -6,7 +6,7 @@ const { validate } = require('../middlewares/validate');
 
 const ROLES = ['Administrador', 'Solicitante', 'Despachante', 'Usuario Responsable', 'Proveedor'];
 const BRANCH_TYPES = ['filial', 'Zona', 'sucursal', 'dependencia', 'sector'];
-const ORDER_STATUSES = ['EN_PREPARACION', 'DESPACHADO', 'ENTREGADO', 'RECHAZADO'];
+const ORDER_STATUSES = ['EN_PREPARACION', 'DESPACHADO', 'ENTREGADO', 'RECHAZADO', 'CANCELADO'];
 const INFORMAL_ENTRY_TYPES = ['ENCONTRADO', 'DONACION', 'DEVOLUCION', 'EXCEDENTE', 'SIN_OC'];
 const EXIT_TYPES = ['VENTA', 'CONSUMO', 'ROTURA', 'VENCIDO', 'OTRO'];
 
@@ -28,11 +28,6 @@ const optionalText = (field, label, max = 500) => body(field)
 const login = [
   requiredText('username', 'El usuario'),
   body('password').isString().notEmpty().withMessage('La contraseña es obligatoria'),
-  validate
-];
-
-const validationToken = [
-  mongoId('orderId', 'Pedido'),
   validate
 ];
 
@@ -224,7 +219,16 @@ const createOrder = [
 
 const approveOrder = [
   idParam('orderId'),
-  body('validationToken').isString().notEmpty().withMessage('Se requiere un token de validación'),
+  validate
+];
+
+// Modificar un pedido que todavía no empezó a prepararse
+const updateOrder = [
+  idParam('orderId'),
+  body('items').isArray({ min: 1 }).withMessage('El pedido tiene que tener al menos un producto. Para anularlo, cancelalo.'),
+  body('items.*.productId').isMongoId().withMessage('Producto inválido en el pedido'),
+  body('items.*.quantity').isInt({ min: 1 }).withMessage('Las cantidades deben ser números enteros mayores a 0').toInt(),
+  optionalText('notes', 'Las notas', 500),
   validate
 ];
 
@@ -310,7 +314,6 @@ const onlyId = [idParam(), validate];
 
 module.exports = {
   login,
-  validationToken,
   createUser,
   updateUser,
   branch,
@@ -331,6 +334,7 @@ module.exports = {
   stockExit,
   createOrder,
   approveOrder,
+  updateOrder,
   orderStatus,
   branchMinStock,
   supplier,

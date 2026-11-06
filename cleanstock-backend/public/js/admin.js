@@ -445,7 +445,7 @@ async function loadAdminApprovals() {
           <td><div class="order-item-details">${itemsText || 'Sin artículos'}</div></td>
           <td>
             <div class="btn-row">
-              <button class="btn btn-primary btn-sm" onclick="openValidationModal('${order.id}')">Validar / Aprobar</button>
+              <button class="btn btn-primary btn-sm" onclick="approveOrder('${order.id}')">Aprobar</button>
               <button class="btn btn-danger-soft btn-sm" onclick="rejectOrder('${order.id}')">Rechazar</button>
             </div>
           </td>
@@ -457,12 +457,24 @@ async function loadAdminApprovals() {
 }
 onSubTab('subpanel-admin-approvals', loadAdminApprovals);
 
-window.openValidationModal = (orderId) => {
-  activeApprovalOrderId = orderId;
-  document.getElementById('token-display-box').classList.add('hidden');
-  document.getElementById('token-string').value = '';
-  document.getElementById('apply-token-input').value = '';
-  openModal('validation-token-modal');
+// Aprobar un pedido grande: un clic y una confirmación (sin token)
+window.approveOrder = async (orderId) => {
+  const ok = await confirmDialog({
+    title: 'Aprobar pedido',
+    message: 'El pedido pasa a Pendiente y queda listo para que el despachante lo prepare. El stock ya está reservado.',
+    confirmText: 'Aprobar pedido'
+  });
+  if (!ok) return;
+  try {
+    await apiFetch(`/orders/${orderId}/approve`, { method: 'POST', body: JSON.stringify({}) });
+    showToast('Pedido aprobado y enviado al Despachante.', 'success');
+    loadAdminApprovals();
+    loadAdminStats();
+    loadDashboardCharts();
+    refreshNotifications();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
 };
 
 window.rejectOrder = async (orderId) => {
@@ -484,52 +496,6 @@ window.rejectOrder = async (orderId) => {
     showToast(err.message, 'error');
   }
 };
-
-document.getElementById('btn-generate-token')?.addEventListener('click', async () => {
-  if (!activeApprovalOrderId) return;
-  try {
-    const response = await apiFetch('/auth/generate-validation', {
-      method: 'POST',
-      body: JSON.stringify({ orderId: activeApprovalOrderId, action: 'APPROVE_ORDER' })
-    });
-    document.getElementById('token-string').value = response.validationToken;
-    document.getElementById('token-display-box').classList.remove('hidden');
-    showToast('Token de validación generado correctamente.', 'success');
-  } catch (err) {
-    showToast(err.message, 'error');
-  }
-});
-
-document.getElementById('btn-copy-token')?.addEventListener('click', async () => {
-  const tokenInput = document.getElementById('token-string');
-  try {
-    await navigator.clipboard.writeText(tokenInput.value);
-    showToast('Token copiado al portapapeles', 'info');
-  } catch (err) {
-    tokenInput.select();
-    showToast('Seleccioná el token y copialo con Ctrl+C', 'info');
-  }
-});
-
-document.getElementById('form-apply-token')?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const token = document.getElementById('apply-token-input').value.trim();
-  if (!activeApprovalOrderId || !token) return;
-  try {
-    await apiFetch(`/orders/${activeApprovalOrderId}/approve`, {
-      method: 'POST',
-      body: JSON.stringify({ validationToken: token })
-    });
-    showToast('Pedido aprobado con token y enviado al Despachante.', 'success');
-    closeModal('validation-token-modal');
-    loadAdminApprovals();
-    loadAdminStats();
-    loadDashboardCharts();
-    refreshNotifications();
-  } catch (err) {
-    showToast(err.message, 'error');
-  }
-});
 
 // --------------------------------------------------------------------------
 // Alertas de stock bajo o crítico

@@ -233,6 +233,20 @@ describe('Ingresos, egresos y lotes', () => {
     expect(otraSucursal.status).toBe(403);
   });
 
+  test('para armar un pedido solo se ofrecen los productos con stock disponible en el origen', async () => {
+    const available = () => request(app).get(`/api/branches/${s.central._id}/available`).set(auth(s.tokens.solicitante));
+    expect((await available()).body).toEqual([]); // sin stock: no se ofrece nada
+
+    await addEntry(s.tokens.admin, { quantity: 10 });
+    const res = await available();
+    expect(res.status).toBe(200); // el solicitante puede verlo aunque no sea su sucursal
+    expect(res.body).toEqual([{ productId: String(s.product._id), available: 10 }]);
+
+    // Todo reservado para otros pedidos: tampoco se ofrece
+    await BranchStock.updateOne({ branchId: s.central._id, productId: s.product._id }, { reservedQuantity: 10 });
+    expect((await available()).body).toEqual([]);
+  });
+
   test('el ajuste por lote rechaza lotes de otro producto o sucursal y respeta lo reservado', async () => {
     await addEntry(s.tokens.admin, { lotNumber: 'L-A', quantity: 10 });
     const lot = await StockEntry.findOne({ lotNumber: 'L-A' }).lean();

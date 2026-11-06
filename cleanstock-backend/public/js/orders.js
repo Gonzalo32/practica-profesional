@@ -41,6 +41,52 @@ function canConfirmReception(order) {
   return false;
 }
 
+// Se puede modificar o cancelar mientras nadie empezó a prepararlo (quien lo pidió o el admin)
+function canEditOrder(order) {
+  if (!['PENDIENTE_VALIDACION', 'PENDIENTE'].includes(order.status)) return false;
+  return hasRole('Administrador') || String(order.solicitanteId) === String(state.user.id);
+}
+
+// Ojo: datos del pedido y sus productos
+window.openViewOrderModal = (orderId) => {
+  const order = loadedSolicitanteOrders.find(o => o.id === orderId);
+  if (!order) return;
+  const row = (label, value) => `<div><strong>${label}:</strong> ${value}</div>`;
+  document.getElementById('view-order-title').textContent = `Pedido ${formatOrderCode(order)}`;
+  document.getElementById('view-order-content').innerHTML = [
+    row('Estado', statusBadge(order.status)),
+    row('Fecha', formatDateTime(order.createdAt)),
+    row('Envía', escapeHtml(order.FromBranch?.name || 'General')),
+    row('Recibe', escapeHtml(order.ToBranch?.name || 'General')),
+    row('Pidió', escapeHtml(getUserDisplayName(order.Solicitante))),
+    row('Unidades', `${(order.OrderItems || []).reduce((sum, i) => sum + i.quantity, 0)} en ${(order.OrderItems || []).length} producto(s)`),
+    `<div class="span-2"><strong>Notas:</strong> ${escapeHtml(order.notes || 'Sin notas')}</div>`
+  ].join('');
+  document.getElementById('view-order-items').innerHTML = (order.OrderItems || []).map(i => `
+    <tr><td><strong>${escapeHtml(i.Product?.name || 'Insumo')}</strong></td><td>${i.quantity} u.</td></tr>`).join('');
+  openModal('modal-view-order');
+};
+
+// Tacho: cancelar el pedido (libera el stock reservado en el origen)
+window.cancelOrder = async (orderId) => {
+  const order = loadedSolicitanteOrders.find(o => o.id === orderId);
+  const ok = await confirmDialog({
+    title: 'Cancelar pedido',
+    message: `¿Cancelar el pedido ${order ? formatOrderCode(order) : ''}? Se libera el stock que tenía reservado en la sucursal de origen y no se puede volver a activar.`,
+    confirmText: 'Cancelar pedido',
+    danger: true
+  });
+  if (!ok) return;
+  try {
+    await apiFetch(`/orders/${orderId}/status`, { method: 'PUT', body: JSON.stringify({ status: 'CANCELADO' }) });
+    showToast('Pedido cancelado y stock liberado.', 'success');
+    loadSolicitanteOrders();
+    refreshNotifications();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+};
+
 function itemsSummaryHtml(order) {
   return (order.OrderItems || []).map(i => `<strong>${escapeHtml(i.Product?.name || 'Insumo')}</strong> (x${i.quantity})`).join(', ') || 'Sin ítems';
 }
@@ -62,9 +108,12 @@ function renderSolicitanteOrdersTable() {
         <td>${statusBadge(order.status)}</td>
         <td><span class="cell-date">${formatDateTime(order.createdAt)}</span></td>
         <td>
-          <div class="btn-row">
+          <div class="action-btn-group">
             ${canConfirmReception(order) ? `<button class="btn btn-success btn-sm" onclick="markOrderEntregado('${order.id}')">Confirmar recepción</button>` : ''}
-            <button class="btn btn-secondary btn-sm" onclick="openTimelineModal('${order.id}')">Trazabilidad</button>
+            <button class="btn-icon" title="Ver pedido" onclick="openViewOrderModal('${order.id}')">${ICON_VIEW}</button>
+            ${canEditOrder(order) ? `
+              <button class="btn-icon" title="Modificar pedido" onclick="openEditOrderModal('${order.id}')">${ICON_EDIT}</button>
+              <button class="btn-icon btn-icon-danger" title="Cancelar pedido" onclick="cancelOrder('${order.id}')">${ICON_DELETE}</button>` : ''}
           </div>
         </td>
       </tr>`).join('');
@@ -140,36 +189,118 @@ window.markOrderEntregado = async (orderId) => {
 // --------------------------------------------------------------------------
 let draftOrderItems = [];
 
+// El mismo formulario sirve para crear y para modificar (editingOrder != null)
+let editingOrder = null;
+
+function setOrderModalMode(order) {
+  editingOrder = order;
+  document.getElementById('order-modal-title').textContent = order ? `Modificar pedido ${formatOrderCode(order)}` : 'Crear Nuevo Pedido de Insumos';
+  document.getElementById('order-modal-submit').textContent = order ? 'Guardar cambios' : 'Confirmar y Enviar Pedido';
+  // Al modificar, el origen y el destino quedan fijos (cambia solo lo que se pide)
+  document.getElementById('order-modal-from-branch').disabled = !!order;
+  document.getElementById('order-modal-to-branch').disabled = !!order;
+}
+
 async function openCreateOrderModal() {
   await ensureBaseData();
+  setOrderModalMode(null);
   fillSelect(document.getElementById('order-modal-from-branch'), state.branches, { placeholder: 'Seleccionar sucursal origen...', placeholderDisabled: true, getLabel: branchLabel });
   fillSelect(document.getElementById('order-modal-to-branch'), state.branches, { placeholder: 'Seleccionar sucursal destino...', placeholderDisabled: true, getLabel: branchLabel, value: userBranchId() });
-  fillSelect(document.getElementById('order-modal-product-select'), state.products, { placeholder: 'Seleccioná un insumo...' });
   document.getElementById('order-modal-notes').value = '';
   document.getElementById('order-modal-available').textContent = '';
   draftOrderItems = [];
+  orderOriginAvailable = new Map();
+  fillOrderProducts();
   renderOrderModalItemsTable();
   openModal('modal-create-order');
 }
 document.getElementById('btn-open-create-order-modal')?.addEventListener('click', openCreateOrderModal);
 
-// Muestra cuánto hay disponible en el origen del producto elegido (si el usuario puede verlo)
-async function showOrderAvailability() {
-  const hint = document.getElementById('order-modal-available');
+// Lápiz: agregar, quitar o cambiar cantidades de un pedido que todavía no se preparó
+window.openEditOrderModal = async (orderId) => {
+  const order = loadedSolicitanteOrders.find(o => o.id === orderId);
+  if (!order) return;
+  await ensureBaseData();
+  setOrderModalMode(order);
+  fillSelect(document.getElementById('order-modal-from-branch'), state.branches, { getLabel: branchLabel, value: order.fromBranchId });
+  fillSelect(document.getElementById('order-modal-to-branch'), state.branches, { getLabel: branchLabel, value: order.toBranchId });
+  document.getElementById('order-modal-notes').value = order.notes || '';
+  draftOrderItems = (order.OrderItems || []).map(i => ({
+    productId: String(i.productId || i.Product?.id),
+    productName: i.Product?.name || getProductName(i.productId),
+    quantity: i.quantity
+  }));
+  await loadOrderOriginStock();
+  renderOrderModalItemsTable();
+  openModal('modal-create-order');
+};
+
+// Solo se ofrecen los productos con stock disponible en la sucursal de origen
+let orderOriginAvailable = new Map(); // productId -> unidades disponibles
+let orderOriginRequest = 0;
+
+function fillOrderProducts() {
+  const select = document.getElementById('order-modal-product-select');
   const branchId = document.getElementById('order-modal-from-branch').value;
-  const productId = document.getElementById('order-modal-product-select').value;
-  hint.textContent = '';
-  if (!branchId || !productId) return;
-  try {
-    const { stockItems } = await apiFetch(`/branches/${branchId}/stock`);
-    const item = stockItems.find(s => String(s.productId) === String(productId));
-    hint.textContent = `Disponible en el origen: ${item ? item.availableQuantity : 0} unidades`;
-  } catch (err) {
-    // Sin permiso para ver el stock de esa sucursal: el servidor valida igual al confirmar
+  if (!branchId) {
+    select.innerHTML = '<option value="">Elegí primero la sucursal de origen</option>';
+    select.disabled = true;
+    return;
+  }
+  const products = state.products
+    .filter(p => orderOriginAvailable.has(String(p.id)))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  if (!products.length) {
+    select.innerHTML = '<option value="">Esta sucursal no tiene stock disponible</option>';
+    select.disabled = true;
+    return;
+  }
+  select.disabled = false;
+  select.innerHTML = '<option value="">Seleccioná un insumo...</option>' + products.map(p =>
+    `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}${p.Brand ? ` (${escapeHtml(p.Brand.name)})` : ''} — ${orderOriginAvailable.get(String(p.id))} disponibles</option>`).join('');
+}
+
+async function loadOrderOriginStock() {
+  const branchId = document.getElementById('order-modal-from-branch').value;
+  const request = ++orderOriginRequest;
+  orderOriginAvailable = new Map();
+  document.getElementById('order-modal-available').textContent = '';
+  if (branchId) {
+    try {
+      const rows = await apiFetch(`/branches/${branchId}/available`);
+      if (request !== orderOriginRequest) return; // llegó una respuesta vieja
+      orderOriginAvailable = new Map(rows.map(r => [String(r.productId), r.available]));
+      // Al modificar, lo que este mismo pedido ya tiene reservado también cuenta como disponible
+      for (const item of editingOrder?.OrderItems || []) {
+        const id = String(item.productId || item.Product?.id);
+        orderOriginAvailable.set(id, (orderOriginAvailable.get(id) || 0) + item.quantity);
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+  fillOrderProducts();
+
+  // Si ya había productos en la lista y cambió el origen, se quitan los que ahí no hay
+  const removed = draftOrderItems.filter(i => !orderOriginAvailable.has(String(i.productId)));
+  if (removed.length) {
+    draftOrderItems = draftOrderItems.filter(i => orderOriginAvailable.has(String(i.productId)));
+    renderOrderModalItemsTable();
+    showToast(`Se quitaron de la lista porque no hay stock en el nuevo origen: ${removed.map(i => i.productName).join(', ')}`, 'info', 6000);
   }
 }
+
+function showOrderAvailability() {
+  const hint = document.getElementById('order-modal-available');
+  const productId = document.getElementById('order-modal-product-select').value;
+  const available = orderOriginAvailable.get(String(productId));
+  const inList = draftOrderItems.find(i => i.productId === productId)?.quantity || 0;
+  hint.textContent = productId && available !== undefined
+    ? `Disponible en el origen: ${available} unidades${inList ? ` (ya agregaste ${inList})` : ''}`
+    : '';
+}
 document.getElementById('order-modal-product-select')?.addEventListener('change', showOrderAvailability);
-document.getElementById('order-modal-from-branch')?.addEventListener('change', showOrderAvailability);
+document.getElementById('order-modal-from-branch')?.addEventListener('change', loadOrderOriginStock);
 
 document.getElementById('btn-order-modal-add-item')?.addEventListener('click', () => {
   const productSelect = document.getElementById('order-modal-product-select');
@@ -179,6 +310,11 @@ document.getElementById('btn-order-modal-add-item')?.addEventListener('click', (
 
   if (!productId) return showToast('Seleccioná un insumo para agregar.', 'error');
   if (quantity <= 0) return showToast('La cantidad debe ser mayor a 0.', 'error');
+  const available = orderOriginAvailable.get(String(productId)) || 0;
+  const already = draftOrderItems.find(item => item.productId === productId)?.quantity || 0;
+  if (already + quantity > available) {
+    return showToast(`En el origen hay ${available} unidades disponibles${already ? ` y ya agregaste ${already}` : ''}.`, 'error');
+  }
 
   const existing = draftOrderItems.find(item => item.productId === productId);
   if (existing) existing.quantity += quantity;
@@ -231,6 +367,14 @@ document.getElementById('form-create-order-modal')?.addEventListener('submit', a
 
   try {
     const items = draftOrderItems.map(item => ({ productId: item.productId, quantity: item.quantity }));
+    if (editingOrder) {
+      const res = await apiFetch(`/orders/${editingOrder.id}`, { method: 'PUT', body: JSON.stringify({ items, notes }) });
+      showToast(`Pedido ${res.order.code} modificado${res.order.status === 'PENDIENTE_VALIDACION' ? '. Necesita aprobación del administrador.' : '.'}`, 'success');
+      closeModal('modal-create-order');
+      loadSolicitanteOrders();
+      refreshNotifications();
+      return;
+    }
     const res = await apiFetch('/orders', {
       method: 'POST',
       body: JSON.stringify({ items, fromBranchId, toBranchId, notes })

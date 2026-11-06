@@ -2,7 +2,7 @@ const { BranchStock, PhysicalSpace, Order, StockMovement } = require('../models'
 const { buildStockAlerts } = require('./alertController');
 const { startOfDay } = require('../utils/format');
 
-const ORDER_STATUSES = ['PENDIENTE_VALIDACION', 'PENDIENTE', 'EN_PREPARACION', 'DESPACHADO', 'ENTREGADO', 'RECHAZADO'];
+const ORDER_STATUSES = ['PENDIENTE_VALIDACION', 'PENDIENTE', 'EN_PREPARACION', 'DESPACHADO', 'ENTREGADO', 'RECHAZADO', 'CANCELADO'];
 
 // Unidades del inventario por sucursal
 const buildStockByBranch = async () => {

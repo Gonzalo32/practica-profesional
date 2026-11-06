@@ -17,7 +17,7 @@ async function loadDespachantePanel() {
   }
   try {
     const orders = await apiFetch('/orders');
-    window.loadedDispatchOrders = orders.filter(o => !['PENDIENTE_VALIDACION', 'RECHAZADO'].includes(o.status));
+    window.loadedDispatchOrders = orders.filter(o => !['PENDIENTE_VALIDACION', 'RECHAZADO', 'CANCELADO'].includes(o.status));
     renderDispatchBoard();
     renderDispatchList();
   } catch (err) {

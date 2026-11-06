@@ -1,7 +1,7 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { login, generateValidationToken, getMe } = require('../controllers/authController');
-const { verifyToken, requireRole } = require('../middlewares/authMiddleware');
+const { login, getMe } = require('../controllers/authController');
+const { verifyToken } = require('../middlewares/authMiddleware');
 const v = require('../validators');
 
 const router = express.Router();
@@ -19,7 +19,5 @@ const loginLimiter = rateLimit({
 router.post('/login', loginLimiter, v.login, login);
 router.get('/me', verifyToken, getMe);
 
-// Generar token de validación para aprobar pedidos (solo Admin)
-router.post('/generate-validation', verifyToken, requireRole(['Administrador']), v.validationToken, generateValidationToken);
 
 module.exports = router;

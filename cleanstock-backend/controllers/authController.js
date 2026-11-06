@@ -53,33 +53,6 @@ const login = async (req, res) => {
   }
 };
 
-// T1.4: Sistema de tokens para validaciones específicas
-const generateValidationToken = async (req, res) => {
-  try {
-    const { orderId, action } = req.body;
-
-    const payload = {
-      adminId: req.user.id,
-      orderId,
-      action,
-      type: 'validation_token'
-    };
-
-    const validationToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '15m' });
-
-    await ActivityLog.create({
-      userId: req.user.id,
-      action: 'GENERATE_VALIDATION_TOKEN',
-      details: `Generó token de validación para una orden`,
-      orderId
-    });
-
-    res.json({ validationToken });
-  } catch (error) {
-    res.status(500).json({ message: 'Error generando token de validación' });
-  }
-};
-
 const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.id)
@@ -112,6 +85,5 @@ const getMe = async (req, res) => {
 
 module.exports = {
   login,
-  generateValidationToken,
   getMe
 };

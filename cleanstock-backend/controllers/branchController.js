@@ -124,6 +124,27 @@ const updateBranch = async (req, res) => {
   }
 };
 // Obtener stock de una sucursal específica
+/**
+ * GET /api/branches/:id/available
+ * Productos que se le pueden pedir a una sucursal: solo los que tienen unidades
+ * disponibles (stock menos lo reservado para otros pedidos). Lo usa el formulario
+ * de pedidos, así no se ofrece lo que no hay. Devuelve solo id y disponible.
+ */
+const getAvailableProducts = async (req, res) => {
+  try {
+    const branch = await PhysicalSpace.findById(req.params.id).lean();
+    if (!branch) return res.status(404).json({ message: 'Sucursal no encontrada' });
+    const rows = await BranchStock.aggregate([
+      { $match: { branchId: branch._id } },
+      { $project: { productId: 1, available: { $subtract: ['$quantity', { $ifNull: ['$reservedQuantity', 0] }] } } },
+      { $match: { available: { $gt: 0 } } }
+    ]);
+    res.json(rows.map(r => ({ productId: r.productId.toString(), available: r.available })));
+  } catch (error) {
+    res.status(500).json({ message: 'Error obteniendo los productos disponibles', error: error.message });
+  }
+};
+
 const getBranchStock = async (req, res) => {
   try {
     const { id } = req.params;
@@ -401,6 +422,7 @@ module.exports = {
   updateBranch,
   deleteBranch,
   getBranchStock,
+  getAvailableProducts,
   adjustBranchStock,
   getStockMovements
 };
