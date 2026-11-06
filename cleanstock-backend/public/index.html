@@ -721,6 +721,48 @@
           </div>
         </section>
 
+        <!-- PANEL PROVISIONES: todo lo que entra de afuera de la empresa (proveedores) -->
+        <section id="panel-provisions" class="panel hidden">
+          <div class="panel-header-row">
+            <h2 id="provisions-panel-title">Provisiones</h2>
+            <div class="btn-row">
+              <button type="button" class="btn btn-secondary" id="btn-provisions-entry">Agregar Ingreso</button>
+              <button type="button" class="btn btn-primary" id="btn-open-po-modal">Nueva Orden de Compra</button>
+            </div>
+          </div>
+          <p class="hint-text" id="provisions-hint">Las órdenes de compra se generan al proveedor y, al recibirlas, se cargan el lote y el vencimiento de cada producto. Para mercadería que llegó sin orden, usá "Agregar Ingreso".</p>
+
+          <div class="card glass table-card">
+            <div class="card-title-row">
+              <h3>Órdenes de Compra</h3>
+              <div class="btn-row">
+                <select id="po-filter-status">
+                  <option value="">Todos los estados</option>
+                  <option value="PENDIENTE">Pendientes</option>
+                  <option value="RECIBIDA">Recibidas</option>
+                  <option value="CANCELADA">Canceladas</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table>
+                <thead>
+                  <tr>
+                    <th>N° Orden</th>
+                    <th>Proveedor</th>
+                    <th>Sucursal destino</th>
+                    <th>Productos</th>
+                    <th>Estado</th>
+                    <th>Fecha</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="table-po-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
         <!-- PANEL DESPACHANTE -->
         <section id="panel-despachante" class="panel hidden">
           <div class="panel-header-row">

@@ -14,11 +14,25 @@ async function loadSuppliersPanel() {
 
   document.getElementById('suppliers-panel-title').textContent = isSupplierUser ? 'Mis Órdenes de Compra' : 'Proveedores';
   document.getElementById('btn-open-supplier-modal')?.classList.toggle('hidden', !canManage);
-  document.getElementById('btn-open-po-modal')?.classList.toggle('hidden', !canManage);
   document.getElementById('suppliers-sub-nav')?.classList.add('hidden');
 
   await renderSuppliersTable();
 }
+
+// Menú "Provisiones": lo que entra de afuera de la empresa (órdenes de compra a proveedores e ingresos directos).
+// El proveedor entra al mismo panel y ve solo sus órdenes, sin poder crear ni recibir.
+async function loadProvisionsPanel() {
+  await ensureBaseData();
+  const isSupplierUser = hasRole('Proveedor');
+  const canManage = hasRole('Administrador', 'Usuario Responsable');
+  document.getElementById('provisions-panel-title').textContent = isSupplierUser ? 'Mis Órdenes de Compra' : 'Provisiones';
+  document.getElementById('provisions-hint').classList.toggle('hidden', !canManage);
+  document.getElementById('btn-open-po-modal')?.classList.toggle('hidden', !canManage);
+  document.getElementById('btn-provisions-entry')?.classList.toggle('hidden', !canManage);
+  await loadPurchaseOrders();
+}
+
+document.getElementById('btn-provisions-entry')?.addEventListener('click', () => openCreateStockEntryModal());
 
 async function renderSuppliersTable() {
   const tbody = document.getElementById('table-suppliers-body');
@@ -283,7 +297,8 @@ document.getElementById('form-po')?.addEventListener('submit', async (e) => {
     });
     showToast(`Orden ${po.code} generada`, 'success');
     closeModal('modal-po');
-    document.querySelector('[data-sub="suppliers-po"]').click();
+    document.getElementById('po-filter-status').value = '';
+    loadPurchaseOrders();
   } catch (err) {
     showToast(err.message, 'error');
   }
