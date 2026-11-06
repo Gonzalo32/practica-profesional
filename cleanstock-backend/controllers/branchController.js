@@ -209,7 +209,7 @@ const getBranchStock = async (req, res) => {
 const adjustBranchStock = async (req, res) => {
   try {
     const { id } = req.params;
-    const { productId, reason } = req.body;
+    const { productId, reason, lotId } = req.body;
     const quantity = parseInt(req.body.quantity, 10);
 
     if (!quantity) {
@@ -225,7 +225,43 @@ const adjustBranchStock = async (req, res) => {
 
     let stockRecord;
     let lots = [];
-    if (quantity > 0) {
+    let lot = null;
+    if (lotId) {
+      lot = await StockEntry.findOne({ _id: lotId, branchId: id, productId }).lean();
+      if (!lot) return res.status(404).json({ message: 'El lote no corresponde a ese producto en esta sucursal' });
+    }
+
+    if (lot) {
+      // Ajuste de un lote puntual: se mueve ese lote y el total de la sucursal
+      if (quantity < 0) {
+        const take = -quantity;
+        const updatedLot = await StockEntry.findOneAndUpdate(
+          { _id: lot._id, remaining: { $gte: take } },
+          [{ $set: { remaining: { $subtract: ['$remaining', take] }, status: { $cond: [{ $eq: [{ $subtract: ['$remaining', take] }, 0] }, 'AGOTADO', '$status'] } } }],
+          { returnDocument: 'after', updatePipeline: true }
+        );
+        if (!updatedLot) {
+          return res.status(400).json({ message: `El lote ${lot.lotNumber} tiene ${lot.remaining} u.; no se pueden descontar ${take}.` });
+        }
+        stockRecord = await stock.decreaseAvailableStock(id, productId, take);
+        if (!stockRecord) {
+          // Se devuelve lo descontado del lote: el total no alcanzaba (hay unidades reservadas para pedidos)
+          await StockEntry.updateOne({ _id: lot._id }, { $inc: { remaining: take }, $set: { status: lot.status } });
+          const current = await BranchStock.findOne({ branchId: id, productId }).lean();
+          return res.status(400).json({
+            message: `Stock insuficiente. Stock actual: ${current?.quantity || 0}, reservado para pedidos: ${current?.reservedQuantity || 0}, ajuste solicitado: ${quantity}`
+          });
+        }
+      } else {
+        stockRecord = await stock.increaseStock(id, productId, quantity);
+        await StockEntry.updateOne(
+          { _id: lot._id },
+          [{ $set: { remaining: { $add: ['$remaining', quantity] }, status: { $cond: [{ $eq: ['$status', 'AGOTADO'] }, 'DISPONIBLE', '$status'] } } }],
+          { updatePipeline: true }
+        );
+      }
+      lots = [{ lotNumber: lot.lotNumber }];
+    } else if (quantity > 0) {
       stockRecord = await stock.increaseStock(id, productId, quantity);
     } else {
       // Atómico: no deja bajar por debajo de lo reservado para pedidos
@@ -254,7 +290,7 @@ const adjustBranchStock = async (req, res) => {
     await ActivityLog.create({
       userId: req.user.id,
       action: quantity > 0 ? 'STOCK_ENTRY' : 'STOCK_EXIT',
-      details: `Ajuste manual de stock: ${quantity > 0 ? '+' : ''}${quantity} unidades de "${product.name}" en sucursal "${branch.name}". Motivo: ${reason || 'Sin motivo'}`
+      details: `Ajuste manual de stock: ${quantity > 0 ? '+' : ''}${quantity} unidades de "${product.name}"${lot ? ` (lote ${lot.lotNumber})` : ''} en sucursal "${branch.name}". Motivo: ${reason || 'Sin motivo'}`
     });
 
     res.json({ message: 'Stock ajustado correctamente', stockRecord });

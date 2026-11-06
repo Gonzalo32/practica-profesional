@@ -461,6 +461,7 @@
               <button type="button" class="btn btn-secondary btn-sm" data-export="stock" data-format="xlsx">Excel</button>
               <button type="button" class="btn btn-secondary btn-sm" data-export="stock" data-format="pdf">PDF</button>
               <button type="button" id="btn-toggle-stock-adjust" class="btn btn-secondary">Ajuste Manual de Stock</button>
+              <button type="button" id="btn-open-stock-entry-modal" class="btn btn-primary">Agregar Ingreso</button>
             </div>
           </div>
 
@@ -1106,13 +1107,33 @@
   </div>
 
   <!-- Modal: Ajuste Manual de Stock -->
+  <!-- Modal: variantes de un producto (lotes y vencimientos) en la sucursal -->
+  <div id="modal-stock-lots" class="modal hidden">
+    <div class="modal-content glass card modal-lg">
+      <div class="modal-header">
+        <h3 id="stock-lots-title">Lotes del producto</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
+      </div>
+      <p class="hint-text" id="stock-lots-summary"></p>
+      <div class="table-responsive">
+        <table>
+          <thead><tr><th>Lote</th><th>Cantidad</th><th>Vencimiento</th><th>Proveedor</th><th>Ingresó</th></tr></thead>
+          <tbody id="stock-lots-body"></tbody>
+        </table>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" data-close-modal>Cerrar</button>
+      </div>
+    </div>
+  </div>
+
   <div id="modal-stock-adjust" class="modal hidden">
     <div class="modal-content glass card modal-lg">
       <div class="modal-header">
         <h3>Ajuste Manual de Stock</h3>
         <button type="button" class="close-btn" data-close-modal>&times;</button>
       </div>
-      <p class="hint-text">Usar para correcciones puntuales. Para ventas, roturas o vencidos conviene "Registrar Egreso"; para recuentos completos, "Conteo de Inventario".</p>
+      <p class="hint-text">Usar para dar de baja lo consumido, vencido o roto, o para correcciones puntuales. Si el producto tiene lotes, elegí a cuál corresponde. Para recuentos completos, usá "Conteo de Inventario".</p>
       <form id="form-stock-adjust" class="form-grid">
         <div class="form-group multi-only">
           <label for="adjust-branch">Sucursal <span class="req">*</span></label>
@@ -1128,6 +1149,11 @@
             </button>
             <div class="select-search-dropdown hidden" id="adjust-product-dropdown"></div>
           </div>
+        </div>
+        <div class="form-group span-2 hidden" id="adjust-lot-group">
+          <label for="adjust-lot">Lote</label>
+          <select id="adjust-lot"></select>
+          <p class="hint-text" id="adjust-lot-hint"></p>
         </div>
         <div class="form-group">
           <label for="adjust-quantity">Cantidad <span class="opt">(+ suma, - resta)</span> <span class="req">*</span></label>

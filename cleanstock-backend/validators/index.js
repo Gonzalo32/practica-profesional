@@ -98,6 +98,7 @@ const stockAdjust = [
   idParam(),
   mongoId('productId', 'Producto'),
   body('quantity').isInt().withMessage('La cantidad debe ser un número entero').toInt(),
+  optionalMongoId('lotId', 'Lote'),
   requiredText('reason', 'El motivo', 200),
   validate
 ];

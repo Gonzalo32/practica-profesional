@@ -118,7 +118,7 @@ Con `DEMO_DATA=true` en el `.env`, los mismos datos se cargan al iniciar el serv
 npm test
 ```
 
-Corre 54 pruebas automatizadas sobre una base de datos en memoria, sin tocar la base real. Cubren autenticación, permisos por rol y por sucursal, pedidos, stock, proveedores, conteos, configuración, espacios físicos y reportes.
+Corre 56 pruebas automatizadas sobre una base de datos en memoria, sin tocar la base real. Cubren autenticación, permisos por rol y por sucursal, pedidos, stock, proveedores, conteos, configuración, espacios físicos y reportes.
 
 ## Estructura del proyecto
 

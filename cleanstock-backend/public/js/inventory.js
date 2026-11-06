@@ -123,7 +123,9 @@ let draftStockEntryItems = [];
 async function openCreateStockEntryModal() {
   await ensureBaseData();
   const suppliers = await loadSuppliers().catch(() => []);
-  fillSelect(document.getElementById('stock-modal-branch'), entryBranches(), { placeholder: 'Seleccionar sucursal destino...', placeholderDisabled: true, getLabel: branchLabel, value: userBranchId() });
+  // Desde "Stock por sucursal" el ingreso va, por defecto, a la sucursal que se está viendo
+  const viewedBranch = state.currentTab === 'panel-stock-view' ? document.getElementById('stock-view-branch-select')?.value : null;
+  fillSelect(document.getElementById('stock-modal-branch'), entryBranches(), { placeholder: 'Seleccionar sucursal destino...', placeholderDisabled: true, getLabel: branchLabel, value: viewedBranch || userBranchId() });
   fillSelect(document.getElementById('stock-modal-supplier'), suppliers, { placeholder: 'Sin proveedor' });
   fillSelect(document.getElementById('stock-modal-product-select'), state.products, { placeholder: 'Seleccioná insumo...' });
   draftStockEntryItems = [];

@@ -83,6 +83,52 @@ describe('Ingresos, egresos y lotes', () => {
     expect((await stockOf(s.central)).quantity).toBe(6);
   });
 
+  test('el ajuste manual de un lote puntual mueve solo ese lote', async () => {
+    await addEntry(s.tokens.admin, { lotNumber: 'PRONTO', expirationDate: '2029-01-01', quantity: 5 });
+    await addEntry(s.tokens.admin, { lotNumber: 'TARDE', expirationDate: '2031-01-01', quantity: 5 });
+    const tarde = await StockEntry.findOne({ lotNumber: 'TARDE' }).lean();
+    const adjust = (data) => request(app).post(`/api/branches/${s.central._id}/stock/adjust`).set(auth(s.tokens.responsable))
+      .send({ productId: s.product._id, reason: 'Rotura', lotId: tarde._id, ...data });
+
+    // Resta del lote elegido aunque no sea el que vence primero
+    expect((await adjust({ quantity: -2 })).status).toBe(200);
+    expect((await StockEntry.findOne({ lotNumber: 'TARDE' })).remaining).toBe(3);
+    expect((await StockEntry.findOne({ lotNumber: 'PRONTO' })).remaining).toBe(5);
+    expect((await stockOf(s.central)).quantity).toBe(8);
+    expect((await StockMovement.findOne({ type: 'AJUSTE' }).lean()).lotNumber).toBe('TARDE');
+
+    // No deja restar más de lo que tiene el lote, y no toca nada
+    expect((await adjust({ quantity: -4 })).status).toBe(400);
+    expect((await StockEntry.findOne({ lotNumber: 'TARDE' })).remaining).toBe(3);
+    expect((await stockOf(s.central)).quantity).toBe(8);
+
+    // Agotar el lote y volver a sumarle lo deja disponible
+    expect((await adjust({ quantity: -3 })).status).toBe(200);
+    expect((await StockEntry.findOne({ lotNumber: 'TARDE' })).status).toBe('AGOTADO');
+    expect((await adjust({ quantity: 4 })).status).toBe(200);
+    const after = await StockEntry.findOne({ lotNumber: 'TARDE' }).lean();
+    expect(after.remaining).toBe(4);
+    expect(after.status).toBe('DISPONIBLE');
+    expect((await stockOf(s.central)).quantity).toBe(9);
+  });
+
+  test('el ajuste por lote rechaza lotes de otro producto o sucursal y respeta lo reservado', async () => {
+    await addEntry(s.tokens.admin, { lotNumber: 'L-A', quantity: 10 });
+    const lot = await StockEntry.findOne({ lotNumber: 'L-A' }).lean();
+
+    const otherBranch = await request(app).post(`/api/branches/${s.norte._id}/stock/adjust`).set(auth(s.tokens.admin))
+      .send({ productId: s.product._id, quantity: -1, reason: 'Rotura', lotId: lot._id });
+    expect(otherBranch.status).toBe(404);
+
+    await BranchStock.updateOne({ branchId: s.central._id, productId: s.product._id }, { reservedQuantity: 8 });
+    const res = await request(app).post(`/api/branches/${s.central._id}/stock/adjust`).set(auth(s.tokens.admin))
+      .send({ productId: s.product._id, quantity: -5, reason: 'Rotura', lotId: lot._id });
+    expect(res.status).toBe(400);
+    // El lote vuelve a quedar como estaba
+    expect((await StockEntry.findOne({ lotNumber: 'L-A' })).remaining).toBe(10);
+    expect((await stockOf(s.central)).quantity).toBe(10);
+  });
+
   test('los lotes vencidos se marcan y aparecen en las alertas de vencimiento', async () => {
     await addEntry(s.tokens.admin, { lotNumber: 'VIEJO', expirationDate: '2020-01-01', quantity: 3 });
     const soon = new Date();

@@ -154,9 +154,17 @@ async function loadStockForBranch(branchId) {
   const tbody = document.getElementById('table-branch-stock-body');
   setTableLoading(tbody, 8);
   try {
-    const { branch, stockItems } = await apiFetch(`/branches/${branchId}/stock`);
+    const [{ branch, stockItems }, lots] = await Promise.all([
+      apiFetch(`/branches/${branchId}/stock`),
+      apiFetch(`/inventory/lots?branchId=${encodeURIComponent(branchId)}&withStock=true`).catch(() => [])
+    ]);
     currentStockItems = stockItems;
     currentStockBranch = branch;
+    lotsByProduct = new Map();
+    for (const lot of lots) {
+      if (!lotsByProduct.has(lot.productId)) lotsByProduct.set(lot.productId, []);
+      lotsByProduct.get(lot.productId).push(lot);
+    }
     const typeLabel = branch.name.toLowerCase().startsWith((branch.type || '').toLowerCase()) ? '' : ` (${capitalize(branch.type)})`;
     document.getElementById('stock-view-branch-title').textContent = `Stock — ${branch.name}${typeLabel}`;
     stockPage = 1;
@@ -190,6 +198,44 @@ function expirationCell(date) {
 let stockPage = 1;
 const STOCK_PER_PAGE = 10;
 
+// Variantes de cada producto (lotes y vencimientos) en esta sucursal: se ven en una ventana flotante
+let lotsByProduct = new Map();
+
+function openStockLotsModal(productId) {
+  const item = currentStockItems.find(i => String(i.Producto?.id || i.productId) === String(productId));
+  if (!item) return;
+  const lots = lotsByProduct.get(String(productId)) || [];
+  const inLots = lots.reduce((sum, l) => sum + (l.remaining || 0), 0);
+  const withoutLot = item.quantity - inLots;
+
+  document.getElementById('stock-lots-title').textContent = item.Producto?.name || 'Producto';
+  document.getElementById('stock-lots-summary').textContent =
+    `${currentStockBranch?.name || ''}: ${item.quantity} u. en total, ${lots.length} lote${lots.length === 1 ? '' : 's'}${withoutLot > 0 ? ` y ${withoutLot} u. sin lote` : ''}. Ordenados por vencimiento.`;
+
+  const rows = lots.map(l => `
+      <tr>
+        <td><span class="badge">${escapeHtml(l.lotNumber || 'Sin número')}</span></td>
+        <td><strong>${l.remaining}</strong> u.</td>
+        <td>${expirationCell(l.expirationDate)}</td>
+        <td>${l.supplierName ? escapeHtml(l.supplierName) : '<span class="muted">—</span>'}</td>
+        <td>${l.createdAt ? formatDateOnly(l.createdAt) : '<span class="muted">—</span>'}</td>
+      </tr>`).join('');
+  const extra = withoutLot > 0 ? `
+      <tr>
+        <td><span class="muted">Sin lote</span></td>
+        <td><strong>${withoutLot}</strong> u.</td>
+        <td><span class="muted">—</span></td>
+        <td colspan="2"><span class="muted">Ingresos sin lote o ajustes generales</span></td>
+      </tr>` : '';
+  document.getElementById('stock-lots-body').innerHTML = rows + extra;
+  openModal('modal-stock-lots');
+}
+
+document.getElementById('table-branch-stock-body')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('.stock-expand-btn');
+  if (btn) openStockLotsModal(btn.dataset.product);
+});
+
 function renderStockTable() {
   const tbody = document.getElementById('table-branch-stock-body');
   const items = filteredStockItems();
@@ -209,9 +255,17 @@ function renderStockTable() {
     const minStock = item.effectiveMinStock || 0;
     const available = item.availableQuantity;
     const stockClass = item.quantity === 0 ? 'stock-critical' : item.quantity <= minStock ? 'stock-low' : 'stock-ok';
+    const productId = String(product?.id || item.productId || '');
+    const lots = lotsByProduct.get(productId) || [];
+    const nameCell = lots.length
+      ? `<button type="button" class="stock-expand-btn" data-product="${escapeHtml(productId)}" title="Ver lotes y vencimientos">
+           <strong>${escapeHtml(product?.name || 'N/A')}</strong>
+           <span class="stock-lot-count">${lots.length} lote${lots.length === 1 ? '' : 's'}</span>
+         </button>`
+      : `<strong>${escapeHtml(product?.name || 'N/A')}</strong>`;
     return `
       <tr>
-        <td><strong>${escapeHtml(product?.name || 'N/A')}</strong></td>
+        <td>${nameCell}</td>
         <td>${product?.sku ? escapeHtml(product.sku) : '<span class="muted">—</span>'}</td>
         <td><span class="badge">${escapeHtml(product?.Category?.name || '—')}</span></td>
         <td><span class="stock-qty ${stockClass}">${item.quantity}</span></td>
@@ -296,6 +350,7 @@ function setupAdjustProductSearch() {
 
   searchInput.addEventListener('input', () => {
     hiddenInput.value = '';
+    loadAdjustLots();
     renderDropdown(searchInput.value);
   });
 
@@ -316,6 +371,7 @@ function setupAdjustProductSearch() {
     hiddenInput.value = item.dataset.id;
     searchInput.value = item.dataset.name;
     dropdown.classList.add('hidden');
+    loadAdjustLots();
   });
 
   document.addEventListener('click', (e) => {
@@ -326,6 +382,49 @@ function setupAdjustProductSearch() {
 }
 
 setupAdjustProductSearch();
+
+// Lotes del producto elegido en la sucursal elegida: el ajuste puede ir a un lote puntual
+let adjustLots = [];
+let adjustLotsRequest = 0;
+
+async function loadAdjustLots() {
+  const group = document.getElementById('adjust-lot-group');
+  const select = document.getElementById('adjust-lot');
+  const branchId = document.getElementById('adjust-branch').value;
+  const productId = document.getElementById('adjust-product').value;
+  const request = ++adjustLotsRequest;
+  adjustLots = [];
+  select.innerHTML = '';
+  group.classList.add('hidden');
+  if (!branchId || !productId) return;
+
+  try {
+    const lots = await apiFetch(`/inventory/lots?branchId=${encodeURIComponent(branchId)}&productId=${encodeURIComponent(productId)}&withStock=true`);
+    if (request !== adjustLotsRequest) return; // llegó una respuesta vieja
+    adjustLots = lots;
+  } catch {
+    return;
+  }
+  if (!adjustLots.length) return;
+
+  select.innerHTML = [
+    '<option value="">Sin lote específico (general)</option>',
+    ...adjustLots.map(l => `<option value="${escapeHtml(l.id)}">Lote ${escapeHtml(l.lotNumber || 'sin número')} — ${l.remaining} u.${l.expirationDate ? ` — vence ${formatDateOnly(l.expirationDate)}` : ''}</option>`)
+  ].join('');
+  select.value = adjustLots[0].id;
+  updateAdjustLotHint();
+  group.classList.remove('hidden');
+}
+
+function updateAdjustLotHint() {
+  const hint = document.getElementById('adjust-lot-hint');
+  hint.textContent = document.getElementById('adjust-lot').value
+    ? 'El ajuste se aplica solo a este lote (y al total del producto).'
+    : 'Sin lote: si restás, se descuenta del lote que vence primero; si sumás, queda como stock sin lote.';
+}
+
+document.getElementById('adjust-lot')?.addEventListener('change', updateAdjustLotHint);
+document.getElementById('adjust-branch')?.addEventListener('change', loadAdjustLots);
 
 document.getElementById('btn-toggle-stock-adjust')?.addEventListener('click', () => {
   if (!hasRole('Administrador', 'Usuario Responsable')) return showToast('Tu rol no puede ajustar stock.', 'error');
@@ -338,6 +437,7 @@ document.getElementById('btn-toggle-stock-adjust')?.addEventListener('click', ()
   document.getElementById('adjust-product-dropdown')?.classList.add('hidden');
   document.getElementById('adjust-branch').value = current;
   document.getElementById('adjust-reason-other-group').classList.add('hidden');
+  loadAdjustLots();
   openModal('modal-stock-adjust');
 });
 
@@ -362,6 +462,11 @@ document.getElementById('form-stock-adjust')?.addEventListener('submit', async (
   if (!branchId || !productId || !quantity || !reason) {
     return showToast('Completá todos los campos. La cantidad no puede ser 0.', 'error');
   }
+  const lotId = document.getElementById('adjust-lot').value || null;
+  const lot = adjustLots.find(l => l.id === lotId);
+  if (lot && quantity < 0 && -quantity > lot.remaining) {
+    return showToast(`El lote ${lot.lotNumber} tiene ${lot.remaining} u.; no se pueden descontar ${-quantity}.`, 'error');
+  }
 
   const ok = await confirmDialog({
     title: 'Confirmar ajuste de stock',
@@ -369,6 +474,7 @@ document.getElementById('form-stock-adjust')?.addEventListener('submit', async (
       <div class="confirm-summary">
         <div><strong>Sucursal:</strong> ${escapeHtml(getBranchName(branchId))}</div>
         <div><strong>Producto:</strong> ${escapeHtml(getProductName(productId))}</div>
+        <div><strong>Lote:</strong> ${lot ? escapeHtml(lot.lotNumber) : adjustLots.length ? 'Sin lote específico' : '—'}</div>
         <div><strong>Ajuste:</strong> ${quantity > 0 ? `<span class="qty-in strong">+${quantity} unidades</span>` : `<span class="qty-out strong">${quantity} unidades</span>`}</div>
         <div><strong>Motivo:</strong> ${escapeHtml(reason)}</div>
       </div>`,
@@ -377,7 +483,7 @@ document.getElementById('form-stock-adjust')?.addEventListener('submit', async (
   if (!ok) return;
 
   try {
-    await apiFetch(`/branches/${branchId}/stock/adjust`, { method: 'POST', body: JSON.stringify({ productId, quantity, reason }) });
+    await apiFetch(`/branches/${branchId}/stock/adjust`, { method: 'POST', body: JSON.stringify({ productId, quantity, reason, lotId }) });
     showToast('Ajuste de stock aplicado correctamente', 'success');
     closeModal('modal-stock-adjust');
     document.getElementById('stock-view-branch-select').value = branchId;
