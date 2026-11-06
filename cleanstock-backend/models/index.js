@@ -12,6 +12,7 @@ const Supplier = require('./Supplier');
 const PurchaseOrder = require('./PurchaseOrder');
 const StockMovement = require('./StockMovement');
 const InventoryCount = require('./InventoryCount');
+const Provision = require('./Provision');
 const { Counter, nextSequence } = require('./Counter');
 const Settings = require('./Settings');
 
@@ -36,6 +37,7 @@ module.exports = {
   PurchaseOrder,
   StockMovement,
   InventoryCount,
+  Provision,
   Counter,
   nextSequence,
   Settings

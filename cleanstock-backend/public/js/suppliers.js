@@ -1,9 +1,8 @@
 // ==========================================================================
-// PROVEEDORES Y ÓRDENES DE COMPRA
+// PROVEEDORES Y PROVISIONES
 // ==========================================================================
 
 let supplierSearch = '';
-let loadedPurchaseOrders = [];
 let suppliersPage = 1;
 const SUPPLIERS_PER_PAGE = 10;
 
@@ -12,37 +11,267 @@ async function loadSuppliersPanel() {
   const isSupplierUser = hasRole('Proveedor');
   const canManage = hasRole('Administrador', 'Usuario Responsable');
 
-  document.getElementById('suppliers-panel-title').textContent = isSupplierUser ? 'Mis Órdenes de Compra' : 'Proveedores';
+  document.getElementById('suppliers-panel-title').textContent = isSupplierUser ? 'Mis Entregas' : 'Proveedores';
   document.getElementById('btn-open-supplier-modal')?.classList.toggle('hidden', !canManage);
   document.getElementById('suppliers-sub-nav')?.classList.add('hidden');
 
   await renderSuppliersTable();
 }
 
-// Menú "Provisiones": lo que entra de afuera de la empresa (órdenes de compra a proveedores e ingresos directos).
-// El proveedor entra al mismo panel y ve solo sus órdenes, sin poder crear ni recibir.
+// --------------------------------------------------------------------------
+// Menú "Provisiones": la mercadería que llega de los proveedores.
+// Se carga pendiente y entra al stock recién cuando el Responsable o el Administrador
+// la aprueba con el casillero. El proveedor ve solo lo que entregó.
+// --------------------------------------------------------------------------
+let provisionsPage = 1;
+let loadedProvisions = [];
+
+const canManageProvisions = () => hasRole('Administrador', 'Usuario Responsable');
+
 async function loadProvisionsPanel() {
   await ensureBaseData();
   const isSupplierUser = hasRole('Proveedor');
-  const canManage = hasRole('Administrador', 'Usuario Responsable');
-  document.getElementById('provisions-panel-title').textContent = isSupplierUser ? 'Mis Órdenes de Compra' : 'Provisiones';
+  const canManage = canManageProvisions();
+  document.getElementById('provisions-panel-title').textContent = isSupplierUser ? 'Mis Entregas' : 'Provisiones';
+  document.getElementById('provisions-table-title').textContent = isSupplierUser ? 'Mercadería entregada' : 'Provisiones de proveedores';
   document.getElementById('provisions-hint').classList.toggle('hidden', !canManage);
-  document.getElementById('btn-open-po-modal')?.classList.toggle('hidden', !canManage);
   document.getElementById('btn-provisions-entry')?.classList.toggle('hidden', !canManage);
-  await loadPurchaseOrders();
+
+  // Solo el administrador elige sucursal; el resto ve la suya (o sus entregas)
+  const branchSel = document.getElementById('provisions-branch-select');
+  const showBranchFilter = hasRole('Administrador') && !isSingleBranch();
+  branchSel.classList.toggle('hidden', !showBranchFilter);
+  if (showBranchFilter) fillSelect(branchSel, state.branches, { placeholder: 'Todas las sucursales', getLabel: branchLabel, value: branchSel.value });
+
+  provisionsPage = 1;
+  await loadProvisionEntries();
 }
 
-document.getElementById('btn-provisions-entry')?.addEventListener('click', () => openCreateStockEntryModal());
+function provisionStatusBadge(p) {
+  return p.status === 'APROBADA'
+    ? '<span class="status-badge status-entregado">Aprobada</span>'
+    : '<span class="status-badge status-pendiente">Pendiente</span>';
+}
+
+async function loadProvisionEntries() {
+  const tbody = document.getElementById('table-provisions-body');
+  const canManage = canManageProvisions();
+  const showBranch = hasRole('Administrador', 'Proveedor') && !isSingleBranch();
+  const cols = showBranch ? 8 : 7;
+  setTableLoading(tbody, cols, 4);
+  try {
+    const params = new URLSearchParams({ page: provisionsPage, limit: 15 });
+    const status = document.getElementById('provisions-status-filter').value;
+    if (status) params.set('status', status);
+    const branchId = document.getElementById('provisions-branch-select').value;
+    if (branchId && hasRole('Administrador')) params.set('branchId', branchId);
+    const data = await apiFetch(`/inventory/provisions?${params}`);
+    loadedProvisions = data.items;
+
+    const pendingInfo = document.getElementById('provisions-pending-count');
+    pendingInfo.textContent = data.pending ? `${data.pending} pendiente${data.pending === 1 ? '' : 's'} de aprobación` : '';
+    pendingInfo.classList.toggle('hidden', !data.pending);
+
+    if (!data.items.length) {
+      renderEmptyRow(tbody, cols, status ? 'No hay provisiones con este estado' : 'Todavía no hay provisiones', canManage ? 'Usá "Nueva Provisión" para cargar la mercadería que llega de un proveedor.' : '');
+    } else {
+      tbody.innerHTML = data.items.map(p => {
+        const approved = p.status === 'APROBADA';
+        const approveBox = canManage
+          ? `<label class="provision-approve" title="${approved ? `Aprobada${p.approvedByName ? ` por ${escapeHtml(p.approvedByName)}` : ''}` : 'Aprobar: ingresa al stock de la sucursal'}">
+               <input type="checkbox" ${approved ? 'checked disabled' : ''} onchange="approveProvision('${p.id}', this)">
+             </label>`
+          : '';
+        return `
+        <tr class="${approved ? '' : 'provision-pending-row'}">
+          <td class="cell-date">${formatDateTime(p.createdAt)}</td>
+          <td class="provisions-branch-col">${escapeHtml(p.branchName || '—')}</td>
+          <td><ul class="provision-items-list">${p.items.map(i => `
+            <li><strong>${escapeHtml(i.productName || '—')}</strong> · ${i.quantity} u.${i.lotNumber ? `<small class="muted">lote ${escapeHtml(i.lotNumber)}</small>` : ''}</li>`).join('')}
+          </ul></td>
+          <td><strong>${p.totalUnits}</strong> u.<br><small class="muted">${p.items.length} producto${p.items.length === 1 ? '' : 's'}</small></td>
+          <td>${p.supplierName ? escapeHtml(p.supplierName) : '<span class="muted">Sin proveedor</span>'}</td>
+          <td>${provisionStatusBadge(p)}${p.editedAt ? '<br><small class="muted">Modificada</small>' : ''}</td>
+          <td>
+            <div class="action-btn-group">
+              <button type="button" class="btn-icon" title="Ver detalle" onclick="openViewProvisionModal('${p.id}')">${ICON_VIEW}</button>
+              ${canManage ? `<button type="button" class="btn-icon" title="Modificar" onclick="openEditEntryModal('${p.id}')">${ICON_EDIT}</button>` : ''}
+              ${approveBox}
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+    document.querySelectorAll('.provisions-branch-col').forEach(el => el.classList.toggle('hidden', !showBranch));
+    renderPagination('provisions-pagination', data, 'provisiones', (page) => {
+      provisionsPage = page;
+      loadProvisionEntries();
+    });
+  } catch (err) {
+    renderErrorRow(tbody, cols, err.message);
+  }
+}
+
+['provisions-branch-select', 'provisions-status-filter'].forEach(id => {
+  document.getElementById(id)?.addEventListener('change', () => {
+    provisionsPage = 1;
+    loadProvisionEntries();
+  });
+});
+
+document.getElementById('btn-provisions-entry')?.addEventListener('click', () => openCreateStockEntryModal('provision'));
+
+// Aprobar con el casillero: recién ahí todos los productos entran al stock y figuran como movimiento
+window.approveProvision = async (provisionId, checkbox) => {
+  const p = loadedProvisions.find(x => x.id === provisionId);
+  if (!p) return;
+  const ok = await confirmDialog({
+    title: 'Aprobar provisión',
+    html: `
+      <div class="confirm-summary">
+        <div><strong>Sucursal:</strong> ${escapeHtml(p.branchName)}</div>
+        <div><strong>Proveedor:</strong> ${escapeHtml(p.supplierName || 'Sin proveedor')}</div>
+        ${p.items.map(i => `<div><strong>${escapeHtml(i.productName)}:</strong> <span class="qty-in strong">+${i.quantity} u.</span>${i.lotNumber ? ` — lote ${escapeHtml(i.lotNumber)}, vence ${formatDateOnly(i.expirationDate)}` : ''}</div>`).join('')}
+      </div>
+      <p class="hint-text">Al aprobarla, todos estos productos ingresan al stock de la sucursal y quedan registrados como movimientos.</p>`,
+    confirmText: 'Aprobar e ingresar'
+  });
+  if (!ok) {
+    checkbox.checked = false;
+    return;
+  }
+  checkbox.disabled = true;
+  try {
+    await apiFetch(`/inventory/provisions/${provisionId}/approve`, { method: 'POST' });
+    showToast(`Provisión aprobada: ingresaron ${p.totalUnits} u. (${p.items.length} producto${p.items.length === 1 ? '' : 's'}) a ${p.branchName}`, 'success', 6000);
+    loadProvisionEntries();
+    refreshNotifications();
+  } catch (err) {
+    checkbox.checked = false;
+    checkbox.disabled = false;
+    showToast(err.message, 'error');
+  }
+};
+
+// Ojo: datos de la provisión y la lista de sus productos
+window.openViewProvisionModal = (provisionId) => {
+  const p = loadedProvisions.find(x => x.id === provisionId);
+  if (!p) return;
+  const approved = p.status === 'APROBADA';
+  const row = (label, value) => `<div><strong>${label}:</strong> ${value}</div>`;
+  document.getElementById('view-provision-content').innerHTML = [
+    row('Estado', provisionStatusBadge(p)),
+    row('Sucursal', escapeHtml(p.branchName || '—')),
+    row('Proveedor', escapeHtml(p.supplierName || 'Sin proveedor')),
+    row('Total', `${p.totalUnits} u. en ${p.items.length} producto${p.items.length === 1 ? '' : 's'}`),
+    row('Cargada', `${formatDateTime(p.createdAt)}${p.createdByName ? ` por ${escapeHtml(p.createdByName)}` : ''}`),
+    row('Aprobada', p.approvedAt ? `${formatDateTime(p.approvedAt)}${p.approvedByName ? ` por ${escapeHtml(p.approvedByName)}` : ''}` : 'Todavía no (no ingresó al stock)'),
+    p.editedAt ? row('Última modificación', `${formatDateTime(p.editedAt)}${p.editedByName ? ` por ${escapeHtml(p.editedByName)}` : ''}`) : '',
+    `<div class="span-2"><strong>Notas:</strong> ${escapeHtml(p.notes || 'Sin notas')}</div>`
+  ].join('');
+  document.getElementById('view-provision-items').innerHTML = p.items.map(i => `
+    <tr>
+      <td><strong>${escapeHtml(i.productName || '—')}</strong></td>
+      <td>${i.quantity} u.</td>
+      <td>${i.lotNumber ? `<span class="badge">${escapeHtml(i.lotNumber)}</span>` : '<span class="muted">Sin lote</span>'}</td>
+      <td>${i.expirationDate ? formatDateOnly(i.expirationDate) : '<span class="muted">No vence</span>'}</td>
+      <td class="view-provision-used-col">${i.used ? `${i.used} u.` : '—'}</td>
+    </tr>`).join('');
+  document.querySelectorAll('.view-provision-used-col').forEach(el => el.classList.toggle('hidden', !approved));
+  document.getElementById('view-provision-title').textContent = `Provisión — ${p.supplierName || 'sin proveedor'} (${formatDateOnly(p.createdAt)})`;
+  openModal('modal-view-provision');
+};
+
+// Lápiz: corregir una provisión, producto por producto en la misma lista.
+// Pendiente: solo los datos. Aprobada: también el stock y los lotes, y pide un motivo.
+let editingEntry = null;
+
+window.openEditEntryModal = async (provisionId) => {
+  editingEntry = loadedProvisions.find(e => e.id === provisionId);
+  if (!editingEntry) return;
+  const approved = editingEntry.status === 'APROBADA';
+  const suppliers = await loadSuppliers().catch(() => []);
+  document.getElementById('form-edit-entry').reset();
+  fillSelect(document.getElementById('edit-entry-supplier'), suppliers, { placeholder: 'Sin proveedor', value: editingEntry.supplierId || '' });
+  document.getElementById('edit-entry-supplier').value = editingEntry.supplierId || '';
+  document.getElementById('edit-entry-notes').value = editingEntry.notes || '';
+
+  document.getElementById('edit-entry-items').innerHTML = editingEntry.items.map(i => {
+    const needsLot = i.perishable || !!i.lotNumber;
+    const min = approved ? Math.max(1, i.used || 0) : 1;
+    return `
+      <tr data-item="${escapeHtml(i.id)}">
+        <td><strong>${escapeHtml(i.productName || '—')}</strong>${approved && i.used ? `<br><small class="muted">ya salieron ${i.used} u.</small>` : ''}</td>
+        <td><input type="number" class="edit-item-qty" value="${i.quantity}" min="${min}" step="1" required aria-label="Cantidad"></td>
+        <td>${needsLot ? `<input type="text" class="edit-item-lot" value="${escapeHtml(i.lotNumber || '')}" maxlength="60" ${i.perishable ? 'required' : ''} aria-label="Lote">` : '<span class="muted">No vence</span>'}</td>
+        <td>${needsLot ? `<input type="date" class="edit-item-exp" value="${i.expirationDate ? String(i.expirationDate).slice(0, 10) : ''}" ${i.perishable ? 'required' : ''} aria-label="Vencimiento">` : '<span class="muted">—</span>'}</td>
+      </tr>`;
+  }).join('');
+
+  // El motivo se pide solo si ya ingresó al stock
+  document.getElementById('edit-entry-reason-group').classList.toggle('hidden', !approved);
+  document.getElementById('edit-entry-reason').required = approved;
+
+  document.getElementById('edit-entry-title').textContent = `Modificar provisión — ${editingEntry.supplierName || 'sin proveedor'}`;
+  document.getElementById('edit-entry-info').innerHTML = approved
+    ? `Ya está aprobada: los cambios corrigen también el stock de ${escapeHtml(editingEntry.branchName || '')} y los lotes. La cantidad de cada producto no puede ser menor a lo que ya salió.`
+    : 'Está pendiente: todavía no ingresó al stock, así que se pueden corregir los datos libremente.';
+  openModal('modal-edit-entry');
+};
+
+document.getElementById('form-edit-entry')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!editingEntry) return;
+  const approved = editingEntry.status === 'APROBADA';
+  const items = [...document.querySelectorAll('#edit-entry-items tr[data-item]')].map(tr => {
+    const item = { id: tr.dataset.item, quantity: parseInt(tr.querySelector('.edit-item-qty').value, 10) };
+    const lot = tr.querySelector('.edit-item-lot');
+    const exp = tr.querySelector('.edit-item-exp');
+    if (lot) item.lotNumber = lot.value.trim();
+    if (exp) item.expirationDate = exp.value;
+    return item;
+  });
+  const body = {
+    supplierId: document.getElementById('edit-entry-supplier').value || null,
+    notes: document.getElementById('edit-entry-notes').value.trim(),
+    items
+  };
+  if (approved) body.reason = document.getElementById('edit-entry-reason').value.trim();
+
+  const bad = items.find(i => !i.quantity || i.quantity < 1);
+  if (bad) return showToast('La cantidad de cada producto debe ser mayor a 0.', 'error');
+  if (approved) {
+    const under = items.find(i => {
+      const original = editingEntry.items.find(o => o.id === i.id);
+      return original?.used && i.quantity < original.used;
+    });
+    if (under) {
+      const original = editingEntry.items.find(o => o.id === under.id);
+      return showToast(`De ${original.productName} ya salieron ${original.used} u.: la cantidad no puede ser menor.`, 'error');
+    }
+    if (!body.reason) return showToast('Indicá el motivo de la corrección.', 'error');
+  }
+
+  try {
+    const res = await apiFetch(`/inventory/provisions/${editingEntry.id}`, { method: 'PUT', body: JSON.stringify(body) });
+    showToast(res.changes?.length ? `Provisión modificada: ${res.changes.join(', ')}` : 'No había cambios para guardar', res.changes?.length ? 'success' : 'info', 7000);
+    closeModal('modal-edit-entry');
+    loadProvisionEntries();
+    if (approved) refreshNotifications();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+});
 
 async function renderSuppliersTable() {
   const tbody = document.getElementById('table-suppliers-body');
-  if (!state.suppliers.length) setTableLoading(tbody, 6, 3);
+  if (!state.suppliers.length) setTableLoading(tbody, 5, 3);
   try {
     await loadSuppliers();
     const list = state.suppliers.filter(s => !supplierSearch ||
       [s.name, s.cuit, s.contactName, s.email].join(' ').toLowerCase().includes(supplierSearch));
     if (!list.length) {
-      renderEmptyRow(tbody, 6, supplierSearch ? 'Sin resultados' : 'Todavía no hay proveedores', 'Registrá a quién le comprás para asociarlo a los ingresos y armar órdenes de compra.');
+      renderEmptyRow(tbody, 5, supplierSearch ? 'Sin resultados' : 'Todavía no hay proveedores', 'Registrá a quién le comprás para asociarlo a las provisiones.');
       const pag = document.getElementById('suppliers-pagination');
       if (pag) pag.innerHTML = '';
       return;
@@ -58,7 +287,6 @@ async function renderSuppliersTable() {
         <td>${s.cuit ? escapeHtml(s.cuit) : '<span class="muted">—</span>'}</td>
         <td>${s.contactName ? escapeHtml(s.contactName) : '<span class="muted">—</span>'}</td>
         <td>${escapeHtml(s.phone || '')}${s.phone && s.email ? '<br>' : ''}<span class="muted">${escapeHtml(s.email || '')}</span>${!s.phone && !s.email ? '<span class="muted">—</span>' : ''}</td>
-        <td><span class="cell-detail">${s.Products?.length ? s.Products.map(p => escapeHtml(p.name)).join(', ') : '—'}</span></td>
         <td>
           <div class="action-btn-group">
             <button class="btn-icon" title="Ver Detalle" onclick="openViewSupplierModal('${s.id}')">${ICON_VIEW}</button>
@@ -73,14 +301,13 @@ async function renderSuppliersTable() {
       renderSuppliersTable();
     });
   } catch (err) {
-    renderErrorRow(tbody, 6, err.message);
+    renderErrorRow(tbody, 5, err.message);
   }
 }
 
 window.openViewSupplierModal = (supplierId) => {
   const s = state.suppliers.find(x => String(x.id) === String(supplierId));
   if (!s) return;
-  const prods = (s.Products || []).map(p => escapeHtml(p.name)).join(', ') || 'Ninguno asignado';
   document.getElementById('view-supplier-details-content').innerHTML = `
     <div class="span-2"><strong>Razón Social:</strong> ${escapeHtml(s.name)}</div>
     <div><strong>CUIT:</strong> ${escapeHtml(s.cuit || 'Sin registrar')}</div>
@@ -88,7 +315,6 @@ window.openViewSupplierModal = (supplierId) => {
     <div><strong>Teléfono:</strong> ${escapeHtml(s.phone || 'Sin registrar')}</div>
     <div><strong>Email:</strong> ${escapeHtml(s.email || 'Sin registrar')}</div>
     <div class="span-2"><strong>Dirección:</strong> ${escapeHtml(s.address || 'Sin registrar')}</div>
-    <div class="span-2"><strong>Productos que provee:</strong> ${prods}</div>
     <div class="span-2"><strong>Notas:</strong> ${escapeHtml(s.notes || 'Sin notas')}</div>
   `;
   openModal('modal-view-supplier');
@@ -103,25 +329,6 @@ document.getElementById('supplier-search')?.addEventListener('input', debounce((
 // --------------------------------------------------------------------------
 // Alta / edición de proveedor
 // --------------------------------------------------------------------------
-function renderSupplierProductChecks(selectedIds = []) {
-  const filter = document.getElementById('supplier-products-filter').value.toLowerCase().trim();
-  const container = document.getElementById('supplier-products-list');
-  const checked = new Set(selectedIds.map(String));
-  container.innerHTML = state.products.map(p => `
-    <label class="checkbox-item ${filter && !p.name.toLowerCase().includes(filter) ? 'hidden' : ''}">
-      <input type="checkbox" value="${p.id}" ${checked.has(p.id) ? 'checked' : ''}>
-      <span>${escapeHtml(p.name)}</span>
-    </label>`).join('') || '<p class="empty-text">No hay productos en el catálogo.</p>';
-}
-
-function selectedSupplierProducts() {
-  return [...document.querySelectorAll('#supplier-products-list input:checked')].map(i => i.value);
-}
-
-document.getElementById('supplier-products-filter')?.addEventListener('input', () => {
-  renderSupplierProductChecks(selectedSupplierProducts());
-});
-
 window.openSupplierModal = (supplierId = null) => {
   const s = supplierId ? state.suppliers.find(x => x.id === supplierId) : null;
   document.getElementById('form-supplier').reset();
@@ -133,8 +340,6 @@ window.openSupplierModal = (supplierId = null) => {
   document.getElementById('supplier-email').value = s?.email || '';
   document.getElementById('supplier-address').value = s?.address || '';
   document.getElementById('supplier-notes').value = s?.notes || '';
-  document.getElementById('supplier-products-filter').value = '';
-  renderSupplierProductChecks(s?.productIds || []);
   document.getElementById('modal-supplier-title').textContent = s ? `Editar ${s.name}` : 'Nuevo Proveedor';
   openModal('modal-supplier');
 };
@@ -151,8 +356,7 @@ document.getElementById('form-supplier')?.addEventListener('submit', async (e) =
     phone: val('phone'),
     email: val('email'),
     address: val('address'),
-    notes: val('notes'),
-    productIds: selectedSupplierProducts()
+    notes: val("notes")
   };
   try {
     await apiFetch(id ? `/suppliers/${id}` : '/suppliers', { method: id ? 'PUT' : 'POST', body: JSON.stringify(data) });
@@ -177,185 +381,6 @@ window.deactivateSupplier = async (supplierId) => {
     await apiFetch(`/suppliers/${supplierId}`, { method: 'DELETE' });
     showToast('Proveedor dado de baja', 'success');
     renderSuppliersTable();
-  } catch (err) {
-    showToast(err.message, 'error');
-  }
-};
-
-// --------------------------------------------------------------------------
-// Órdenes de compra
-// --------------------------------------------------------------------------
-async function loadPurchaseOrders() {
-  const tbody = document.getElementById('table-po-body');
-  setTableLoading(tbody, 7, 3);
-  try {
-    const status = document.getElementById('po-filter-status').value;
-    loadedPurchaseOrders = await apiFetch(`/suppliers/purchase-orders${status ? `?status=${status}` : ''}`);
-    if (!loadedPurchaseOrders.length) {
-      renderEmptyRow(tbody, 7, 'No hay órdenes de compra', hasRole('Proveedor') ? 'Cuando te hagan un pedido lo vas a ver acá.' : 'Generá una orden para pedirle mercadería a un proveedor.');
-      return;
-    }
-    const canManage = hasRole('Administrador', 'Usuario Responsable');
-    const statusCls = { PENDIENTE: 'status-pendiente', RECIBIDA: 'status-entregado', CANCELADA: 'status-rechazado' };
-    tbody.innerHTML = loadedPurchaseOrders.map(po => `
-      <tr>
-        <td><span class="order-item-id">${escapeHtml(po.code)}</span></td>
-        <td><strong>${escapeHtml(po.supplierName)}</strong></td>
-        <td>${escapeHtml(po.branchName)}</td>
-        <td><span class="cell-detail">${po.items.map(i => `${escapeHtml(i.productName)} x${i.quantity}`).join(', ')}</span></td>
-        <td><span class="status-badge ${statusCls[po.status]}">${escapeHtml(capitalize(po.status.toLowerCase()))}</span></td>
-        <td class="cell-date">${formatDateTime(po.createdAt)}${po.receivedAt ? `<br><small class="muted">Recibida ${formatDateTime(po.receivedAt)}</small>` : ''}</td>
-        <td>${canManage && po.status === 'PENDIENTE' ? `
-          <div class="btn-row">
-            <button class="btn btn-success btn-sm" onclick="openReceivePoModal('${po.id}')">Recibir</button>
-            <button class="btn btn-danger-soft btn-sm" onclick="cancelPurchaseOrder('${po.id}')">Cancelar</button>
-          </div>` : ''}</td>
-      </tr>`).join('');
-  } catch (err) {
-    renderErrorRow(tbody, 7, err.message);
-  }
-}
-document.getElementById('po-filter-status')?.addEventListener('change', loadPurchaseOrders);
-
-let draftPoItems = [];
-
-function renderPoItems() {
-  const tbody = document.getElementById('table-po-items-body');
-  const count = draftPoItems.length;
-  document.getElementById('po-items-count').textContent = `${count} producto${count === 1 ? '' : 's'}`;
-  if (!draftPoItems.length) {
-    tbody.innerHTML = '<tr><td colspan="3" class="empty-text">Aún no agregaste productos.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = draftPoItems.map((i, index) => `
-    <tr>
-      <td><strong>${escapeHtml(i.productName)}</strong></td>
-      <td class="col-center"><span class="badge">${i.quantity}</span></td>
-      <td class="col-center"><button type="button" class="btn-icon btn-icon-danger" title="Quitar" onclick="removePoItem(${index})">${ICON_DELETE}</button></td>
-    </tr>`).join('');
-}
-
-window.removePoItem = (index) => {
-  draftPoItems.splice(index, 1);
-  renderPoItems();
-};
-
-// Productos del proveedor primero, después el resto del catálogo
-function fillPoProducts() {
-  const supplier = state.suppliers.find(s => s.id === document.getElementById('po-supplier').value);
-  const own = new Set(supplier?.productIds || []);
-  const sorted = [...state.products].sort((a, b) => (own.has(b.id) - own.has(a.id)) || a.name.localeCompare(b.name));
-  fillSelect(document.getElementById('po-product-select'), sorted, {
-    placeholder: 'Seleccioná un producto...',
-    getLabel: p => (own.has(p.id) ? `${p.name} (lo provee)` : p.name)
-  });
-}
-
-document.getElementById('btn-open-po-modal')?.addEventListener('click', async () => {
-  await loadSuppliers();
-  if (!state.suppliers.length) return showToast('Primero registrá al menos un proveedor.', 'error');
-  document.getElementById('form-po').reset();
-  fillSelect(document.getElementById('po-supplier'), state.suppliers, { placeholder: 'Seleccionar proveedor...', placeholderDisabled: true });
-  fillSelect(document.getElementById('po-branch'), entryBranches(), { placeholder: 'Seleccionar sucursal...', placeholderDisabled: true, getLabel: branchLabel, value: userBranchId() });
-  fillPoProducts();
-  draftPoItems = [];
-  renderPoItems();
-  openModal('modal-po');
-});
-
-document.getElementById('po-supplier')?.addEventListener('change', fillPoProducts);
-
-document.getElementById('btn-po-add-item')?.addEventListener('click', () => {
-  const productId = document.getElementById('po-product-select').value;
-  const quantity = parseInt(document.getElementById('po-product-qty').value, 10) || 0;
-  if (!productId) return showToast('Seleccioná un producto.', 'error');
-  if (quantity <= 0) return showToast('La cantidad debe ser mayor a 0.', 'error');
-
-  const existing = draftPoItems.find(i => i.productId === productId);
-  if (existing) {
-    existing.quantity += quantity;
-  } else {
-    draftPoItems.push({ productId, productName: getProductName(productId), quantity });
-  }
-  document.getElementById('po-product-select').value = '';
-  document.getElementById('po-product-qty').value = 1;
-  renderPoItems();
-});
-
-document.getElementById('form-po')?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  if (!draftPoItems.length) return showToast('Agregá al menos un producto a la orden.', 'error');
-  try {
-    const po = await apiFetch('/suppliers/purchase-orders', {
-      method: 'POST',
-      body: JSON.stringify({
-        supplierId: document.getElementById('po-supplier').value,
-        branchId: document.getElementById('po-branch').value,
-        notes: document.getElementById('po-notes').value.trim(),
-        items: draftPoItems.map(({ productId, quantity }) => ({ productId, quantity }))
-      })
-    });
-    showToast(`Orden ${po.code} generada`, 'success');
-    closeModal('modal-po');
-    document.getElementById('po-filter-status').value = '';
-    loadPurchaseOrders();
-  } catch (err) {
-    showToast(err.message, 'error');
-  }
-});
-
-// Recepción: un lote y vencimiento por producto
-let receivingPo = null;
-
-window.openReceivePoModal = (poId) => {
-  receivingPo = loadedPurchaseOrders.find(p => p.id === poId);
-  if (!receivingPo) return;
-  document.getElementById('po-receive-title').textContent = `Recibir ${receivingPo.code} — ${receivingPo.supplierName}`;
-  document.getElementById('table-po-receive-body').innerHTML = receivingPo.items.map(i => `
-    <tr>
-      <td><strong>${escapeHtml(i.productName)}</strong></td>
-      <td class="col-center">${i.quantity}</td>
-      ${i.perishable
-        ? `<td><input type="text" required data-lot-for="${i.productId}" placeholder="N° de lote"></td>
-      <td><input type="date" required data-exp-for="${i.productId}"></td>`
-        : '<td colspan="2" class="muted">No vence: no requiere lote</td>'}
-    </tr>`).join('');
-  openModal('modal-po-receive');
-};
-
-document.getElementById('form-po-receive')?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  if (!receivingPo) return;
-  const lots = receivingPo.items.map(i => ({
-    productId: i.productId,
-    lotNumber: document.querySelector(`[data-lot-for="${i.productId}"]`)?.value.trim() || null,
-    expirationDate: document.querySelector(`[data-exp-for="${i.productId}"]`)?.value || null
-  }));
-  try {
-    const res = await apiFetch(`/suppliers/purchase-orders/${receivingPo.id}/receive`, { method: 'POST', body: JSON.stringify({ lots }) });
-    showToast(res.message, 'success');
-    closeModal('modal-po-receive');
-    await loadBaseData();
-    loadPurchaseOrders();
-    refreshNotifications();
-  } catch (err) {
-    showToast(err.message, 'error');
-  }
-});
-
-window.cancelPurchaseOrder = async (poId) => {
-  const po = loadedPurchaseOrders.find(p => p.id === poId);
-  const ok = await confirmDialog({
-    title: 'Cancelar orden de compra',
-    message: `¿Cancelar la orden ${po?.code}? No se puede volver a activar.`,
-    confirmText: 'Cancelar orden',
-    danger: true
-  });
-  if (!ok) return;
-  try {
-    await apiFetch(`/suppliers/purchase-orders/${poId}/cancel`, { method: 'POST' });
-    showToast('Orden de compra cancelada', 'info');
-    loadPurchaseOrders();
   } catch (err) {
     showToast(err.message, 'error');
   }

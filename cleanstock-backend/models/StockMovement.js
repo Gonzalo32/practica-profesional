@@ -26,7 +26,11 @@ const stockMovementSchema = new mongoose.Schema({
   purchaseOrderId: { type: mongoose.Schema.Types.ObjectId, ref: 'PurchaseOrder', default: null },
   countId: { type: mongoose.Schema.Types.ObjectId, ref: 'InventoryCount', default: null },
   reason: { type: String, default: null },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  // Ingresos: el lote que generó y, si se corrigió después, cuándo y quién
+  stockEntryId: { type: mongoose.Schema.Types.ObjectId, ref: 'StockEntry', default: null },
+  editedAt: { type: Date, default: null },
+  editedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
 }, {
   timestamps: true,
   toJSON: { virtuals: true },

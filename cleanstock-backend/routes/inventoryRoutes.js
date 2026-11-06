@@ -4,6 +4,7 @@ const {
   createProduct, getProducts, updateProduct,
   registerStockEntry, registerInformalEntry, registerExit, getLots
 } = require('../controllers/inventoryController');
+const { getProvisions, createProvision, approveProvision, updateProvision } = require('../controllers/provisionController');
 const { verifyToken, requireRole } = require('../middlewares/authMiddleware');
 const v = require('../validators');
 
@@ -26,6 +27,13 @@ router.put('/products/:id', requireRole(STOCK_ROLES), v.updateProduct, updatePro
 
 // Ingreso de Stock oficial (con lote y fecha de vencimiento)
 router.post('/stock', requireRole(STOCK_ROLES), v.stockEntry, registerStockEntry);
+
+// Provisiones: mercadería de proveedores. Se carga pendiente y entra al stock recién al aprobarla.
+// El proveedor solo ve lo que entregó.
+router.get('/provisions', requireRole([...STOCK_ROLES, 'Proveedor']), v.listQuery, getProvisions);
+router.post('/provisions', requireRole(STOCK_ROLES), v.provisionCreate, createProvision);
+router.put('/provisions/:id', requireRole(STOCK_ROLES), v.provisionUpdate, updateProvision);
+router.post('/provisions/:id/approve', requireRole(STOCK_ROLES), v.onlyId, approveProvision);
 
 // Módulo 2: Ingreso Extraordinario / Extraoficial
 router.post('/informal-entry', requireRole(STOCK_ROLES), v.informalEntry, registerInformalEntry);

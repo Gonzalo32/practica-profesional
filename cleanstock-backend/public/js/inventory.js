@@ -112,6 +112,7 @@ function afterStockChange() {
   if (state.currentTab === 'panel-responsable') loadRecentStockTable();
   if (state.currentTab === 'panel-stock-view') loadBranchStockPanel();
   if (state.currentTab === 'panel-movements') loadMovementsTraceability();
+  if (state.currentTab === 'panel-provisions') loadProvisionEntries();
   if (state.currentTab === 'panel-expirations') loadExpirationsPanel();
   refreshNotifications();
 }
@@ -120,8 +121,14 @@ function afterStockChange() {
 // Modal: ingreso con lote y vencimiento
 // --------------------------------------------------------------------------
 let draftStockEntryItems = [];
+// 'direct': entra al stock en el momento (Stock por sucursal).
+// 'provision': queda como provisión pendiente y entra recién al aprobarla (Provisiones).
+let stockEntryMode = 'direct';
 
-async function openCreateStockEntryModal() {
+async function openCreateStockEntryModal(mode = 'direct') {
+  stockEntryMode = mode === 'provision' ? 'provision' : 'direct';
+  document.getElementById('stock-modal-title').textContent = stockEntryMode === 'provision' ? 'Nueva Provisión' : 'Agregar Ingreso de Stock';
+  document.getElementById('stock-modal-submit').textContent = stockEntryMode === 'provision' ? 'Cargar provisión (queda pendiente)' : 'Confirmar Ingreso de Stock';
   await ensureBaseData();
   const suppliers = await loadSuppliers().catch(() => []);
   // Desde "Stock por sucursal" el ingreso va, por defecto, a la sucursal que se está viendo
@@ -136,7 +143,7 @@ async function openCreateStockEntryModal() {
   renderStockModalItemsTable();
   openModal('modal-create-stock-entry');
 }
-document.getElementById('btn-open-stock-entry-modal')?.addEventListener('click', openCreateStockEntryModal);
+document.getElementById('btn-open-stock-entry-modal')?.addEventListener('click', () => openCreateStockEntryModal('direct'));
 
 // Los productos que no vencen no piden lote ni fecha: esos campos se desactivan
 function updateLotFields(product) {
@@ -220,6 +227,28 @@ document.getElementById('form-create-stock-entry-modal')?.addEventListener('subm
   if (!draftStockEntryItems.length) return showToast('Agregá al menos un insumo a la lista de ingreso.', 'error');
 
   const total = draftStockEntryItems.length;
+  const isProvision = stockEntryMode === 'provision';
+
+  // Provisión: una sola entrega con todos los productos de la lista
+  if (isProvision) {
+    try {
+      await apiFetch('/inventory/provisions', {
+        method: 'POST',
+        body: JSON.stringify({
+          branchId,
+          supplierId,
+          items: draftStockEntryItems.map(({ productId, quantity, lotNumber, expirationDate }) => ({ productId, quantity, lotNumber, expirationDate }))
+        })
+      });
+      showToast(`Provisión cargada con ${total} producto${total === 1 ? '' : 's'}. Ingresa al stock cuando se apruebe.`, 'success', 6000);
+      closeModal('modal-create-stock-entry');
+      afterStockChange();
+    } catch (err) {
+      showToast(err.message, 'error', 8000);
+    }
+    return;
+  }
+
   const failed = await submitDraftItems(draftStockEntryItems, item => apiFetch('/inventory/stock', {
     method: 'POST',
     body: JSON.stringify({ ...item, branchId, supplierId })

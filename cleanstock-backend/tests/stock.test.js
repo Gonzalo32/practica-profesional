@@ -1,6 +1,6 @@
 const { describe, test, before, after, beforeEach } = require('node:test');
 const { app, request, startDatabase, stopDatabase, clearDatabase, seedScenario, auth , expect } = require('./helpers');
-const { BranchStock, StockEntry, StockMovement } = require('../models');
+const { BranchStock, StockEntry, StockMovement, Product } = require('../models');
 const { markExpiredLots } = require('../services/stockService');
 
 let s;
@@ -136,6 +136,101 @@ describe('Ingresos, egresos y lotes', () => {
 
     // Un lote repetido se rechaza
     expect((await adjust([{ lotId: a._id, quantity: -1 }, { lotId: a._id, quantity: -1 }])).status).toBe(400);
+  });
+
+  test('provisiones: una entrega con varios productos; pendiente no mueve stock y al aprobarla ingresan todos', async () => {
+    const otro = await Product.create({ name: 'Detergente', categoryId: s.category._id, minimumStock: 2, perishable: false });
+    const create = await request(app).post('/api/inventory/provisions').set(auth(s.tokens.responsable)).send({
+      branchId: s.central._id,
+      notes: 'Remito 123',
+      items: [
+        { productId: s.product._id, quantity: 10, lotNumber: 'PROV-1', expirationDate: '2030-01-01' },
+        { productId: otro._id, quantity: 4 }
+      ]
+    });
+    expect(create.status).toBe(201);
+    expect(create.body.status).toBe('PENDIENTE');
+    expect(create.body.items.length).toBe(2);
+    expect(create.body.totalUnits).toBe(14);
+
+    // Pendiente: ni stock, ni lote, ni movimiento
+    expect((await stockOf(s.central)).quantity).toBe(0);
+    expect(await StockEntry.countDocuments()).toBe(0);
+    expect(await StockMovement.countDocuments()).toBe(0);
+
+    // Corregir una pendiente no necesita motivo y no toca el stock
+    const itemId = create.body.items[0].id;
+    const fix = await request(app).put(`/api/inventory/provisions/${create.body.id}`).set(auth(s.tokens.responsable))
+      .send({ items: [{ id: itemId, quantity: 12 }] });
+    expect(fix.status).toBe(200);
+    expect((await stockOf(s.central)).quantity).toBe(0);
+
+    // Un solicitante no puede aprobar
+    expect((await request(app).post(`/api/inventory/provisions/${create.body.id}/approve`).set(auth(s.tokens.solicitante))).status).toBe(403);
+
+    const approve = await request(app).post(`/api/inventory/provisions/${create.body.id}/approve`).set(auth(s.tokens.responsable));
+    expect(approve.status).toBe(200);
+    expect(approve.body.status).toBe('APROBADA');
+    expect((await stockOf(s.central)).quantity).toBe(12);
+    expect((await BranchStock.findOne({ branchId: s.central._id, productId: otro._id }).lean()).quantity).toBe(4);
+    expect((await StockEntry.findOne({ lotNumber: 'PROV-1' })).remaining).toBe(12);
+    const movs = await StockMovement.find({ type: 'INGRESO' }).lean();
+    expect(movs.length).toBe(2);
+    expect(movs.every(m => m.subtype === 'PROVISION')).toBe(true);
+
+    // Aprobar dos veces no la ingresa dos veces
+    expect((await request(app).post(`/api/inventory/provisions/${create.body.id}/approve`).set(auth(s.tokens.admin))).status).toBe(400);
+    expect((await stockOf(s.central)).quantity).toBe(12);
+
+    const list = await request(app).get('/api/inventory/provisions').set(auth(s.tokens.responsable));
+    expect(list.body.items.length).toBe(1);
+    expect(list.body.items[0].status).toBe('APROBADA');
+    expect(list.body.pending).toBe(0);
+  });
+
+  test('provisiones: corregir una aprobada mueve el lote y el stock por la diferencia', async () => {
+    const created = await request(app).post('/api/inventory/provisions').set(auth(s.tokens.responsable)).send({
+      branchId: s.central._id,
+      items: [{ productId: s.product._id, quantity: 10, lotNumber: 'MAL', expirationDate: '2030-01-01' }]
+    });
+    const id = created.body.id;
+    const itemId = created.body.items[0].id;
+    await request(app).post(`/api/inventory/provisions/${id}/approve`).set(auth(s.tokens.responsable));
+
+    // Salen 3 unidades del lote
+    await request(app).post('/api/inventory/exit').set(auth(s.tokens.admin)).send({
+      productId: s.product._id, branchId: s.central._id, quantity: 3, exitType: 'VENTA'
+    });
+    const edit = (data) => request(app).put(`/api/inventory/provisions/${id}`).set(auth(s.tokens.responsable)).send(data);
+
+    expect((await edit({ items: [{ id: itemId, quantity: 8 }] })).status).toBe(400); // aprobada: falta el motivo
+    expect((await edit({ reason: 'Remito', items: [{ id: itemId, quantity: 2 }] })).status).toBe(400); // menos de lo que ya salió
+
+    const ok = await edit({ reason: 'Se cargó mal el remito', items: [{ id: itemId, quantity: 8, lotNumber: 'BIEN', expirationDate: '2031-06-30' }] });
+    expect(ok.status).toBe(200);
+    const lot = await StockEntry.findOne({ lotNumber: 'BIEN' }).lean();
+    expect(lot.quantity).toBe(8);
+    expect(lot.remaining).toBe(5);
+    expect((await stockOf(s.central)).quantity).toBe(5);
+    const mov = await StockMovement.findOne({ type: 'INGRESO' }).lean();
+    expect(mov.quantity).toBe(8);
+    expect(mov.lotNumber).toBe('BIEN');
+    expect(mov.editedAt).toBeTruthy();
+  });
+
+  test('provisiones: un producto que vence exige lote y el responsable solo carga en su sucursal', async () => {
+    const sinLote = await request(app).post('/api/inventory/provisions').set(auth(s.tokens.responsable)).send({
+      branchId: s.central._id, items: [{ productId: s.product._id, quantity: 5 }]
+    });
+    expect(sinLote.status).toBe(400);
+    const vacia = await request(app).post('/api/inventory/provisions').set(auth(s.tokens.responsable)).send({
+      branchId: s.central._id, items: []
+    });
+    expect(vacia.status).toBe(400);
+    const otraSucursal = await request(app).post('/api/inventory/provisions').set(auth(s.tokens.responsable)).send({
+      branchId: s.norte._id, items: [{ productId: s.product._id, quantity: 5, lotNumber: 'X', expirationDate: '2030-01-01' }]
+    });
+    expect(otraSucursal.status).toBe(403);
   });
 
   test('el ajuste por lote rechaza lotes de otro producto o sucursal y respeta lo reservado', async () => {

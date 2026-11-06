@@ -12,7 +12,7 @@ Proyecto Final de Práctica Profesional II — IFES. Grupo: Guerrero, Marambio.
 - Catálogo de productos con categorías, SKU y stock mínimo.
 - Ingresos de stock con lote y vencimiento, ingresos extraordinarios, egresos y mermas.
 - Pedidos entre sucursales con aprobación, panel de despacho (Kanban) y trazabilidad de cada estado.
-- Proveedores y órdenes de compra.
+- Provisiones: la mercadería de los proveedores se carga pendiente y entra al stock recién cuando el Responsable o el Administrador la aprueba; se puede ver y corregir.
 - Alertas de stock bajo y de vencimientos, con salida FEFO (primero vence, primero sale).
 - Conteo físico de inventario con ajuste de diferencias.
 - Panel con gráficos y exportación a Excel y PDF.
@@ -97,7 +97,7 @@ Para probar el sistema con datos de ejemplo, sobre una base **vacía**:
 npm run seed:demo
 ```
 
-Carga tres sucursales, nueve productos con lotes y vencimientos, dos proveedores con órdenes de compra, pedidos en todos los estados y un usuario por rol. Los datos se cargan a través de la propia API, así que pasan por las mismas validaciones y reglas que el uso normal. Si la base ya tiene productos o pedidos, el comando no hace nada: nunca borra ni pisa datos.
+Carga tres sucursales, nueve productos con lotes y vencimientos, dos proveedores con provisiones aprobadas y pendientes, pedidos en todos los estados y un usuario por rol. Los datos se cargan a través de la propia API, así que pasan por las mismas validaciones y reglas que el uso normal. Si la base ya tiene productos o pedidos, el comando no hace nada: nunca borra ni pisa datos.
 
 Usuarios (todos con la contraseña de `ADMIN_INITIAL_PASSWORD`):
 
@@ -118,7 +118,7 @@ Con `DEMO_DATA=true` en el `.env`, los mismos datos se cargan al iniciar el serv
 npm test
 ```
 
-Corre 57 pruebas automatizadas sobre una base de datos en memoria, sin tocar la base real. Cubren autenticación, permisos por rol y por sucursal, pedidos, stock, proveedores, conteos, configuración, espacios físicos y reportes.
+Corre 60 pruebas automatizadas sobre una base de datos en memoria, sin tocar la base real. Cubren autenticación, permisos por rol y por sucursal, pedidos, stock, proveedores, conteos, configuración, espacios físicos y reportes.
 
 ## Estructura del proyecto
 

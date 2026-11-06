@@ -118,21 +118,26 @@ const seedDemo = async (app, password) => {
     await entry(p.guantes, 3, null, 0, papelera); // stock bajo
     await markExpiredLots();
 
-    // Órdenes de compra: una recibida y una pendiente
-    const oc1 = idOf(await call(admin, 'POST', '/suppliers/purchase-orders', {
-      supplierId: quimica, branchId: central, notes: 'Reposición mensual',
-      items: [{ productId: p.jabon, quantity: 24 }, { productId: p.detergente, quantity: 12 }]
+    // Provisiones de proveedores (cada una es una entrega con varios productos):
+    // una ya aprobada (ingresó al stock) y dos pendientes de aprobar
+    const lotItem = (productId, quantity, lotNumber, days) => ({ productId, quantity, lotNumber, expirationDate: daysFromNow(days) });
+    const provision = async (supplierId, notes, items) => idOf(await call(responsable, 'POST', '/inventory/provisions', {
+      branchId: central, supplierId, notes, items
     }));
-    await call(responsable, 'POST', `/suppliers/purchase-orders/${oc1}/receive`, {
-      lots: [
-        { productId: p.jabon, lotNumber: 'JAB-2705', expirationDate: daysFromNow(260) },
-        { productId: p.detergente, lotNumber: 'DET-2705', expirationDate: daysFromNow(330) }
-      ]
-    });
-    await call(admin, 'POST', '/suppliers/purchase-orders', {
-      supplierId: papelera, branchId: central, notes: 'Faltan guantes y trapos',
-      items: [{ productId: p.guantes, quantity: 20 }, { productId: p.trapo, quantity: 30 }]
-    });
+    const aprobada = await provision(quimica, 'Remito 0001-00004512', [
+      lotItem(p.jabon, 24, 'JAB-2705', 260),
+      lotItem(p.detergente, 12, 'DET-2705', 330)
+    ]);
+    await call(responsable, 'POST', `/inventory/provisions/${aprobada}/approve`);
+    await provision(quimica, 'Llegó sin remito, a confirmar', [
+      lotItem(p.lavandina, 30, 'LAV-2612', 250),
+      lotItem(p.alcoholGel, 18, 'ALC-2703', 200),
+      lotItem(p.desinfectante, 10, 'DES-2704', 220)
+    ]);
+    await provision(papelera, 'Remito 0003-00000877', [
+      { productId: p.guantes, quantity: 20 },
+      { productId: p.bolsas, quantity: 50 }
+    ]);
 
     // Pedidos de las sucursales al depósito, en distintos estados
     const order = async (token, toBranchId, items, notes) =>

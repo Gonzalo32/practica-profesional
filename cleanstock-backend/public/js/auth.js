@@ -166,7 +166,7 @@ const NAV_BY_ROLE = {
     ['despachante', 'Panel Despacho']
   ],
   Proveedor: [
-    ['provisions', 'Mis Órdenes de Compra']
+    ['provisions', 'Mis Entregas']
   ]
 };
 

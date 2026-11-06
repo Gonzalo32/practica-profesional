@@ -212,6 +212,7 @@ const registerStockEntry = async (req, res) => {
       lotNumber: hasLot ? lotNumber : null,
       expirationDate: hasLot ? expirationDate : null,
       supplierId: supplierId || null,
+      stockEntryId: stockEntry?._id || null,
       userId: req.user.id
     });
 

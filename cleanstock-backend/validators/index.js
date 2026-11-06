@@ -152,6 +152,32 @@ const stockEntry = [
   validate
 ];
 
+// Provisiones: alta (queda pendiente) y corrección. En una ya aprobada el motivo lo exige el controlador.
+const provisionCreate = [
+  mongoId("branchId", "Sucursal"),
+  optionalMongoId("supplierId", "Proveedor"),
+  optionalText("notes", "Las notas", 300),
+  body("items").isArray({ min: 1, max: 100 }).withMessage("Agregá al menos un producto a la provisión"),
+  body("items.*.productId").isMongoId().withMessage("Producto inválido"),
+  body("items.*.quantity").isInt({ min: 1 }).withMessage("La cantidad de cada producto debe ser un número entero mayor a 0").toInt(),
+  body("items.*.lotNumber").optional({ values: "falsy" }).isString().trim().isLength({ max: 60 }).withMessage("El número de lote es demasiado largo"),
+  body("items.*.expirationDate").optional({ values: "falsy" }).isISO8601().withMessage("El vencimiento debe ser una fecha válida"),
+  validate
+];
+
+const provisionUpdate = [
+  idParam(),
+  optionalMongoId("supplierId", "Proveedor"),
+  optionalText("notes", "Las notas", 300),
+  optionalText("reason", "El motivo", 200),
+  body("items").optional().isArray({ max: 100 }).withMessage("Productos inválidos"),
+  body("items.*.id").isMongoId().withMessage("Producto de la provisión inválido"),
+  body("items.*.quantity").optional().isInt({ min: 1 }).withMessage("La cantidad de cada producto debe ser un número entero mayor a 0").toInt(),
+  body("items.*.lotNumber").optional({ values: "null" }).isString().trim().isLength({ max: 60 }).withMessage("El número de lote es demasiado largo"),
+  body("items.*.expirationDate").optional({ values: "falsy" }).isISO8601().withMessage("El vencimiento debe ser una fecha válida"),
+  validate
+];
+
 const informalEntry = [
   mongoId('productId', 'Producto'),
   mongoId('branchId', 'Sucursal'),
@@ -276,6 +302,8 @@ module.exports = {
   space,
   spaceUpdate,
   stockAdjust,
+  provisionCreate,
+  provisionUpdate,
   category,
   categoryUpdate,
   createProduct,

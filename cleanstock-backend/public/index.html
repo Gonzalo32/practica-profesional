@@ -709,7 +709,6 @@
                       <th>CUIT</th>
                       <th>Contacto</th>
                       <th>Teléfono / Email</th>
-                      <th>Productos que provee</th>
                       <th>Acciones</th>
                     </tr>
                   </thead>
@@ -726,21 +725,25 @@
           <div class="panel-header-row">
             <h2 id="provisions-panel-title">Provisiones</h2>
             <div class="btn-row">
-              <button type="button" class="btn btn-secondary" id="btn-provisions-entry">Agregar Ingreso</button>
-              <button type="button" class="btn btn-primary" id="btn-open-po-modal">Nueva Orden de Compra</button>
+              <button type="button" class="btn btn-primary" id="btn-provisions-entry">Nueva Provisión</button>
             </div>
           </div>
-          <p class="hint-text" id="provisions-hint">Las órdenes de compra se generan al proveedor y, al recibirlas, se cargan el lote y el vencimiento de cada producto. Para mercadería que llegó sin orden, usá "Agregar Ingreso".</p>
+          <p class="hint-text" id="provisions-hint">Acá se carga la mercadería que llega de los proveedores. Cada provisión queda pendiente y recién cuando se aprueba con el casillero ingresa al stock de la sucursal y figura en los movimientos.</p>
 
           <div class="card glass table-card">
             <div class="card-title-row">
-              <h3>Órdenes de Compra</h3>
+              <div>
+                <h3 id="provisions-table-title">Provisiones de proveedores</h3>
+                <span class="badge hidden" id="provisions-pending-count"></span>
+              </div>
               <div class="btn-row">
-                <select id="po-filter-status">
+                <select id="provisions-status-filter">
                   <option value="">Todos los estados</option>
                   <option value="PENDIENTE">Pendientes</option>
-                  <option value="RECIBIDA">Recibidas</option>
-                  <option value="CANCELADA">Canceladas</option>
+                  <option value="APROBADA">Aprobadas</option>
+                </select>
+                <select id="provisions-branch-select" class="select-md">
+                  <option value="">Todas las sucursales</option>
                 </select>
               </div>
             </div>
@@ -748,18 +751,19 @@
               <table>
                 <thead>
                   <tr>
-                    <th>N° Orden</th>
-                    <th>Proveedor</th>
-                    <th>Sucursal destino</th>
-                    <th>Productos</th>
-                    <th>Estado</th>
                     <th>Fecha</th>
+                    <th class="provisions-branch-col">Sucursal</th>
+                    <th>Productos</th>
+                    <th>Unidades</th>
+                    <th>Proveedor</th>
+                    <th>Estado</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
-                <tbody id="table-po-body"></tbody>
+                <tbody id="table-provisions-body"></tbody>
               </table>
             </div>
+            <div class="pagination-container" id="provisions-pagination"></div>
           </div>
         </section>
 
@@ -1446,7 +1450,7 @@
   <div id="modal-create-stock-entry" class="modal hidden">
     <div class="modal-content glass card modal-xl">
       <div class="modal-header">
-        <h3>Agregar Ingreso / Provisión de Stock</h3>
+        <h3 id="stock-modal-title">Agregar Ingreso de Stock</h3>
         <button type="button" class="close-btn" data-close-modal>&times;</button>
       </div>
 
@@ -1510,7 +1514,7 @@
 
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
-          <button type="submit" class="btn btn-primary">Confirmar Ingreso de Stock</button>
+          <button type="submit" class="btn btn-primary" id="stock-modal-submit">Confirmar Ingreso de Stock</button>
         </div>
       </form>
     </div>
@@ -1686,13 +1690,6 @@
           <input type="text" id="supplier-address">
         </div>
         <div class="form-group span-2">
-          <label>Productos que provee</label>
-          <div class="search-box search-box-sm">
-            <input type="text" id="supplier-products-filter" placeholder="Filtrar productos...">
-          </div>
-          <div id="supplier-products-list" class="checkbox-list"></div>
-        </div>
-        <div class="form-group span-2">
           <label for="supplier-notes">Notas</label>
           <textarea id="supplier-notes" rows="2" placeholder="Condiciones de pago, días de entrega..."></textarea>
         </div>
@@ -1718,92 +1715,65 @@
     </div>
   </div>
 
-  <!-- Modal: Nueva Orden de Compra -->
-  <div id="modal-po" class="modal hidden">
+
+  <!-- Modal: Ver una provisión -->
+  <div id="modal-view-provision" class="modal hidden">
     <div class="modal-content glass card modal-lg">
       <div class="modal-header">
-        <h3>Nueva Orden de Compra</h3>
+        <h3 id="view-provision-title">Provisión</h3>
         <button type="button" class="close-btn" data-close-modal>&times;</button>
       </div>
-      <form id="form-po" class="form-stack">
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="po-supplier">Proveedor <span class="req">*</span></label>
-            <select id="po-supplier" required></select>
-          </div>
-          <div class="form-group multi-only">
-            <label for="po-branch">Sucursal que recibe <span class="req">*</span></label>
-            <select id="po-branch" required></select>
-          </div>
-        </div>
-        <div class="item-picker">
-          <label class="picker-label">Agregar producto:</label>
-          <div class="picker-row">
-            <select id="po-product-select" class="picker-grow"></select>
-            <input type="number" id="po-product-qty" min="1" value="1" class="picker-qty" title="Cantidad">
-            <button type="button" id="btn-po-add-item" class="btn btn-secondary">Agregar</button>
-          </div>
-          <span class="hint-text">Se sugieren primero los productos que el proveedor tiene asociados.</span>
-        </div>
-        <div class="card glass-light item-list">
-          <div class="item-list-header">
-            <span>Productos de la orden:</span>
-            <span id="po-items-count" class="badge">0 productos</span>
-          </div>
-          <div class="table-responsive item-list-scroll">
-            <table class="table-compact">
-              <thead>
-                <tr>
-                  <th>Producto</th>
-                  <th class="col-center">Cantidad</th>
-                  <th class="col-center">Acción</th>
-                </tr>
-              </thead>
-              <tbody id="table-po-items-body"></tbody>
+      <div id="view-provision-content" class="details-grid"></div>
+      <div class="table-responsive">
+        <table>
+          <thead><tr><th>Producto</th><th>Cantidad</th><th>Lote</th><th>Vencimiento</th><th class="view-provision-used-col">Ya salieron</th></tr></thead>
+          <tbody id="view-provision-items"></tbody>
+        </table>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" data-close-modal>Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Modificar una provisión -->
+  <div id="modal-edit-entry" class="modal hidden">
+    <div class="modal-content glass card modal-lg">
+      <div class="modal-header">
+        <h3 id="edit-entry-title">Modificar ingreso</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
+      </div>
+      <p class="hint-text" id="edit-entry-info"></p>
+      <form id="form-edit-entry" class="form-grid">
+        <div class="form-group span-2">
+          <label>Productos de la provisión</label>
+          <div class="table-responsive">
+            <table class="adjust-variants-table">
+              <thead><tr><th>Producto</th><th>Cantidad</th><th>Lote</th><th>Vencimiento</th></tr></thead>
+              <tbody id="edit-entry-items"></tbody>
             </table>
           </div>
         </div>
         <div class="form-group">
-          <label for="po-notes">Notas</label>
-          <textarea id="po-notes" rows="2"></textarea>
+          <label for="edit-entry-supplier">Proveedor</label>
+          <select id="edit-entry-supplier"></select>
         </div>
-        <div class="modal-actions">
+        <div class="form-group">
+          <label for="edit-entry-notes">Notas</label>
+          <input type="text" id="edit-entry-notes" maxlength="300" placeholder="N° de remito, observaciones...">
+        </div>
+        <div class="form-group span-2" id="edit-entry-reason-group">
+          <label for="edit-entry-reason">Motivo de la corrección <span class="req">*</span></label>
+          <input type="text" id="edit-entry-reason" maxlength="200" placeholder="Ej: se cargó mal la cantidad del remito">
+        </div>
+        <div class="modal-actions span-2">
           <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
-          <button type="submit" class="btn btn-primary">Generar Orden de Compra</button>
+          <button type="submit" class="btn btn-primary">Guardar cambios</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Modal: Recibir Orden de Compra -->
-  <div id="modal-po-receive" class="modal hidden">
-    <div class="modal-content glass card modal-lg">
-      <div class="modal-header">
-        <h3 id="po-receive-title">Recibir Orden de Compra</h3>
-        <button type="button" class="close-btn" data-close-modal>&times;</button>
-      </div>
-      <form id="form-po-receive" class="form-stack">
-        <p class="hint-text">Cargá el lote y el vencimiento de cada producto recibido. Al confirmar, el stock ingresa a la sucursal asociado al proveedor de la orden.</p>
-        <div class="table-responsive">
-          <table class="table-compact">
-            <thead>
-              <tr>
-                <th>Producto</th>
-                <th class="col-center">Cantidad</th>
-                <th>Lote</th>
-                <th>Vencimiento</th>
-              </tr>
-            </thead>
-            <tbody id="table-po-receive-body"></tbody>
-          </table>
-        </div>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
-          <button type="submit" class="btn btn-success">Confirmar Recepción</button>
-        </div>
-      </form>
-    </div>
-  </div>
 
   <!-- Librerías (orden: núcleo primero, inicio al final) -->
   <script src="js/core.js"></script>

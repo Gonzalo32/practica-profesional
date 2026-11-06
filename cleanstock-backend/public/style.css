@@ -2513,3 +2513,15 @@ body.single-branch #panel-admin .grid-dashboard { grid-template-columns: repeat(
 .adjust-variants-table th, .adjust-variants-table td { padding: 6px 8px; vertical-align: middle; }
 .adjust-variants-table input.adjust-variant-qty { width: 100px; max-width: 100px; text-align: right; }
 .adjust-variant-result { font-weight: 700; }
+
+/* Provisiones: casillero de aprobación y filas pendientes */
+.provision-approve { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; cursor: pointer; }
+.provision-approve input { width: 18px; height: 18px; cursor: pointer; accent-color: var(--color-success); }
+.provision-approve input:disabled { cursor: default; }
+.provision-pending-row td:first-child { box-shadow: inset 3px 0 0 var(--color-warning); }
+#provisions-pending-count { margin-left: 8px; color: var(--color-warning); }
+.provision-items-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.provision-items-list li { line-height: 1.3; }
+.provision-items-list small { display: block; }
+#edit-entry-items input { min-width: 0; }
+#edit-entry-items .edit-item-qty { width: 90px; }
