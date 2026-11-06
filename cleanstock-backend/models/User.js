@@ -23,6 +23,12 @@ const userSchema = new mongoose.Schema({
     default: 'Solicitante'
   },
   isActive: { type: Boolean, default: true },
+  // Solo para el rol Proveedor: empresa proveedora a la que pertenece
+  supplierId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Supplier',
+    default: null
+  },
   physicalSpaceId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'PhysicalSpace',

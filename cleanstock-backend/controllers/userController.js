@@ -1,24 +1,36 @@
 const bcrypt = require('bcryptjs');
-const { User, ActivityLog, PhysicalSpace } = require('../models');
+const { User, ActivityLog } = require('../models');
+const { toId, escapeRegex, parsePagination, startOfDay } = require('../utils/format');
+const { getSettings } = require('../services/settingsService');
 
 // T2.1: Crear nuevo usuario (Solo Administrador)
 const createUser = async (req, res) => {
   try {
-    const { username, password, role, physicalSpaceId, firstName, lastName, email, phone, document, cuil, birthDate, address, zipCode } = req.body;
+    const { username, password, role, physicalSpaceId, supplierId, firstName, lastName, email, phone, document, cuil, birthDate, address, zipCode } = req.body;
 
-    const userExists = await User.findOne({ username });
+    const userExists = await User.findOne({ $or: [{ username }, ...(email ? [{ email }] : [])] });
     if (userExists) {
-      return res.status(400).json({ message: 'El usuario ya existe' });
+      return res.status(400).json({ message: 'Ya existe un usuario con ese correo' });
     }
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
+    // En modo de un solo local, todos trabajan en el local principal
+    const settings = await getSettings();
+    const targetRole = role || 'Solicitante';
+    const branchId = physicalSpaceId || (settings.singleBranchMode ? settings.mainBranchId : null);
+
+    if (targetRole !== 'Administrador' && targetRole !== 'Proveedor' && !branchId) {
+      return res.status(400).json({ message: 'Los usuarios que no sean Administrador o Proveedor deben tener una sucursal asignada obligatoriamente.' });
+    }
+
     const newUser = await User.create({
       username,
       passwordHash,
-      role: role || 'Solicitante',
-      physicalSpaceId: physicalSpaceId || null,
+      role: targetRole,
+      physicalSpaceId: branchId || null,
+      supplierId: role === 'Proveedor' ? (supplierId || null) : null,
       firstName: firstName || null,
       lastName: lastName || null,
       email: email || null,
@@ -29,13 +41,13 @@ const createUser = async (req, res) => {
       address: address || null,
       zipCode: zipCode || null
     });
-    
+
     await ActivityLog.create({
       userId: req.user.id,
       action: 'CREATE_USER',
       details: `Administrador creó el usuario ${username} con rol ${newUser.role}`
     });
-    
+
     res.status(201).json({ message: 'Usuario creado exitosamente', user: { id: newUser._id.toString(), username, role: newUser.role } });
   } catch (error) {
     res.status(500).json({ message: 'Error creando usuario', error: error.message });
@@ -47,6 +59,7 @@ const getUsers = async (req, res) => {
   try {
     const users = await User.find()
       .populate('physicalSpaceId', 'name type')
+      .populate('supplierId', 'name')
       .lean();
 
     const formattedUsers = users.map(u => ({
@@ -55,12 +68,14 @@ const getUsers = async (req, res) => {
       username: u.username,
       role: u.role,
       isActive: u.isActive,
-      physicalSpaceId: u.physicalSpaceId ? (u.physicalSpaceId._id ? u.physicalSpaceId._id.toString() : u.physicalSpaceId) : null,
+      physicalSpaceId: toId(u.physicalSpaceId),
       EspacioFisico: u.physicalSpaceId && typeof u.physicalSpaceId === 'object' ? {
         id: u.physicalSpaceId._id.toString(),
         name: u.physicalSpaceId.name,
         type: u.physicalSpaceId.type
       } : null,
+      supplierId: toId(u.supplierId),
+      Supplier: u.supplierId && typeof u.supplierId === 'object' ? { id: u.supplierId._id.toString(), name: u.supplierId.name } : null,
       createdAt: u.createdAt,
       firstName: u.firstName,
       lastName: u.lastName,
@@ -83,16 +98,39 @@ const getUsers = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { username, role, physicalSpaceId, firstName, lastName, email, phone, document, cuil, birthDate, address, zipCode } = req.body;
+    const { username, password, role, physicalSpaceId, supplierId, firstName, lastName, email, phone, document, cuil, birthDate, address, zipCode } = req.body;
 
     const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
-    if (username) user.username = username;
-    if (role) user.role = role;
+    if (username && username !== user.username) {
+      const taken = await User.exists({ username, _id: { $ne: id } });
+      if (taken) return res.status(400).json({ message: 'Ya existe otro usuario con ese correo' });
+      user.username = username;
+    }
+    if (role) {
+      if (String(id) === String(req.user.id) && role !== 'Administrador') {
+        return res.status(400).json({ message: 'No podés quitarte a vos mismo el rol de Administrador' });
+      }
+      user.role = role;
+    }
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      user.passwordHash = await bcrypt.hash(password, salt);
+    }
     if (physicalSpaceId !== undefined) user.physicalSpaceId = physicalSpaceId || null;
+    if (supplierId !== undefined) user.supplierId = supplierId || null;
+    if (user.role !== 'Proveedor') user.supplierId = null;
+
+    if (user.role !== 'Administrador' && user.role !== 'Proveedor' && !user.physicalSpaceId) {
+      const settings = await getSettings();
+      if (!settings.singleBranchMode || !settings.mainBranchId) {
+        return res.status(400).json({ message: 'Los usuarios que no sean Administrador o Proveedor deben tener una sucursal asignada obligatoriamente.' });
+      }
+      user.physicalSpaceId = settings.mainBranchId;
+    }
     if (firstName !== undefined) user.firstName = firstName || null;
     if (lastName !== undefined) user.lastName = lastName || null;
     if (email !== undefined) user.email = email || null;
@@ -102,15 +140,15 @@ const updateUser = async (req, res) => {
     if (birthDate !== undefined) user.birthDate = birthDate || null;
     if (address !== undefined) user.address = address || null;
     if (zipCode !== undefined) user.zipCode = zipCode || null;
-    
+
     await user.save();
-    
+
     await ActivityLog.create({
       userId: req.user.id,
       action: 'UPDATE_USER',
-      details: `Administrador actualizó el usuario ${user.username}`
+      details: `Administrador actualizó el usuario ${user.username}${password ? ' (con cambio de contraseña)' : ''}`
     });
-    
+
     res.json({ message: 'Usuario actualizado', user: { id: user._id.toString(), username: user.username, role: user.role } });
   } catch (error) {
     res.status(500).json({ message: 'Error actualizando usuario', error: error.message });
@@ -121,35 +159,63 @@ const updateUser = async (req, res) => {
 const deactivateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
+    if (String(id) === String(req.user.id)) {
+      return res.status(400).json({ message: 'No podés dar de baja tu propio usuario' });
+    }
+
     const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({ message: 'Usuario no encontrado' });
     }
-    
+
     user.isActive = false;
     await user.save();
-    
+
     await ActivityLog.create({
       userId: req.user.id,
       action: 'DEACTIVATE_USER',
       details: `Administrador dio de baja al usuario ${user.username}`
     });
-    
+
     res.json({ message: 'Usuario dado de baja' });
   } catch (error) {
     res.status(500).json({ message: 'Error al dar de baja el usuario' });
   }
 };
 
+// Historial de auditoría con filtros y paginación
+// ?action &q (texto) &from &to &page &limit (limit=0 trae todo para exportar)
 const getAuditLogs = async (req, res) => {
   try {
-    const logs = await ActivityLog.find()
-      .populate('userId', 'username role')
-      .sort({ timestamp: -1 })
-      .lean();
+    const { action, q, from, to } = req.query;
+    const filter = {};
+    if (action) filter.action = action;
+    if (q) filter.details = { $regex: escapeRegex(q), $options: 'i' };
+    if (from || to) {
+      filter.createdAt = {};
+      if (from) filter.createdAt.$gte = startOfDay(from);
+      if (to) {
+        const end = startOfDay(to);
+        end.setDate(end.getDate() + 1);
+        filter.createdAt.$lt = end;
+      }
+    }
 
-    const formattedLogs = logs.map(l => ({
+    const { page, limit, skip } = parsePagination(req.query, 25);
+
+    const [logs, total, actions] = await Promise.all([
+      ActivityLog.find(filter)
+        .populate('userId', 'username role firstName lastName')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      ActivityLog.countDocuments(filter),
+      ActivityLog.distinct('action')
+    ]);
+
+    const items = logs.map(l => ({
       id: l._id.toString(),
       _id: l._id.toString(),
       action: l.action,
@@ -159,11 +225,13 @@ const getAuditLogs = async (req, res) => {
       orderId: l.orderId ? l.orderId.toString() : null,
       User: l.userId && typeof l.userId === 'object' ? {
         username: l.userId.username,
+        firstName: l.userId.firstName,
+        lastName: l.userId.lastName,
         role: l.userId.role
       } : null
     }));
 
-    res.json(formattedLogs);
+    res.json({ items, total, page, pages: Math.max(1, Math.ceil(total / limit)), actions: actions.sort() });
   } catch (error) {
     res.status(500).json({ message: 'Error obteniendo logs de auditoría', error: error.message });
   }

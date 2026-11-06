@@ -1,68 +1,69 @@
 require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const { syncDatabase } = require('./models');
-const authRoutes = require('./routes/authRoutes');
-const userRoutes = require('./routes/userRoutes');
-const inventoryRoutes = require('./routes/inventoryRoutes');
-const orderRoutes = require('./routes/orderRoutes');
-const branchRoutes = require('./routes/branchRoutes');
-const alertRoutes = require('./routes/alertRoutes');
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const app = require('./app');
+const { syncDatabase, User } = require('./models');
+const { markExpiredLots } = require('./services/stockService');
+const { seedDemo, isDatabaseEmpty } = require('./services/demoSeed');
 
-const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/inventory', inventoryRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/branches', branchRoutes);
-app.use('/api/alerts', alertRoutes);
-
-// Test Route
-app.get('/api/ping', (req, res) => {
-  res.json({ message: 'pong' });
-});
-
-const bcrypt = require('bcryptjs');
-const { User } = require('./models');
-
+// Crea el usuario administrador de prueba solo si todavía no existe ningún administrador.
+// Nunca pisa la contraseña de un administrador existente. La clave sale de
+// ADMIN_INITIAL_PASSWORD; si no está definida se genera una al azar y se muestra una sola vez.
 const autoSeedAdmin = async () => {
   try {
+    const hasAdmin = await User.exists({ role: 'Administrador' });
+    if (hasAdmin) return;
+
     const username = 'admin@cleanstock.com';
-    const email = 'admin@cleanstock.com';
-    let user = await User.findOne({ username });
-    if (!user) {
-      user = await User.findOne({ role: 'Administrador' });
+    const generated = !process.env.ADMIN_INITIAL_PASSWORD;
+    const password = process.env.ADMIN_INITIAL_PASSWORD || crypto.randomBytes(9).toString('base64url');
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password, salt);
+    await User.create({
+      username,
+      email: username,
+      passwordHash,
+      role: 'Administrador',
+      firstName: 'Administrador',
+      lastName: 'Principal',
+      isActive: true
+    });
+    console.log(`Usuario administrador de prueba creado: ${username}`);
+    if (generated) {
+      console.log(`Falta ADMIN_INITIAL_PASSWORD en el .env; se generó la clave temporal: ${password}`);
     }
-    if (!user) {
-      const salt = await bcrypt.genSalt(10);
-      const passwordHash = await bcrypt.hash('admin123', salt);
-      await User.create({
-        username,
-        email,
-        passwordHash,
-        role: 'Administrador',
-        firstName: 'Administrador',
-        lastName: 'Principal',
-        phone: '1122334455',
-        document: '20-12345678-9',
-        cuil: '20-12345678-9',
-        birthDate: '1990-01-01',
-        address: 'Av. Central 123',
-        zipCode: '1000',
-        isActive: true
-      });
-      console.log('Usuario admin auto-generado: admin@cleanstock.com / admin123');
-    }
+    console.log('Cambiá la contraseña después de ingresar.');
   } catch (err) {
-    console.error('Error auto-seeding admin:', err.message);
+    console.error('Error creando el administrador inicial:', err.message);
+  }
+};
+
+// Revisa los vencimientos al iniciar y luego una vez por hora
+const scheduleExpirationCheck = () => {
+  const run = async () => {
+    try {
+      const expired = await markExpiredLots();
+      if (expired > 0) console.log(`${expired} lote(s) marcados como VENCIDOS`);
+    } catch (err) {
+      console.error('Error revisando vencimientos:', err.message);
+    }
+  };
+  run();
+  setInterval(run, 60 * 60 * 1000).unref();
+};
+
+// Con DEMO_DATA=true, si la base está vacía se cargan los datos de demostración al iniciar.
+// Sirve sobre todo cuando no hay conexión y el sistema arranca con la base en memoria.
+const autoSeedDemo = async () => {
+  if (process.env.DEMO_DATA !== 'true') return;
+  try {
+    if (!(await isDatabaseEmpty())) return;
+    await seedDemo(app, process.env.ADMIN_INITIAL_PASSWORD);
+    console.log('Datos de demostración cargados (los usuarios usan la clave de ADMIN_INITIAL_PASSWORD).');
+  } catch (err) {
+    console.error('No se cargaron los datos de demostración:', err.message);
   }
 };
 
@@ -70,10 +71,11 @@ const autoSeedAdmin = async () => {
 const startServer = async () => {
   await syncDatabase();
   await autoSeedAdmin();
+  await autoSeedDemo();
+  scheduleExpirationCheck();
   app.listen(PORT, () => {
     console.log(`Servidor de CleanStock corriendo en http://localhost:${PORT}`);
   });
 };
 
 startServer();
-

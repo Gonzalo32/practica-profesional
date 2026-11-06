@@ -9,6 +9,14 @@ const productSchema = new mongoose.Schema({
   },
   description: { type: String, default: null },
   minimumStock: { type: Number, default: 0 },
+  sku: {
+    type: String,
+    default: null,
+    set: val => (val ? String(val).toUpperCase().trim() : null)
+  },
+  // Perecedero: al ingresar stock se exige lote y vencimiento. Los productos cargados
+  // antes de este campo lo toman como true para conservar el control que ya tenían.
+  perishable: { type: Boolean, default: true },
   categoryId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category',
@@ -19,6 +27,9 @@ const productSchema = new mongoose.Schema({
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
+
+// Código interno (SKU) único solo cuando está cargado
+productSchema.index({ sku: 1 }, { unique: true, partialFilterExpression: { sku: { $type: 'string' } } });
 
 const Product = mongoose.models.Product || mongoose.model('Product', productSchema);
 
