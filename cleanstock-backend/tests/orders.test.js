@@ -154,6 +154,37 @@ describe('Pedidos entre sucursales', () => {
     expect((await approve(s.tokens.admin)).status).toBe(400); // ya no espera aprobación
   });
 
+  test('el responsable de la sucursal de origen aprueba o rechaza los pedidos en revisión', async () => {
+    await request(app).post('/api/inventory/stock').set(auth(s.tokens.admin)).send({
+      productId: s.product._id, branchId: s.central._id, quantity: 200, lotNumber: 'L-B', expirationDate: '2030-06-01'
+    });
+    // s.responsable trabaja en Central (origen); otroResponsable, en Norte (destino)
+    const otroResponsable = await login(await createUser('Usuario Responsable', { physicalSpaceId: s.norte._id }));
+    const approve = (token, id) => request(app).post(`/api/orders/${id}/approve`).set(auth(token)).send({});
+
+    const aAprobar = (await createOrder(s.tokens.solicitante, 60)).body.order;
+    expect(aAprobar.status).toBe('PENDIENTE_VALIDACION');
+    expect((await approve(otroResponsable, aAprobar.id)).status).toBe(403);
+    expect((await setStatus(otroResponsable, aAprobar.id, 'RECHAZADO')).status).toBe(400);
+    const ok = await approve(s.tokens.responsable, aAprobar.id);
+    expect(ok.status).toBe(200);
+    expect(ok.body.order.status).toBe('PENDIENTE');
+
+    // Fuera de revisión el responsable ya no puede rechazarlo (el administrador sí)
+    expect((await setStatus(s.tokens.responsable, aAprobar.id, 'RECHAZADO')).status).toBe(400);
+
+    const aRechazar = (await createOrder(s.tokens.solicitante, 60)).body.order;
+    expect((await stockOf(s.central)).reservedQuantity).toBe(120);
+    expect((await setStatus(s.tokens.responsable, aRechazar.id, 'RECHAZADO')).status).toBe(200);
+    expect((await stockOf(s.central)).reservedQuantity).toBe(60);
+
+    // La campanita le avisa al responsable de origen y no al de destino
+    const summary = async (token) => (await request(app).get('/api/alerts/summary').set(auth(token))).body.pendingApprovals;
+    await createOrder(s.tokens.solicitante, 60);
+    expect(await summary(s.tokens.responsable)).toBe(1);
+    expect(await summary(otroResponsable)).toBe(0);
+  });
+
   test("modificar un pedido ajusta la reserva por la diferencia y no deja pasarse del stock", async () => {
     const order = (await createOrder(s.tokens.solicitante, 4)).body.order;
     const edit = (quantity, token = s.tokens.solicitante) => request(app).put(`/api/orders/${order.id}`).set(auth(token))

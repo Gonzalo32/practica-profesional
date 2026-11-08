@@ -57,14 +57,24 @@ function canPrepareOrder(order) {
   return ['PENDIENTE', 'EN_PREPARACION'].includes(order.status) && hasRole('Administrador', 'Despachante');
 }
 
-// ¿El usuario actual puede aprobar este pedido en Revisión? (Administrador)
-function canApproveOrder(order) {
-  return order.status === 'PENDIENTE_VALIDACION' && hasRole('Administrador');
+// Un pedido en Revisión lo aprueba o rechaza el Administrador o el Usuario Responsable
+// de la sucursal de origen (la que tiene que entregar la mercadería). Igual que en el servidor.
+function canReviewOrder(order) {
+  if (hasRole('Administrador')) return true;
+  return hasRole('Usuario Responsable') && !!state.user.branchId
+    && String(order.fromBranchId) === String(state.user.branchId);
 }
 
-// ¿El usuario actual puede rechazar este pedido? (En Pendiente o Revisión, solo el Administrador)
+// ¿El usuario actual puede aprobar este pedido en Revisión?
+function canApproveOrder(order) {
+  return order.status === 'PENDIENTE_VALIDACION' && canReviewOrder(order);
+}
+
+// ¿El usuario actual puede rechazar este pedido? El administrador hasta que se despacha;
+// el responsable de la sucursal de origen, mientras está en Revisión.
 function canRejectOrder(order) {
-  return ['PENDIENTE_VALIDACION', 'PENDIENTE', 'EN_PREPARACION'].includes(order.status) && hasRole('Administrador');
+  if (hasRole('Administrador')) return ['PENDIENTE_VALIDACION', 'PENDIENTE', 'EN_PREPARACION'].includes(order.status);
+  return order.status === 'PENDIENTE_VALIDACION' && canReviewOrder(order);
 }
 
 // Lápiz para modificar un pedido en Pendientes (o Revisión), mientras nadie empezó a prepararlo.

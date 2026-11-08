@@ -16,8 +16,9 @@ router.post('/', requireRole(CREATE_EDIT_ORDER_ROLES), v.createOrder, createOrde
 // Obtener órdenes (Solicitantes ven las suyas, Despachantes/Admin/Responsables ven todas)
 router.get('/', requireRole(ORDER_ROLES), v.listQuery, getOrders);
 
-// T4.3 Aprobar un pedido que espera validación (solo el administrador)
-router.post('/:orderId/approve', requireRole(['Administrador']), v.approveOrder, approveOrder);
+// T4.3 Aprobar un pedido que espera validación (Administrador o Responsable de la sucursal de origen;
+// el controlador verifica la sucursal)
+router.post('/:orderId/approve', requireRole(['Administrador', 'Usuario Responsable']), v.approveOrder, approveOrder);
 
 // Preparar y despachar un pedido seleccionando cantidades por variante/lote (Admin o Despachante)
 router.post('/:orderId/prepare', requireRole(['Administrador', 'Despachante']), v.prepareOrder, prepareOrder);

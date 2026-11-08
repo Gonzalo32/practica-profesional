@@ -250,10 +250,24 @@ const getOrders = async (req, res) => {
   }
 };
 
-// T4.3 Aprobación del administrador (la ruta ya exige el rol Administrador)
+// Un pedido en revisión lo aprueba o rechaza el Administrador o el Usuario Responsable
+// de la sucursal de origen (la que tiene que entregar la mercadería).
+const canReviewOrder = (order, user) => user.role === 'Administrador' || (
+  user.role === 'Usuario Responsable'
+  && !!user.branchId
+  && String(order.fromBranchId) === String(user.branchId)
+);
+
+// T4.3 Aprobación de un pedido en revisión (Administrador o Responsable de la sucursal de origen)
 const approveOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
+
+    const current = await Order.findById(orderId).lean();
+    if (!current) return res.status(404).json({ message: 'Orden no encontrada' });
+    if (!canReviewOrder(current, req.user)) {
+      return res.status(403).json({ message: 'Solo el administrador o el responsable de la sucursal de origen pueden aprobar este pedido.' });
+    }
 
     // Cambio de estado atómico: solo se aprueba si sigue esperando validación
     const order = await Order.findOneAndUpdate(
@@ -271,7 +285,7 @@ const approveOrder = async (req, res) => {
     await ActivityLog.create({
       userId: req.user.id,
       action: 'APPROVE_ORDER',
-      details: `Administrador aprobó el pedido ${formatOrderCode(order)}`,
+      details: `${req.user.role === 'Administrador' ? 'Administrador' : 'Responsable de la sucursal de origen'} aprobó el pedido ${formatOrderCode(order)}`,
       orderId: order._id
     });
 
@@ -301,8 +315,11 @@ const canTransition = (order, status, user) => {
     return false;
   }
   if (status === 'RECHAZADO') {
-    // En la instancia de pendiente o revisión se puede rechazar un pedido y ahí termina su vida (el despachante no puede rechazar)
-    return ['PENDIENTE_VALIDACION', 'PENDIENTE', 'EN_PREPARACION'].includes(current) && role === 'Administrador';
+    // Al rechazar un pedido termina su vida (el despachante no puede rechazar).
+    // El administrador puede hacerlo hasta que se despacha; el responsable de la
+    // sucursal de origen, mientras está en revisión.
+    if (role === 'Administrador') return ['PENDIENTE_VALIDACION', 'PENDIENTE', 'EN_PREPARACION'].includes(current);
+    return current === 'PENDIENTE_VALIDACION' && canReviewOrder(order, user);
   }
   if (status === 'CANCELADO') {
     // Solo antes de empezar a prepararlo, y lo cancela quien lo pidió o el administrador

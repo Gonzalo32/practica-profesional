@@ -165,6 +165,9 @@ const getAlertSummary = async (req, res) => {
     let pendingApprovals = 0;
     if (user.role === 'Administrador') {
       pendingApprovals = await Order.countDocuments({ status: 'PENDIENTE_VALIDACION' });
+    } else if (user.role === 'Usuario Responsable' && user.branchId) {
+      // El responsable aprueba los pedidos en revisión que le piden a su sucursal
+      pendingApprovals = await Order.countDocuments({ status: 'PENDIENTE_VALIDACION', fromBranchId: user.branchId });
     }
 
     // Pedidos despachados que el usuario tiene que confirmar como recibidos
