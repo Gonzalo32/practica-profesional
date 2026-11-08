@@ -9,10 +9,10 @@ const ORDERS_PER_PAGE = 10;
 async function loadSolicitanteOrders() {
   const tbody = document.getElementById('table-solicitante-orders-body');
   if (!loadedSolicitanteOrders.length) setTableLoading(tbody, 7);
-  // Solo Solicitante y Usuario Responsable pueden realizar pedidos
+  // Solicitante, Usuario Responsable y Administrador pueden realizar pedidos (el Despachante solo prepara y envía)
   document.getElementById('btn-open-create-order-modal')?.classList.toggle(
     'hidden',
-    !hasRole('Solicitante', 'Usuario Responsable')
+    !hasRole('Solicitante', 'Usuario Responsable', 'Administrador')
   );
   // Precarga productos, sucursales y stock disponible por sucursal en segundo plano
   ensureBaseData().then(() => preloadBranchesStock()).catch(() => {});
@@ -62,9 +62,9 @@ function canApproveOrder(order) {
   return order.status === 'PENDIENTE_VALIDACION' && hasRole('Administrador');
 }
 
-// ¿El usuario actual puede rechazar este pedido? (En Pendiente o Revisión, por Admin o Despachante)
+// ¿El usuario actual puede rechazar este pedido? (En Pendiente o Revisión, solo el Administrador)
 function canRejectOrder(order) {
-  return ['PENDIENTE_VALIDACION', 'PENDIENTE', 'EN_PREPARACION'].includes(order.status) && hasRole('Administrador', 'Despachante');
+  return ['PENDIENTE_VALIDACION', 'PENDIENTE', 'EN_PREPARACION'].includes(order.status) && hasRole('Administrador');
 }
 
 // El botón Modificar en Pendientes (o Revisión) lo ven todos menos el Despachante

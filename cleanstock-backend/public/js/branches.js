@@ -211,11 +211,12 @@ function openStockLotsModal(productId) {
   if (!item) return;
   const lots = lotsByProduct.get(String(productId)) || [];
   const inLots = lots.reduce((sum, l) => sum + (l.remaining || 0), 0);
-  const withoutLot = item.quantity - inLots;
+  const withoutLot = Math.max(0, item.quantity - inLots);
+  const totalVariants = lots.length + (withoutLot > 0 || !lots.length ? 1 : 0);
 
   document.getElementById('stock-lots-title').textContent = item.Producto?.name || 'Producto';
   document.getElementById('stock-lots-summary').textContent =
-    `${currentStockBranch?.name || ''}: ${item.quantity} u. en total, ${lots.length} lote${lots.length === 1 ? '' : 's'}${withoutLot > 0 ? ` y ${withoutLot} u. sin lote` : ''}. Ordenados por vencimiento.`;
+    `${currentStockBranch?.name || ''}: ${item.quantity} u. en total, ${totalVariants} variante${totalVariants === 1 ? '' : 's'} (${lots.length} lote${lots.length === 1 ? '' : 's'}${withoutLot > 0 ? ` y ${withoutLot} u. sin lote` : ''}). Ordenados por vencimiento.`;
 
   const rows = lots.map(l => `
       <tr>
@@ -226,13 +227,13 @@ function openStockLotsModal(productId) {
         <td>${l.supplierName ? escapeHtml(l.supplierName) : '<span class="muted">—</span>'}</td>
         <td>${l.createdAt ? formatDateOnly(l.createdAt) : '<span class="muted">—</span>'}</td>
       </tr>`).join('');
-  const extra = withoutLot > 0 ? `
+  const extra = (withoutLot > 0 || !lots.length) ? `
       <tr>
-        <td><span class="muted">Sin lote</span></td>
+        <td><span class="badge">Sin lote</span></td>
         <td><span class="muted">—</span></td>
         <td><strong>${withoutLot}</strong> u.</td>
-        <td><span class="muted">—</span></td>
-        <td colspan="2"><span class="muted">Ingresos sin lote o ajustes generales</span></td>
+        <td><span class="muted">Sin vencimiento</span></td>
+        <td colspan="2"><span class="muted">Stock general sin lote específico</span></td>
       </tr>` : '';
   document.getElementById('stock-lots-body').innerHTML = rows + extra;
   openModal('modal-stock-lots');
@@ -264,12 +265,14 @@ function renderStockTable() {
     const stockClass = item.quantity === 0 ? 'stock-critical' : item.quantity <= minStock ? 'stock-low' : 'stock-ok';
     const productId = String(product?.id || item.productId || '');
     const lots = lotsByProduct.get(productId) || [];
-    const nameCell = lots.length
-      ? `<button type="button" class="stock-expand-btn" data-product="${escapeHtml(productId)}" title="Ver lotes y vencimientos">
-           <strong>${escapeHtml(product?.name || 'N/A')}</strong>
-           <span class="stock-lot-count">${lots.length} lote${lots.length === 1 ? '' : 's'}</span>
-         </button>`
-      : `<strong>${escapeHtml(product?.name || 'N/A')}</strong>`;
+    const inLots = lots.reduce((sum, l) => sum + (l.remaining || 0), 0);
+    const withoutLot = Math.max(0, (item.quantity || 0) - inLots);
+    const variantsCount = lots.length + (withoutLot > 0 || !lots.length ? 1 : 0);
+    const nameCell = `
+      <button type="button" class="stock-expand-btn" data-product="${escapeHtml(productId)}" title="Ver variantes y lotes">
+        <strong>${escapeHtml(product?.name || 'N/A')}</strong>
+        <span class="stock-lot-count">${variantsCount} variante${variantsCount === 1 ? '' : 's'}</span>
+      </button>`;
     return `
       <tr>
         <td>${nameCell}</td>

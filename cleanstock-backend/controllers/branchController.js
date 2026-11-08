@@ -331,10 +331,12 @@ const adjustBranchStock = async (req, res) => {
       applied.push({ lot, quantity: line.quantity });
     }
 
-    // 3) Ajuste general (sin lote): si resta, descuenta del lote que vence primero
+    // 3) Ajuste general (sin lote): si se usa el formato simple sin indicar ajustes por variante,
+    // descuenta de los lotes en orden FEFO; si viene desde el selector de variantes (adjustments),
+    // la línea "Sin lote (Stock general)" solo descuenta del saldo sin lote sin tocar los lotes existentes.
     const general = lines.find(l => !l.lotId);
     let generalLots = [];
-    if (general && general.quantity < 0) {
+    if (general && general.quantity < 0 && !Array.isArray(req.body.adjustments)) {
       generalLots = await stock.consumeLots(id, productId, -general.quantity);
     }
 

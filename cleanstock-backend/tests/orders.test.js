@@ -92,8 +92,10 @@ describe('Pedidos entre sucursales', () => {
     expect(await StockMovement.countDocuments({ type: 'DISCREPANCIA' })).toBe(1);
   });
 
-  test('rechazar un pedido libera la reserva', async () => {
+  test('rechazar un pedido libera la reserva y el despachante no puede rechazar', async () => {
     const { body } = await createOrder(s.tokens.solicitante, 5);
+    expect((await stockOf(s.central)).reservedQuantity).toBe(5);
+    expect((await setStatus(s.tokens.despachante, body.order.id, 'RECHAZADO')).status).toBe(400);
     expect((await stockOf(s.central)).reservedQuantity).toBe(5);
     expect((await setStatus(s.tokens.admin, body.order.id, 'RECHAZADO')).status).toBe(200);
     expect((await stockOf(s.central)).reservedQuantity).toBe(0);

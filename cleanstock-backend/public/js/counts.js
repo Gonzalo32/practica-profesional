@@ -10,7 +10,14 @@ async function loadCountsPanel() {
   await ensureBaseData();
   const branches = operableBranches();
   const select = document.getElementById('count-branch-select');
-  fillSelect(select, branches, { getLabel: branchLabel, value: select.value || userBranchId() });
+  const label = document.querySelector('label[for="count-branch-select"]');
+  const showBranchPicker = hasRole('Administrador') && !isSingleBranch() && branches.length > 1;
+  select?.classList.toggle('hidden', !showBranchPicker);
+  label?.classList.toggle('hidden', !showBranchPicker);
+
+  fillSelect(select, branches, { getLabel: branchLabel, value: select.value || userBranchId() || branches[0]?.id });
+  select.disabled = branches.length <= 1;
+  if (!select.value && branches.length) select.value = branches[0].id;
   document.getElementById('btn-start-count').disabled = !branches.length;
   await loadCountsHistory();
 }

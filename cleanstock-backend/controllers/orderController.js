@@ -301,8 +301,8 @@ const canTransition = (order, status, user) => {
     return false;
   }
   if (status === 'RECHAZADO') {
-    // En la instancia de pendiente o revisión se puede rechazar un pedido y ahí termina su vida
-    return ['PENDIENTE_VALIDACION', 'PENDIENTE', 'EN_PREPARACION'].includes(current) && ['Administrador', 'Despachante'].includes(role);
+    // En la instancia de pendiente o revisión se puede rechazar un pedido y ahí termina su vida (el despachante no puede rechazar)
+    return ['PENDIENTE_VALIDACION', 'PENDIENTE', 'EN_PREPARACION'].includes(current) && role === 'Administrador';
   }
   if (status === 'CANCELADO') {
     // Solo antes de empezar a prepararlo, y lo cancela quien lo pidió o el administrador
