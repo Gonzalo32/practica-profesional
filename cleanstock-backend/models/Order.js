@@ -1,7 +1,6 @@
 const { mongoose } = require('../config/database');
 
 const orderSchema = new mongoose.Schema({
-  // Número correlativo legible (PED-0001). Los pedidos anteriores a este cambio no lo tienen.
   number: { type: Number, default: null },
   status: {
     type: String,

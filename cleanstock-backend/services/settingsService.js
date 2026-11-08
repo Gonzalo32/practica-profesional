@@ -1,7 +1,5 @@
 const Settings = require('../models/Settings');
 
-// La configuración se lee en casi todas las peticiones (permisos por sucursal),
-// así que se guarda en memoria y se refresca al modificarla.
 let cache = null;
 
 const getSettings = async () => {
@@ -22,7 +20,6 @@ const saveSettings = async (data) => {
   return doc;
 };
 
-// Sucursal con la que opera el usuario: la asignada o, en modo de un solo local, el local principal
 const effectiveBranchId = async (user) => {
   if (user.branchId) return String(user.branchId);
   const settings = await getSettings();

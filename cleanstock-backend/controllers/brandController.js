@@ -2,7 +2,6 @@ const { Brand, Product, ActivityLog } = require('../models');
 const { normalizeBrand } = require('../models/Brand');
 const { escapeRegex } = require('../utils/format');
 
-// Distancia de edición (Levenshtein): cuántas letras hay que cambiar para pasar de una palabra a otra
 const editDistance = (a, b) => {
   const row = Array.from({ length: b.length + 1 }, (_, j) => j);
   for (let i = 1; i <= a.length; i++) {
@@ -17,7 +16,6 @@ const editDistance = (a, b) => {
   return row[b.length];
 };
 
-// Marcas que se parecen mucho a la que se quiere crear (posible error de tipeo: "Ayudim" → "Ayudín")
 const similarBrands = async (normalized, excludeId = null) => {
   const all = await Brand.find(excludeId ? { _id: { $ne: excludeId } } : {}).lean();
   const tolerance = normalized.length <= 4 ? 1 : 2;
@@ -31,10 +29,6 @@ const similarBrands = async (normalized, excludeId = null) => {
 
 const format = (b, products = 0) => ({ id: b._id.toString(), name: b.name, products });
 
-/**
- * GET /api/inventory/brands?q=&limit=
- * Busca marcas por nombre (sin importar mayúsculas ni tildes). Sin q devuelve todas.
- */
 const getBrands = async (req, res) => {
   try {
     const filter = {};
@@ -52,11 +46,6 @@ const getBrands = async (req, res) => {
   }
 };
 
-/**
- * POST /api/inventory/brands { name, force? }
- * - Si ya existe escrita de otra forma → 409 con la existente (no se duplica nunca).
- * - Si se parece a otra (posible error de tipeo) → 409 con sugerencias, salvo que venga force: true.
- */
 const createBrand = async (req, res) => {
   try {
     const name = String(req.body.name || '').replace(/\s+/g, ' ').trim();
@@ -83,10 +72,6 @@ const createBrand = async (req, res) => {
   }
 };
 
-/**
- * PUT /api/inventory/brands/:id { name }
- * Renombrar corrige la marca en todos sus productos a la vez (los productos guardan la marca, no el texto).
- */
 const updateBrand = async (req, res) => {
   try {
     const brand = await Brand.findById(req.params.id);
@@ -109,9 +94,6 @@ const updateBrand = async (req, res) => {
   }
 };
 
-/**
- * DELETE /api/inventory/brands/:id — solo si ningún producto la usa
- */
 const deleteBrand = async (req, res) => {
   try {
     const brand = await Brand.findById(req.params.id).lean();

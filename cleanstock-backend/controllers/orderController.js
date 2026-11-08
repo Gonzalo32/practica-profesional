@@ -3,7 +3,6 @@ const stock = require('../services/stockService');
 const { toId, formatOrderCode, parsePagination } = require('../utils/format');
 const { effectiveBranchId } = require('../services/settingsService');
 
-// Une ítems repetidos del mismo producto en uno solo
 const mergeItems = (items) => {
   const merged = new Map();
   for (const item of items) {
@@ -13,10 +12,8 @@ const mergeItems = (items) => {
   return [...merged.entries()].map(([productId, quantity]) => ({ productId, quantity }));
 };
 
-// Un pedido con más de esta cantidad de un mismo producto o con un producto marcado con requiresApproval pasa a Revisión
 const VALIDATION_THRESHOLD = 50;
 
-// T4.2 Crear una Orden de Pedido a partir de un carrito
 const createOrder = async (req, res) => {
   const reserved = [];
   try {
@@ -38,11 +35,8 @@ const createOrder = async (req, res) => {
     const productById = (id) => products.find(p => String(p._id) === String(id));
     const productName = (id) => productById(id)?.name || 'Producto';
 
-    // Lo decide el servidor: requiere validación si un ítem supera el umbral o si el producto requiere aprobación
     const requiresValidation = items.some(item => item.quantity > VALIDATION_THRESHOLD || !!productById(item.productId)?.requiresApproval);
 
-    // Módulo 5: reservar stock en la sucursal origen. Cada reserva es atómica:
-    // si un ítem no alcanza, se revierten las reservas ya hechas.
     if (fromBranchId) {
       for (const item of items) {
         const ok = await stock.reserveStock(fromBranchId, item.productId, item.quantity);
@@ -72,7 +66,6 @@ const createOrder = async (req, res) => {
     try {
       order = await Order.create({ ...orderPayload, number });
     } catch (err) {
-      // Si el contador quedó desfasado respecto a pedidos existentes, se sincroniza y reintenta
       if (err && err.code === 11000) {
         const lastOrder = await Order.findOne({ number: { $type: 'number' } }).sort({ number: -1 }).select('number').lean();
         const syncedSeq = (lastOrder?.number || 0) + 1;
@@ -107,7 +100,6 @@ const createOrder = async (req, res) => {
       order: { ...order.toObject(), id: order._id.toString(), code: formatOrderCode(order) }
     });
   } catch (error) {
-    // Revertir reservas parciales
     for (const item of reserved) {
       await stock.releaseReservation(req.body.fromBranchId, item.productId, item.quantity).catch(() => {});
     }
@@ -167,8 +159,6 @@ const formatOrder = (o, items) => {
   };
 };
 
-// Obtener pedidos. Filtros: status (uno o varios separados por coma), branchId,
-// toBranchId. Con ?page= devuelve { items, total, page, pages }.
 const getOrders = async (req, res) => {
   try {
     const query = {};
@@ -228,7 +218,6 @@ const getOrders = async (req, res) => {
       paginated ? Order.countDocuments(query) : null
     ]);
 
-    // Una sola consulta para los ítems de todos los pedidos (antes era una por pedido)
     const allItems = await OrderItem.find({ orderId: { $in: rawOrders.map(o => o._id) } })
       .populate('productId', 'name')
       .lean();
@@ -250,15 +239,12 @@ const getOrders = async (req, res) => {
   }
 };
 
-// Un pedido en revisión lo aprueba o rechaza el Administrador o el Usuario Responsable
-// de la sucursal de origen (la que tiene que entregar la mercadería).
 const canReviewOrder = (order, user) => user.role === 'Administrador' || (
   user.role === 'Usuario Responsable'
   && !!user.branchId
   && String(order.fromBranchId) === String(user.branchId)
 );
 
-// T4.3 Aprobación de un pedido en revisión (Administrador o Responsable de la sucursal de origen)
 const approveOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -269,7 +255,6 @@ const approveOrder = async (req, res) => {
       return res.status(403).json({ message: 'Solo el administrador o el responsable de la sucursal de origen pueden aprobar este pedido.' });
     }
 
-    // Cambio de estado atómico: solo se aprueba si sigue esperando validación
     const order = await Order.findOneAndUpdate(
       { _id: orderId, status: 'PENDIENTE_VALIDACION' },
       { $set: { status: 'PENDIENTE', validatorId: req.user.id } },
@@ -307,7 +292,6 @@ const canTransition = (order, status, user) => {
   if (status === 'ENTREGADO') {
     if (current !== 'DESPACHADO') return false;
     if (role === 'Administrador') return true;
-    // El solicitante confirma sus propios pedidos; el responsable, los propios o los que llegan a su sucursal
     if (role === 'Solicitante') return String(order.solicitanteId) === String(user.id);
     if (role === 'Usuario Responsable') {
       return String(order.solicitanteId) === String(user.id) || (!!user.branchId && String(order.toBranchId) === String(user.branchId));
@@ -315,20 +299,15 @@ const canTransition = (order, status, user) => {
     return false;
   }
   if (status === 'RECHAZADO') {
-    // Al rechazar un pedido termina su vida (el despachante no puede rechazar).
-    // El administrador puede hacerlo hasta que se despacha; el responsable de la
-    // sucursal de origen, mientras está en revisión.
     if (role === 'Administrador') return ['PENDIENTE_VALIDACION', 'PENDIENTE', 'EN_PREPARACION'].includes(current);
     return current === 'PENDIENTE_VALIDACION' && canReviewOrder(order, user);
   }
   if (status === 'CANCELADO') {
-    // Solo antes de empezar a prepararlo, y lo cancela quien lo pidió o el administrador
     return canEditOrder(order, user);
   }
   return false;
 };
 
-// Un pedido se puede modificar o cancelar mientras nadie empezó a prepararlo (todos menos el Despachante)
 const EDITABLE_STATUSES = ['PENDIENTE_VALIDACION', 'PENDIENTE'];
 const canEditOrder = (order, user) => EDITABLE_STATUSES.includes(order.status) && (
   user.role === 'Administrador'
@@ -336,12 +315,6 @@ const canEditOrder = (order, user) => EDITABLE_STATUSES.includes(order.status) &
   || String(order.solicitanteId) === String(user.id)
 );
 
-/**
- * PUT /api/orders/:orderId  { items: [{ productId, quantity }], notes? }
- * Agregar, quitar o cambiar productos de un pedido que todavía no se empezó a preparar.
- * Ajusta las reservas por la diferencia (si algo no alcanza, no cambia nada) y vuelve a
- * decidir si necesita la aprobación del administrador (más de 50 unidades de un producto).
- */
 const updateOrder = async (req, res) => {
   const applied = [];
   try {
@@ -362,7 +335,6 @@ const updateOrder = async (req, res) => {
     const productById = (id) => products.find(p => String(p._id) === String(id));
     const productName = (id) => productById(id)?.name || 'Producto';
 
-    // Diferencia por producto contra lo que ya estaba reservado
     const before = await OrderItem.find({ orderId }).lean();
     const oldQty = new Map(before.map(i => [String(i.productId), i.quantity]));
     const newQty = new Map(items.map(i => [String(i.productId), i.quantity]));
@@ -371,7 +343,6 @@ const updateOrder = async (req, res) => {
       .filter(d => d.delta !== 0);
 
     if (current.fromBranchId) {
-      // Primero se reservan los aumentos (atómico); si alguno no alcanza se deshace todo
       for (const d of deltas.filter(x => x.delta > 0)) {
         const ok = await stock.reserveStock(current.fromBranchId, d.productId, d.delta);
         if (!ok) {
@@ -387,7 +358,6 @@ const updateOrder = async (req, res) => {
 
     const requiresValidation = items.some(item => item.quantity > VALIDATION_THRESHOLD || !!productById(item.productId)?.requiresApproval);
     const newStatus = requiresValidation ? 'PENDIENTE_VALIDACION' : 'PENDIENTE';
-    // Atómico: si mientras tanto se empezó a preparar, no se toca
     const order = await Order.findOneAndUpdate(
       { _id: orderId, status: current.status },
       { $set: { status: newStatus, requiresValidation, ...(req.body.notes !== undefined ? { notes: req.body.notes || null } : {}) } },
@@ -399,7 +369,6 @@ const updateOrder = async (req, res) => {
       throw err;
     }
 
-    // Se liberan las reservas de lo que se quitó o bajó, y se reemplazan los ítems
     if (current.fromBranchId) {
       for (const d of deltas.filter(x => x.delta < 0)) {
         await stock.releaseReservation(current.fromBranchId, d.productId, -d.delta);
@@ -427,7 +396,6 @@ const updateOrder = async (req, res) => {
 
     res.json({ message: 'Pedido modificado', changes, order: { ...order.toObject(), id: order._id.toString(), code: formatOrderCode(order) } });
   } catch (error) {
-    // Se devuelven las reservas que se habían tomado
     const fromBranchId = (await Order.findById(req.params.orderId).select('fromBranchId').lean().catch(() => null))?.fromBranchId;
     for (const d of applied) {
       if (fromBranchId) await stock.releaseReservation(fromBranchId, d.productId, d.delta).catch(() => {});
@@ -439,13 +407,6 @@ const updateOrder = async (req, res) => {
   }
 };
 
-/**
- * POST /api/orders/:orderId/prepare
- * El Administrador o Despachante prepara un pedido seleccionando la cantidad a enviar
- * de cada variante (lote o sin lote) de cada artículo solicitado, nunca más de lo solicitado.
- * Al confirmar, el pedido pasa a DESPACHADO. El stock recién se descuenta del origen y se suma
- * al destino cuando se confirma la recepción (ENTREGADO).
- */
 const prepareOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -465,7 +426,6 @@ const prepareOrder = async (req, res) => {
       inputByProduct.set(String(item.productId), Array.isArray(item.variants) ? item.variants : []);
     }
 
-    // Buscar todos los lotes involucrados en la sucursal de origen
     const allLotIds = [];
     for (const variants of inputByProduct.values()) {
       for (const v of variants) {
@@ -563,7 +523,6 @@ const prepareOrder = async (req, res) => {
         { _id: u.orderItem._id },
         { $set: { dispatchedQuantity: u.dispatchedQuantity, preparedVariants: u.preparedVariants } }
       );
-      // Si se envía menos que lo solicitado originalmente, se libera la diferencia de la reserva en origen
       const unfulfilled = u.requestedQty - u.dispatchedQuantity;
       if (unfulfilled > 0 && current.fromBranchId) {
         await stock.releaseReservation(current.fromBranchId, u.prodId, unfulfilled);
@@ -592,8 +551,6 @@ const prepareOrder = async (req, res) => {
   }
 };
 
-// T5.2 y T5.3: Actualizar el estado del pedido (Máquina de Estados)
-// Al llegar a ENTREGADO: mueve el stock automáticamente entre sucursales
 const updateOrderStatus = async (req, res) => {
   try {
     const { orderId } = req.params;
@@ -608,7 +565,6 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
-    // Cambio atómico: si otro usuario cambió el estado mientras tanto, no se aplica dos veces
     const order = await Order.findOneAndUpdate(
       { _id: orderId, status: current.status },
       { $set: { status } },
@@ -635,7 +591,6 @@ const updateOrderStatus = async (req, res) => {
     const fromName = fromSpace ? fromSpace.name : 'Central';
     const toName = toSpace ? toSpace.name : 'General';
 
-    // Módulo 5: liberar la reserva si el pedido es RECHAZADO o CANCELADO
     if (['RECHAZADO', 'CANCELADO'].includes(status) && order.fromBranchId) {
       for (const item of orderItems) {
         if (!item.productId) continue;
@@ -654,7 +609,6 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
-    // Movimiento automático de stock al entregar (confirmación de recepción)
     const discrepancies = [];
     if (status === 'ENTREGADO' && (order.fromBranchId || order.toBranchId)) {
       for (const item of orderItems) {
@@ -682,7 +636,6 @@ const updateOrderStatus = async (req, res) => {
             userId: req.user.id
           });
 
-          // El sistema tenía menos stock del que se despachó: se registra, no se oculta
           if (missing > 0) {
             discrepancies.push({ productName, missing });
             await stock.recordMovement({
@@ -705,7 +658,6 @@ const updateOrderStatus = async (req, res) => {
 
         if (order.toBranchId) {
           await stock.increaseStock(order.toBranchId, prodId, qty);
-          // Los lotes viajan con la mercadería para conservar el control de vencimientos
           for (const lot of movedLots) {
             await stock.createLot({ ...lot, productId: prodId, branchId: order.toBranchId, registeredBy: req.user.id });
           }
@@ -740,7 +692,6 @@ const updateOrderStatus = async (req, res) => {
   }
 };
 
-// T5.4: Trazabilidad e historial de un pedido específico
 const getOrderHistory = async (req, res) => {
   try {
     const { orderId } = req.params;

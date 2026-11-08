@@ -1,11 +1,6 @@
-// ==========================================================================
-// PANEL DESPACHO: tablero Kanban (con arrastrar y soltar) y vista de lista
-// ==========================================================================
-
 window.loadedDispatchOrders = [];
 let dispatchView = 'board';
 
-// Transiciones que puede hacer el despachante desde el tablero
 const NEXT_STATUS = { PENDIENTE: 'EN_PREPARACION', EN_PREPARACION: 'DESPACHADO' };
 const NEXT_ACTION_LABEL = { PENDIENTE: 'Iniciar preparación', EN_PREPARACION: 'Marcar despachado' };
 
@@ -53,7 +48,6 @@ function dispatchCardHtml(order) {
 function renderDispatchBoard() {
   const byStatus = { PENDIENTE: [], EN_PREPARACION: [], DESPACHADO: [], ENTREGADO: [] };
   window.loadedDispatchOrders.forEach(o => byStatus[o.status]?.push(o));
-  // Los pendientes, del más viejo al más nuevo (se atiende primero lo que espera hace más tiempo)
   byStatus.PENDIENTE.reverse();
   byStatus.EN_PREPARACION.reverse();
   byStatus.ENTREGADO = byStatus.ENTREGADO.slice(0, 10);
@@ -117,9 +111,6 @@ window.updateOrderStatus = async (orderId, newStatus) => {
   }
 };
 
-// --------------------------------------------------------------------------
-// Arrastrar y soltar: una tarjeta solo puede pasar a la columna siguiente
-// --------------------------------------------------------------------------
 let draggedCard = null;
 
 document.addEventListener('dragstart', (e) => {

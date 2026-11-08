@@ -1,9 +1,3 @@
-// ==========================================================================
-// INICIO Y VENTA RÁPIDA
-// Pantalla de inicio con accesos directos grandes para las tareas diarias,
-// pensada para usuarios con poca práctica en sistemas.
-// ==========================================================================
-
 function greeting() {
   const hour = new Date().getHours();
   if (hour < 12) return 'Buenos días';
@@ -14,8 +8,6 @@ function greeting() {
 async function loadHomePanel() {
   const name = state.user?.firstName || getUserDisplayName(state.user);
   document.getElementById('home-greeting').textContent = `${greeting()}, ${name}`;
-  // El Inicio muestra solo la sucursal donde trabaja el usuario. Únicamente un
-  // administrador sin sucursal asignada ve todas.
   const ownBranch = userBranchId();
   const ownBranchName = state.user?.EspacioFisico?.name || (ownBranch ? getBranchName(ownBranch) : '');
   const place = isSingleBranch()
@@ -70,9 +62,6 @@ document.getElementById('home-btn-low')?.addEventListener('click', () => {
 document.getElementById('home-btn-exp')?.addEventListener('click', () => goToPanel('panel-expirations'));
 document.getElementById('btn-open-quick-sale')?.addEventListener('click', () => openQuickSale());
 
-// --------------------------------------------------------------------------
-// Venta rápida: buscar, sumar con + y -, confirmar
-// --------------------------------------------------------------------------
 let quickSaleStock = [];
 let quickSaleCart = [];
 

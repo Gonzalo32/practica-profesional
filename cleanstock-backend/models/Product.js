@@ -13,17 +13,13 @@ const productSchema = new mongoose.Schema({
     default: null,
     set: val => (val ? String(val).toUpperCase().trim() : null)
   },
-  // Perecedero: al ingresar stock se exige lote y vencimiento. Los productos cargados
-  // antes de este campo lo toman como true para conservar el control que ya tenían.
   perishable: { type: Boolean, default: true },
-  // Si este artículo requiere aprobación previa (va a la solapa Revisión al pedirse)
   requiresApproval: { type: Boolean, default: false },
   categoryId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category',
     default: null
   },
-  // Marca elegida de la lista de marcas (no se escribe a mano)
   brandId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Brand',
@@ -35,10 +31,8 @@ const productSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// El mismo nombre puede repetirse con distinta marca ("LAVANDINA 1L" de Ayudín y de Magistral)
 productSchema.index({ name: 1, brandId: 1 }, { unique: true });
 
-// Código interno (SKU) único solo cuando está cargado
 productSchema.index({ sku: 1 }, { unique: true, partialFilterExpression: { sku: { $type: 'string' } } });
 
 const Product = mongoose.models.Product || mongoose.model('Product', productSchema);

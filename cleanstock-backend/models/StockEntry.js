@@ -1,7 +1,5 @@
 const { mongoose } = require('../config/database');
 
-// Lote de stock. Cada ingreso con lote y vencimiento genera uno; las salidas
-// descuentan de los lotes de la sucursal en orden FEFO (primero vence, primero sale).
 const stockEntrySchema = new mongoose.Schema({
   lotNumber: { type: String, required: true },
   expirationDate: { type: Date, default: null },
@@ -27,7 +25,6 @@ const stockEntrySchema = new mongoose.Schema({
     ref: 'Supplier',
     default: null
   },
-  // Marca de la mercadería de este lote (se elige al ingresarla)
   brandId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Brand',

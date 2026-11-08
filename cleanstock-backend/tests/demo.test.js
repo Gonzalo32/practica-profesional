@@ -29,11 +29,9 @@ describe('Datos de demostración', () => {
     expect(statuses).toEqual(['DESPACHADO', 'ENTREGADO', 'EN_PREPARACION', 'PENDIENTE', 'PENDIENTE_VALIDACION', 'RECHAZADO']);
     expect(await StockEntry.countDocuments({ status: 'VENCIDO' })).toBe(1);
 
-    // Ningún stock queda negativo ni con más reservado que lo que hay
     const stock = await BranchStock.find().lean();
     expect(stock.every(s => s.quantity >= 0 && (s.reservedQuantity || 0) <= s.quantity)).toBe(true);
 
-    // Cada usuario de demostración puede ingresar
     for (const username of users) {
       const res = await request(app).post('/api/auth/login').send({ username, password: PASSWORD });
       expect(res.status).toBe(200);

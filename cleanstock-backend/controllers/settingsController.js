@@ -12,7 +12,6 @@ const formatSettings = async (s) => {
   };
 };
 
-// GET /api/settings — la usan todos los roles para adaptar la interfaz
 const getBusinessSettings = async (req, res) => {
   try {
     res.json(await formatSettings(await getSettings()));
@@ -21,7 +20,6 @@ const getBusinessSettings = async (req, res) => {
   }
 };
 
-// PUT /api/settings — solo Administrador
 const updateBusinessSettings = async (req, res) => {
   try {
     const { businessName, singleBranchMode } = req.body;
@@ -37,7 +35,6 @@ const updateBusinessSettings = async (req, res) => {
           const exists = await PhysicalSpace.exists({ _id: mainBranchId });
           if (!exists) return res.status(404).json({ message: 'El local seleccionado no existe' });
         } else {
-          // Sin locales cargados: se crea uno con el nombre del negocio
           const count = await PhysicalSpace.countDocuments();
           if (count > 0) {
             return res.status(400).json({ message: 'Seleccioná cuál de los locales cargados es el local principal.' });

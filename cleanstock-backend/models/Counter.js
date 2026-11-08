@@ -1,6 +1,5 @@
 const { mongoose } = require('../config/database');
 
-// Secuencias correlativas (ej: número de pedido PED-0001)
 const counterSchema = new mongoose.Schema({
   _id: { type: String, required: true },
   seq: { type: Number, default: 0 }

@@ -1,16 +1,11 @@
 const { mongoose } = require('../config/database');
 
-// Provisión: una entrega de un proveedor (como un remito), con uno o varios productos.
-// Se carga PENDIENTE y recién cuando el Responsable o el Administrador la aprueba entran
-// todos sus productos al stock de la sucursal (lotes y movimientos de INGRESO).
-// Antes de eso no figura en los movimientos.
 const provisionItemSchema = new mongoose.Schema({
   productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
   quantity: { type: Number, required: true, min: 1 },
   lotNumber: { type: String, default: null },
   expirationDate: { type: Date, default: null },
   brandId: { type: mongoose.Schema.Types.ObjectId, ref: 'Brand', default: null },
-  // Lo que generó al aprobarse
   stockEntryId: { type: mongoose.Schema.Types.ObjectId, ref: 'StockEntry', default: null },
   movementId: { type: mongoose.Schema.Types.ObjectId, ref: 'StockMovement', default: null }
 });

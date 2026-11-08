@@ -81,7 +81,6 @@ describe('Pedidos entre sucursales', () => {
   test('si el sistema tenía menos stock del despachado se registra la discrepancia', async () => {
     const { body } = await createOrder(s.tokens.solicitante, 8);
     const id = body.order.id;
-    // Alguien corrigió el stock por fuera del sistema: quedan 5 de las 8 reservadas
     await BranchStock.updateOne({ branchId: s.central._id, productId: s.product._id }, { quantity: 5 });
     await setStatus(s.tokens.admin, id, 'EN_PREPARACION');
     await setStatus(s.tokens.admin, id, 'DESPACHADO');
@@ -117,16 +116,13 @@ describe('Pedidos entre sucursales', () => {
       items, fromBranchId: s.central._id, toBranchId: s.norte._id, ...extra
     });
 
-    // El cliente no puede saltear la aprobación
     const grande = await send([{ productId: s.product._id, quantity: 60 }], { requiresValidation: false });
     expect(grande.status).toBe(201);
     expect(grande.body.order.status).toBe('PENDIENTE_VALIDACION');
 
-    // Dos renglones del mismo producto se suman antes de comparar
     const partido = await send([{ productId: s.product._id, quantity: 30 }, { productId: s.product._id, quantity: 30 }]);
     expect(partido.body.order.status).toBe('PENDIENTE_VALIDACION');
 
-    // Hasta 50 unidades no hace falta aprobación, aunque el cliente la pida
     const limite = await send([{ productId: s.product._id, quantity: 50 }], { requiresValidation: true });
     expect(limite.body.order.status).toBe('PENDIENTE');
   });
@@ -140,7 +136,6 @@ describe('Pedidos entre sucursales', () => {
   });
 
   test("el administrador aprueba un pedido grande sin token", async () => {
-    // 60 unidades: se agrega stock para poder reservarlas
     await request(app).post("/api/inventory/stock").set(auth(s.tokens.admin)).send({
       productId: s.product._id, branchId: s.central._id, quantity: 60, lotNumber: "L-B", expirationDate: "2030-06-01"
     });
@@ -151,14 +146,13 @@ describe('Pedidos entre sucursales', () => {
     const ok = await approve(s.tokens.admin);
     expect(ok.status).toBe(200);
     expect(ok.body.order.status).toBe("PENDIENTE");
-    expect((await approve(s.tokens.admin)).status).toBe(400); // ya no espera aprobación
+    expect((await approve(s.tokens.admin)).status).toBe(400);
   });
 
   test('el responsable de la sucursal de origen aprueba o rechaza los pedidos en revisión', async () => {
     await request(app).post('/api/inventory/stock').set(auth(s.tokens.admin)).send({
       productId: s.product._id, branchId: s.central._id, quantity: 200, lotNumber: 'L-B', expirationDate: '2030-06-01'
     });
-    // s.responsable trabaja en Central (origen); otroResponsable, en Norte (destino)
     const otroResponsable = await login(await createUser('Usuario Responsable', { physicalSpaceId: s.norte._id }));
     const approve = (token, id) => request(app).post(`/api/orders/${id}/approve`).set(auth(token)).send({});
 
@@ -170,7 +164,6 @@ describe('Pedidos entre sucursales', () => {
     expect(ok.status).toBe(200);
     expect(ok.body.order.status).toBe('PENDIENTE');
 
-    // Fuera de revisión el responsable ya no puede rechazarlo (el administrador sí)
     expect((await setStatus(s.tokens.responsable, aAprobar.id, 'RECHAZADO')).status).toBe(400);
 
     const aRechazar = (await createOrder(s.tokens.solicitante, 60)).body.order;
@@ -178,7 +171,6 @@ describe('Pedidos entre sucursales', () => {
     expect((await setStatus(s.tokens.responsable, aRechazar.id, 'RECHAZADO')).status).toBe(200);
     expect((await stockOf(s.central)).reservedQuantity).toBe(60);
 
-    // La campanita le avisa al responsable de origen y no al de destino
     const summary = async (token) => (await request(app).get('/api/alerts/summary').set(auth(token))).body.pendingApprovals;
     await createOrder(s.tokens.solicitante, 60);
     expect(await summary(s.tokens.responsable)).toBe(1);
@@ -195,15 +187,12 @@ describe('Pedidos entre sucursales', () => {
     expect((await edit(2)).status).toBe(200);
     expect((await stockOf(s.central)).reservedQuantity).toBe(2);
 
-    // Hay 10: no se puede llevar a 11 y la reserva queda como estaba
     expect((await edit(11)).status).toBe(400);
     expect((await stockOf(s.central)).reservedQuantity).toBe(2);
 
-    // Otro usuario que no es el dueño ni admin no puede modificarlo
     const otro = await createUser("Solicitante", { physicalSpaceId: s.norte._id });
     expect((await edit(3, await login(otro))).status).toBe(400);
 
-    // Una vez en preparación ya no se puede modificar ni cancelar
     await setStatus(s.tokens.despachante, order.id, "EN_PREPARACION");
     expect((await edit(3)).status).toBe(400);
     expect((await setStatus(s.tokens.solicitante, order.id, "CANCELADO")).status).toBe(400);
@@ -235,32 +224,27 @@ describe('Pedidos entre sucursales', () => {
     });
     const lotB = await StockEntry.findOne({ branchId: s.central._id, lotNumber: 'L-B' }).lean();
 
-    // El Usuario Responsable crea un pedido por 6 unidades
     const created = await createOrder(s.tokens.responsable, 6);
     expect(created.status).toBe(201);
     const id = created.body.order.id;
     expect(created.body.order.status).toBe('PENDIENTE');
 
-    // No permite enviar más de lo solicitado (6)
     const tooMuch = await request(app).post(`/api/orders/${id}/prepare`).set(auth(s.tokens.despachante)).send({
       items: [{ productId: s.product._id, variants: [{ lotId: lotB._id, quantity: 7 }] }]
     });
     expect(tooMuch.status).toBe(400);
 
-    // El Despachante prepara enviando 5 unidades de la variante L-B (menos de las 6 solicitadas)
     const prep = await request(app).post(`/api/orders/${id}/prepare`).set(auth(s.tokens.despachante)).send({
       items: [{ productId: s.product._id, variants: [{ lotId: lotB._id, quantity: 5 }] }]
     });
     expect(prep.status).toBe(200);
     expect(prep.body.order.status).toBe('DESPACHADO');
 
-    // Al despachar todavía no se descontó del stock de origen ni se sumó al destino, pero se liberó 1 u. no enviada de la reserva
     const originMid = await stockOf(s.central);
     expect(originMid.quantity).toBe(20);
     expect(originMid.reservedQuantity).toBe(5);
     expect((await stockOf(s.norte)).quantity).toBe(0);
 
-    // Recién cuando se confirma la recepción se suma en destino y resta en origen
     const delivered = await setStatus(s.tokens.responsable, id, 'ENTREGADO');
     expect(delivered.status).toBe(200);
 
@@ -269,7 +253,6 @@ describe('Pedidos entre sucursales', () => {
     expect(originAfter.reservedQuantity).toBe(0);
     expect((await stockOf(s.norte)).quantity).toBe(5);
 
-    // Y se descontó específicamente del lote L-B que eligió el despachante
     const lotBOrigin = await StockEntry.findById(lotB._id).lean();
     expect(lotBOrigin.remaining).toBe(5);
     const movedLot = await StockEntry.findOne({ branchId: s.norte._id, lotNumber: 'L-B' }).lean();
@@ -282,7 +265,6 @@ describe('Pedidos entre sucursales', () => {
     expect(res.status).toBe(201);
     expect(res.body.order.status).toBe('PENDIENTE_VALIDACION');
 
-    // En revisión se puede rechazar y termina su vida liberando la reserva
     const rej = await setStatus(s.tokens.admin, res.body.order.id, 'RECHAZADO');
     expect(rej.status).toBe(200);
     expect((await stockOf(s.central)).reservedQuantity).toBe(0);

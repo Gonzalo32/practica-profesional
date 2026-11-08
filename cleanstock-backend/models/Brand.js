@@ -1,8 +1,5 @@
 const { mongoose } = require('../config/database');
 
-// Marca de los productos. Se elige de esta lista (no se escribe a mano en cada producto),
-// y el nombre normalizado (sin mayúsculas, tildes ni espacios de más) es único:
-// "AYUDIN", "ayudín" y "Ayudin " son la misma marca.
 const normalizeBrand = (name) => String(name || '')
   .normalize('NFD')
   .replace(/[̀-ͯ]/g, '')

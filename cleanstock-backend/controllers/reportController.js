@@ -4,7 +4,6 @@ const { startOfDay } = require('../utils/format');
 
 const ORDER_STATUSES = ['PENDIENTE_VALIDACION', 'PENDIENTE', 'EN_PREPARACION', 'DESPACHADO', 'ENTREGADO', 'RECHAZADO', 'CANCELADO'];
 
-// Unidades del inventario por sucursal
 const buildStockByBranch = async () => {
   const [branches, stockItems] = await Promise.all([
     PhysicalSpace.find().sort({ name: 1 }).lean(),
@@ -28,10 +27,6 @@ const buildStockByBranch = async () => {
   return [...byBranch.values()];
 };
 
-/**
- * GET /api/reports/dashboard
- * Datos para los gráficos del panel de administración.
- */
 const getDashboard = async (req, res) => {
   try {
     const since = startOfDay();
@@ -58,7 +53,6 @@ const getDashboard = async (req, res) => {
       count: ordersByStatusRaw.find(o => o._id === status)?.count || 0
     }));
 
-    // Serie diaria completa de los últimos 30 días (los días sin movimientos quedan en 0)
     const movementsMap = new Map(movementsRaw.map(m => [m._id, m]));
     const movementsLast30 = [];
     for (let i = 0; i < 30; i++) {
@@ -69,7 +63,6 @@ const getDashboard = async (req, res) => {
       movementsLast30.push({ date: key, entradas: m?.entradas || 0, salidas: m?.salidas || 0 });
     }
 
-    // Solo los que realmente están por debajo del mínimo (los que están justo en el mínimo no suman faltante)
     const topShortages = alerts
       .filter(a => a.deficit > 0)
       .sort((a, b) => b.deficit - a.deficit || a.currentQuantity - b.currentQuantity)

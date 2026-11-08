@@ -1,12 +1,7 @@
-// ==========================================================================
-// PANEL ADMINISTRADOR: KPIs, gráficos, usuarios, aprobaciones, alertas y auditoría
-// ==========================================================================
-
 async function loadAdminPanel() {
   loadAdminStats();
   loadDashboardCharts();
   await loadAdminUsers();
-  // Recarga la sub-pestaña que esté abierta
   const active = document.querySelector('#panel-admin .btn-tab.active')?.dataset.sub;
   if (active && subTabLoaders[`subpanel-${active}`]) subTabLoaders[`subpanel-${active}`]();
 }
@@ -40,9 +35,6 @@ document.getElementById('card-admin-alerts')?.addEventListener('click', () => {
   }
 });
 
-// --------------------------------------------------------------------------
-// Gráficos (Chart.js)
-// --------------------------------------------------------------------------
 const charts = {};
 let lastDashboardData = null;
 
@@ -85,13 +77,11 @@ function baseChartOptions(t, extra = {}) {
 function drawDashboardCharts(data) {
   if (!data) return;
   if (!window.Chart) {
-    // Chart.js se carga con defer: si todavía no llegó, se reintenta
     setTimeout(() => drawDashboardCharts(data), 300);
     return;
   }
   const t = chartTheme();
 
-  // Esperando validación, pendiente, en preparación, despachado, entregado, rechazado
   const statusColors = [t.text, t.warning, t.primary, t.purple, t.success, t.danger];
   renderChart('chart-orders-status', {
     type: 'doughnut',
@@ -129,14 +119,10 @@ async function loadDashboardCharts() {
   }
 }
 
-// Al cambiar de tema se redibujan con los colores nuevos
 document.addEventListener('theme:changed', () => {
   if (state.currentTab === 'panel-admin') drawDashboardCharts(lastDashboardData);
 });
 
-// --------------------------------------------------------------------------
-// Usuarios
-// --------------------------------------------------------------------------
 let loadedUsersList = [];
 const userFilters = { search: '', role: '', branch: '', page: 1 };
 const USERS_PER_PAGE = 8;
@@ -367,9 +353,6 @@ window.deactivateUser = async (userId) => {
   }
 };
 
-// --------------------------------------------------------------------------
-// Aprobación de pedidos (T4.3)
-// --------------------------------------------------------------------------
 let activeApprovalOrderId = null;
 
 async function loadAdminApprovals() {
@@ -403,7 +386,6 @@ async function loadAdminApprovals() {
 }
 onSubTab('subpanel-admin-approvals', loadAdminApprovals);
 
-// Aprobar un pedido grande: un clic y una confirmación (sin token)
 window.approveOrder = async (orderId) => {
   const ok = await confirmDialog({
     title: 'Aprobar pedido',
@@ -443,9 +425,6 @@ window.rejectOrder = async (orderId) => {
   }
 };
 
-// --------------------------------------------------------------------------
-// Alertas de stock bajo o crítico
-// --------------------------------------------------------------------------
 let loadedAlerts = [];
 
 async function loadAlerts() {
@@ -494,9 +473,6 @@ registerExporter('alerts', async () => ({
   rows: loadedAlerts.length ? loadedAlerts : await apiFetch('/alerts')
 }));
 
-// --------------------------------------------------------------------------
-// Auditoría (paginada en el servidor)
-// --------------------------------------------------------------------------
 const logFilters = { page: 1, q: '', action: '', from: '', to: '' };
 
 function logQuery(extra = {}) {
@@ -559,9 +535,6 @@ registerExporter('logs', async () => ({
   rows: (await apiFetch(logQuery({ page: 1, limit: 0 }))).items
 }));
 
-// --------------------------------------------------------------------------
-// Configuración del negocio: nombre y modo de trabajo (un solo local o varias sucursales)
-// --------------------------------------------------------------------------
 function updateSettingsFormVisibility() {
   const single = document.querySelector('input[name="settings-mode"]:checked')?.value === 'single';
   const group = document.getElementById('settings-main-branch-group');

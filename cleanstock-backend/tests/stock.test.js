@@ -90,19 +90,16 @@ describe('Ingresos, egresos y lotes', () => {
     const adjust = (data) => request(app).post(`/api/branches/${s.central._id}/stock/adjust`).set(auth(s.tokens.responsable))
       .send({ productId: s.product._id, reason: 'Rotura', lotId: tarde._id, ...data });
 
-    // Resta del lote elegido aunque no sea el que vence primero
     expect((await adjust({ quantity: -2 })).status).toBe(200);
     expect((await StockEntry.findOne({ lotNumber: 'TARDE' })).remaining).toBe(3);
     expect((await StockEntry.findOne({ lotNumber: 'PRONTO' })).remaining).toBe(5);
     expect((await stockOf(s.central)).quantity).toBe(8);
     expect((await StockMovement.findOne({ type: 'AJUSTE' }).lean()).lotNumber).toBe('TARDE');
 
-    // No deja restar más de lo que tiene el lote, y no toca nada
     expect((await adjust({ quantity: -4 })).status).toBe(400);
     expect((await StockEntry.findOne({ lotNumber: 'TARDE' })).remaining).toBe(3);
     expect((await stockOf(s.central)).quantity).toBe(8);
 
-    // Agotar el lote y volver a sumarle lo deja disponible
     expect((await adjust({ quantity: -3 })).status).toBe(200);
     expect((await StockEntry.findOne({ lotNumber: 'TARDE' })).status).toBe('AGOTADO');
     expect((await adjust({ quantity: 4 })).status).toBe(200);
@@ -128,13 +125,11 @@ describe('Ingresos, egresos y lotes', () => {
     expect((await stockOf(s.central)).quantity).toBe(19);
     expect(await StockMovement.countDocuments({ type: 'AJUSTE' })).toBe(3);
 
-    // B no tiene 20: no se toca ningún lote ni el total
     const bad = await adjust([{ lotId: a._id, quantity: -1 }, { lotId: b._id, quantity: -20 }]);
     expect(bad.status).toBe(400);
     expect(await remaining()).toEqual([7, 12, 0]);
     expect((await stockOf(s.central)).quantity).toBe(19);
 
-    // Un lote repetido se rechaza
     expect((await adjust([{ lotId: a._id, quantity: -1 }, { lotId: a._id, quantity: -1 }])).status).toBe(400);
   });
 
@@ -153,19 +148,16 @@ describe('Ingresos, egresos y lotes', () => {
     expect(create.body.items.length).toBe(2);
     expect(create.body.totalUnits).toBe(14);
 
-    // Pendiente: ni stock, ni lote, ni movimiento
     expect((await stockOf(s.central)).quantity).toBe(0);
     expect(await StockEntry.countDocuments()).toBe(0);
     expect(await StockMovement.countDocuments()).toBe(0);
 
-    // Corregir una pendiente no necesita motivo y no toca el stock
     const itemId = create.body.items[0].id;
     const fix = await request(app).put(`/api/inventory/provisions/${create.body.id}`).set(auth(s.tokens.responsable))
       .send({ items: [{ id: itemId, quantity: 12 }] });
     expect(fix.status).toBe(200);
     expect((await stockOf(s.central)).quantity).toBe(0);
 
-    // Un solicitante no puede aprobar
     expect((await request(app).post(`/api/inventory/provisions/${create.body.id}/approve`).set(auth(s.tokens.solicitante))).status).toBe(403);
 
     const approve = await request(app).post(`/api/inventory/provisions/${create.body.id}/approve`).set(auth(s.tokens.responsable));
@@ -178,7 +170,6 @@ describe('Ingresos, egresos y lotes', () => {
     expect(movs.length).toBe(2);
     expect(movs.every(m => m.subtype === 'PROVISION')).toBe(true);
 
-    // Aprobar dos veces no la ingresa dos veces
     expect((await request(app).post(`/api/inventory/provisions/${create.body.id}/approve`).set(auth(s.tokens.admin))).status).toBe(400);
     expect((await stockOf(s.central)).quantity).toBe(12);
 
@@ -197,14 +188,13 @@ describe('Ingresos, egresos y lotes', () => {
     const itemId = created.body.items[0].id;
     await request(app).post(`/api/inventory/provisions/${id}/approve`).set(auth(s.tokens.responsable));
 
-    // Salen 3 unidades del lote
     await request(app).post('/api/inventory/exit').set(auth(s.tokens.admin)).send({
       productId: s.product._id, branchId: s.central._id, quantity: 3, exitType: 'VENTA'
     });
     const edit = (data) => request(app).put(`/api/inventory/provisions/${id}`).set(auth(s.tokens.responsable)).send(data);
 
-    expect((await edit({ items: [{ id: itemId, quantity: 8 }] })).status).toBe(400); // aprobada: falta el motivo
-    expect((await edit({ reason: 'Remito', items: [{ id: itemId, quantity: 2 }] })).status).toBe(400); // menos de lo que ya salió
+    expect((await edit({ items: [{ id: itemId, quantity: 8 }] })).status).toBe(400);
+    expect((await edit({ reason: 'Remito', items: [{ id: itemId, quantity: 2 }] })).status).toBe(400);
 
     const ok = await edit({ reason: 'Se cargó mal el remito', items: [{ id: itemId, quantity: 8, lotNumber: 'BIEN', expirationDate: '2031-06-30' }] });
     expect(ok.status).toBe(200);
@@ -235,14 +225,13 @@ describe('Ingresos, egresos y lotes', () => {
 
   test('para armar un pedido solo se ofrecen los productos con stock disponible en el origen', async () => {
     const available = () => request(app).get(`/api/branches/${s.central._id}/available`).set(auth(s.tokens.solicitante));
-    expect((await available()).body).toEqual([]); // sin stock: no se ofrece nada
+    expect((await available()).body).toEqual([]);
 
     await addEntry(s.tokens.admin, { quantity: 10 });
     const res = await available();
-    expect(res.status).toBe(200); // el solicitante puede verlo aunque no sea su sucursal
+    expect(res.status).toBe(200);
     expect(res.body).toEqual([{ productId: String(s.product._id), available: 10 }]);
 
-    // Todo reservado para otros pedidos: tampoco se ofrece
     await BranchStock.updateOne({ branchId: s.central._id, productId: s.product._id }, { reservedQuantity: 10 });
     expect((await available()).body).toEqual([]);
   });
@@ -259,7 +248,6 @@ describe('Ingresos, egresos y lotes', () => {
     const res = await request(app).post(`/api/branches/${s.central._id}/stock/adjust`).set(auth(s.tokens.admin))
       .send({ productId: s.product._id, quantity: -5, reason: 'Rotura', lotId: lot._id });
     expect(res.status).toBe(400);
-    // El lote vuelve a quedar como estaba
     expect((await StockEntry.findOne({ lotNumber: 'L-A' })).remaining).toBe(10);
     expect((await stockOf(s.central)).quantity).toBe(10);
   });
@@ -292,7 +280,6 @@ describe('Ingresos, egresos y lotes', () => {
     const kpis = await request(app).get('/api/alerts/kpis').set(auth(s.tokens.admin));
     expect(kpis.body.criticalAlerts).toBe(1);
 
-    // Con stock por encima del mínimo deja de aparecer
     await addEntry(s.tokens.admin, { quantity: 10 });
     const after = await request(app).get('/api/alerts').set(auth(s.tokens.admin));
     expect(after.body).toHaveLength(0);
@@ -319,7 +306,6 @@ describe('Ingresos, egresos y lotes', () => {
     expect(res.body.newStock).toBe(12);
     expect(await StockEntry.countDocuments({ productId: created.body._id })).toBe(0);
 
-    // También puede tener lote sin fecha de vencimiento (tanto por ingreso directo como por provisión)
     const withLot = await request(app).post('/api/inventory/stock').set(auth(s.tokens.responsable)).send({
       productId: created.body._id, branchId: s.central._id, quantity: 8, lotNumber: 'LOT-NO-EXP-1'
     });

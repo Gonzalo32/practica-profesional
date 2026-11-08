@@ -5,7 +5,6 @@ const v = require('../validators');
 
 const router = express.Router();
 
-// Conteo físico de inventario (Admin o Responsable de la sucursal)
 router.use(verifyToken);
 router.use(requireRole(['Administrador', 'Usuario Responsable']));
 

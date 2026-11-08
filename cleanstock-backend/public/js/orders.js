@@ -1,7 +1,3 @@
-// ==========================================================================
-// PEDIDOS: listado del solicitante, alta de pedidos, recepción y trazabilidad
-// ==========================================================================
-
 let loadedSolicitanteOrders = [];
 const solicitanteFilters = { search: '', status: 'PENDIENTE', page: 1 };
 const ORDERS_PER_PAGE = 10;
@@ -9,12 +5,10 @@ const ORDERS_PER_PAGE = 10;
 async function loadSolicitanteOrders() {
   const tbody = document.getElementById('table-solicitante-orders-body');
   if (!loadedSolicitanteOrders.length) setTableLoading(tbody, 7);
-  // Solicitante, Usuario Responsable y Administrador pueden realizar pedidos (el Despachante solo prepara y envía)
   document.getElementById('btn-open-create-order-modal')?.classList.toggle(
     'hidden',
     !hasRole('Solicitante', 'Usuario Responsable', 'Administrador')
   );
-  // Precarga productos, sucursales y stock disponible por sucursal en segundo plano
   ensureBaseData().then(() => preloadBranchesStock()).catch(() => {});
   try {
     loadedSolicitanteOrders = await apiFetch('/orders');
@@ -41,7 +35,6 @@ function filteredSolicitanteOrders() {
   });
 }
 
-// ¿El usuario actual puede confirmar que recibió este pedido? (Solicitante, U. Responsable o Admin)
 function canConfirmReception(order) {
   if (order.status !== 'DESPACHADO') return false;
   if (hasRole('Administrador')) return true;
@@ -52,40 +45,31 @@ function canConfirmReception(order) {
   return false;
 }
 
-// ¿El usuario actual puede preparar este pedido? (Solo Administrador y Despachante en Pendientes)
 function canPrepareOrder(order) {
   return ['PENDIENTE', 'EN_PREPARACION'].includes(order.status) && hasRole('Administrador', 'Despachante');
 }
 
-// Un pedido en Revisión lo aprueba o rechaza el Administrador o el Usuario Responsable
-// de la sucursal de origen (la que tiene que entregar la mercadería). Igual que en el servidor.
 function canReviewOrder(order) {
   if (hasRole('Administrador')) return true;
   return hasRole('Usuario Responsable') && !!state.user.branchId
     && String(order.fromBranchId) === String(state.user.branchId);
 }
 
-// ¿El usuario actual puede aprobar este pedido en Revisión?
 function canApproveOrder(order) {
   return order.status === 'PENDIENTE_VALIDACION' && canReviewOrder(order);
 }
 
-// ¿El usuario actual puede rechazar este pedido? El administrador hasta que se despacha;
-// el responsable de la sucursal de origen, mientras está en Revisión.
 function canRejectOrder(order) {
   if (hasRole('Administrador')) return ['PENDIENTE_VALIDACION', 'PENDIENTE', 'EN_PREPARACION'].includes(order.status);
   return order.status === 'PENDIENTE_VALIDACION' && canReviewOrder(order);
 }
 
-// Lápiz para modificar un pedido en Pendientes (o Revisión), mientras nadie empezó a prepararlo.
-// Igual que en el servidor: el Administrador, el Usuario Responsable o quien hizo el pedido.
 function canEditOrder(order) {
   if (!['PENDIENTE_VALIDACION', 'PENDIENTE'].includes(order.status)) return false;
   if (hasRole('Administrador', 'Usuario Responsable')) return true;
   return String(order.solicitanteId) === String(state.user.id);
 }
 
-// Ojo: datos del pedido y sus productos
 window.openViewOrderModal = (orderId) => {
   const order = loadedSolicitanteOrders.find(o => o.id === orderId);
   if (!order) return;
@@ -113,7 +97,6 @@ window.openViewOrderModal = (orderId) => {
   openModal('modal-view-order');
 };
 
-// Tacho: cancelar el pedido (libera el stock reservado en el origen)
 window.cancelOrder = async (orderId) => {
   const order = loadedSolicitanteOrders.find(o => o.id === orderId);
   const ok = await confirmDialog({
@@ -177,7 +160,6 @@ function renderSolicitanteOrdersTable() {
   });
 }
 
-// Aprobar pedido en Revisión (pasa a Pendiente para que el despachante lo prepare)
 window.approveOrderFromPedidos = async (orderId) => {
   const order = loadedSolicitanteOrders.find(o => o.id === orderId);
   const ok = await confirmDialog({
@@ -196,7 +178,6 @@ window.approveOrderFromPedidos = async (orderId) => {
   }
 };
 
-// Rechazar pedido desde Revisión o Pendiente (termina su vida y libera el stock reservado)
 window.rejectOrderFromPedidos = async (orderId) => {
   const order = loadedSolicitanteOrders.find(o => o.id === orderId);
   const ok = await confirmDialog({
@@ -216,9 +197,6 @@ window.rejectOrderFromPedidos = async (orderId) => {
   }
 };
 
-// --------------------------------------------------------------------------
-// Modal: Preparar pedido (seleccionar cantidad a enviar de cada variante)
-// --------------------------------------------------------------------------
 let preparingOrder = null;
 
 window.openPrepareOrderModal = async (orderId) => {
@@ -262,7 +240,6 @@ window.openPrepareOrderModal = async (orderId) => {
       const totalBranchQty = stockByProduct.get(prodId)?.quantity ?? Math.max(inLots, requested);
       const withoutLotQty = Math.max(0, totalBranchQty - inLots);
 
-      // Autocompletar inicialmente en orden FEFO hasta completar la cantidad solicitada
       let remainingToAutoFill = requested;
       const variantRows = [];
 
@@ -351,7 +328,6 @@ function updatePrepareOrderTotals(changedInput = null) {
     const requested = Number(card.dataset.requested) || 0;
     const inputs = [...card.querySelectorAll('.prepare-variant-qty')];
 
-    // Clamping individual por stock de cada variante
     inputs.forEach(inp => {
       const stockMax = Number(inp.dataset.stock) || 0;
       let val = Math.max(0, parseInt(inp.value, 10) || 0);
@@ -359,7 +335,6 @@ function updatePrepareOrderTotals(changedInput = null) {
       inp.value = String(val);
     });
 
-    // Nunca permitir que la suma de variantes de un artículo supere lo solicitado
     let sum = inputs.reduce((acc, inp) => acc + (parseInt(inp.value, 10) || 0), 0);
     if (sum > requested && changedInput && card.contains(changedInput)) {
       const othersSum = inputs.filter(i => i !== changedInput).reduce((acc, inp) => acc + (parseInt(inp.value, 10) || 0), 0);
@@ -489,7 +464,6 @@ registerExporter('orders', async () => ({
   rows: filteredSolicitanteOrders()
 }));
 
-// Confirmación de recepción (T5.3): mueve el stock entre sucursales
 window.markOrderEntregado = async (orderId) => {
   const order = [...loadedSolicitanteOrders, ...(window.loadedDeliveries || [])].find(o => o.id === orderId);
   const ok = await confirmDialog({
@@ -512,17 +486,12 @@ window.markOrderEntregado = async (orderId) => {
   }
 };
 
-// --------------------------------------------------------------------------
-// Modal: crear pedido
-// --------------------------------------------------------------------------
 let draftOrderItems = [];
 
-// El mismo formulario sirve para crear y para modificar (editingOrder != null)
 let editingOrder = null;
 
-// Caché de stock disponible por sucursal para respuesta instantánea (0ms) al cambiar sucursal
-const branchAvailableCache = new Map(); // branchId -> Map(productId -> available)
-let orderOriginAvailable = new Map(); // productId -> unidades disponibles
+const branchAvailableCache = new Map();
+let orderOriginAvailable = new Map();
 let orderOriginRequest = 0;
 let renderOrderProductDropdown = () => {};
 
@@ -563,7 +532,6 @@ function setOrderModalMode(order) {
     submitBtn.disabled = false;
     submitBtn.textContent = order ? 'Guardar cambios' : 'Confirmar y Enviar Pedido';
   }
-  // Al modificar, el origen y el destino quedan fijos. Al crear, Solicitante y Usuario Responsable solo piden para su propia sucursal.
   document.getElementById('order-modal-from-branch').disabled = !!order;
   const lockToOwnBranch = !hasRole('Administrador') && !!userBranchId();
   document.getElementById('order-modal-to-branch').disabled = !!order || lockToOwnBranch;
@@ -597,7 +565,6 @@ async function openCreateOrderModal() {
 }
 document.getElementById('btn-open-create-order-modal')?.addEventListener('click', openCreateOrderModal);
 
-// Lápiz: agregar, quitar o cambiar cantidades de un pedido que todavía no se preparó
 window.openEditOrderModal = async (orderId) => {
   const order = loadedSolicitanteOrders.find(o => o.id === orderId);
   if (!order) return;
@@ -678,7 +645,6 @@ function setupOrderProductSearch() {
     }
 
     const q = filterText.toLowerCase().trim();
-    // Solo sugerir los artículos que tiene la sucursal que envía con saldo disponible (> 0)
     const list = (state.products || [])
       .filter(p => getRemainingAvailable(p.id) > 0)
       .filter(p => {
@@ -810,7 +776,7 @@ function setupOrderProductSearch() {
   dropdown.addEventListener('mousedown', (e) => {
     const item = e.target.closest('.select-search-item');
     if (item) {
-      e.preventDefault(); // evita blur y responde al instante
+      e.preventDefault();
       selectItem(item);
     }
   });
@@ -841,7 +807,6 @@ async function loadOrderOriginStock({ focusSearch = true } = {}) {
     return;
   }
 
-  // Si ya está en caché, activamos el buscador en 0ms sin bloquear la interfaz
   const cached = branchAvailableCache.get(String(branchId));
   if (cached) {
     orderOriginAvailable = buildEffectiveOriginMap(cached);
@@ -909,7 +874,6 @@ function addOrderItemFromPicker() {
   const qtyInput = document.getElementById('order-modal-product-qty');
   let productId = productSelect?.value;
 
-  // Si el usuario escribió y apretó Agregar/Enter sin haber confirmado el ítem resaltado, toma el resaltado
   if (!productId) {
     const highlighted = document.querySelector('#order-product-search-dropdown .select-search-item.highlighted');
     if (highlighted) productId = highlighted.dataset.id;
@@ -940,7 +904,7 @@ function addOrderItemFromPicker() {
 
   if (searchInput) {
     searchInput.value = '';
-    searchInput.focus(); // El cursor vuelve al campo de artículos y muestra los restantes listos para bajar con flechas
+    searchInput.focus();
     renderOrderProductDropdown('');
   }
 }
@@ -1063,7 +1027,6 @@ document.getElementById('form-create-order-modal')?.addEventListener('submit', a
       body: JSON.stringify({ items, fromBranchId, toBranchId, notes })
     });
     branchAvailableCache.delete(String(fromBranchId));
-    // El servidor decide si el pedido requiere aprobación del administrador (más de 50 unidades de un producto)
     const targetStatus = res.order.status || (res.order.requiresValidation ? 'PENDIENTE_VALIDACION' : 'PENDIENTE');
     showToast(`Pedido ${res.order.code} creado${res.order.requiresValidation ? '. Requiere aprobación del administrador.' : ' y enviado.'}`, 'success');
     closeModal('modal-create-order');
@@ -1084,9 +1047,6 @@ document.getElementById('form-create-order-modal')?.addEventListener('submit', a
   }
 });
 
-// --------------------------------------------------------------------------
-// Trazabilidad del pedido (T5.4)
-// --------------------------------------------------------------------------
 window.openTimelineModal = async (orderId) => {
   const order = [...loadedSolicitanteOrders, ...(window.loadedDispatchOrders || []), ...(window.loadedDeliveries || [])].find(o => o.id === orderId);
   document.getElementById('modal-order-id-label').textContent = order ? formatOrderCode(order) : orderId.substring(0, 8);

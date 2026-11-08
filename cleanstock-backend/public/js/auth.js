@@ -1,7 +1,3 @@
-// ==========================================================================
-// SESIÓN, NAVEGACIÓN POR ROL Y CAMBIO DE PANELES
-// ==========================================================================
-
 const loginForm = document.getElementById('login-form');
 if (loginForm) {
   loginForm.addEventListener('submit', async (e) => {
@@ -92,15 +88,13 @@ async function initApp() {
   document.getElementById('main-view').classList.remove('hidden');
   updateSidebarUserProfile();
 
-  // Refresca el perfil (sucursal, proveedor) por si cambió desde el último login
   try {
     const freshUser = await apiFetch('/auth/me');
     state.user = { ...state.user, ...freshUser };
     localStorage.setItem('cleanstock_user', JSON.stringify(state.user));
     updateSidebarUserProfile();
   } catch (err) {
-    if (!state.token) return; // sesión vencida: apiFetch ya volvió al login
-    // El usuario de la sesión guardada ya no existe (por ejemplo, se reinició la base)
+    if (!state.token) return;
     if (err.message === 'Usuario no encontrado') {
       logout();
       return;
@@ -112,9 +106,6 @@ async function initApp() {
   startNotificationPolling();
 }
 
-// --------------------------------------------------------------------------
-// Navegación según el rol
-// --------------------------------------------------------------------------
 const NAV_ICONS = {
   home: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
   admin: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
@@ -171,7 +162,6 @@ const NAV_BY_ROLE = {
   ]
 };
 
-// Secciones que no aplican a un comercio de un solo local
 const MULTI_BRANCH_SECTIONS = ['branches', 'solicitante'];
 
 function navigationForUser() {
@@ -214,7 +204,6 @@ function switchTab(activeTabEl) {
   activatePanel(activeTabEl.dataset.panel);
 }
 
-// Abre un panel desde otro lugar (ej: un aviso de la campanita)
 function goToPanel(panelId) {
   const tab = document.querySelector(`.tab-link[data-panel="${panelId}"]`);
   if (tab) switchTab(tab);
@@ -249,7 +238,6 @@ function refreshPanelData(panelId) {
   }
 }
 
-// Sub-pestañas dentro de un panel (Usuarios / Aprobaciones / ...)
 const subTabLoaders = {};
 function onSubTab(subpanelId, loader) {
   subTabLoaders[subpanelId] = loader;

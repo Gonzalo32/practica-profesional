@@ -1,9 +1,6 @@
 const { body, param, query } = require('express-validator');
 const { validate } = require('../middlewares/validate');
 
-// Reglas de validación de entrada por endpoint. Cada arreglo termina con `validate`,
-// que corta la petición con 400 y un mensaje claro si algo no cumple.
-
 const ROLES = ['Administrador', 'Solicitante', 'Despachante', 'Usuario Responsable', 'Proveedor'];
 const BRANCH_TYPES = ['filial', 'Zona', 'sucursal', 'dependencia', 'sector'];
 const ORDER_STATUSES = ['EN_PREPARACION', 'DESPACHADO', 'ENTREGADO', 'RECHAZADO', 'CANCELADO'];
@@ -92,7 +89,6 @@ const spaceUpdate = [
 const stockAdjust = [
   idParam(),
   mongoId('productId', 'Producto'),
-  // Formato simple { quantity, lotId } o varias variantes juntas { adjustments: [{ lotId, quantity }] }
   body('quantity').if(body('adjustments').not().exists()).isInt().withMessage('La cantidad debe ser un número entero').toInt(),
   optionalMongoId('lotId', 'Lote'),
   body('adjustments').optional().isArray({ min: 1, max: 100 }).withMessage('Indicá al menos una variante a ajustar'),
@@ -154,7 +150,6 @@ const stockEntry = [
   mongoId('productId', 'Producto'),
   mongoId('branchId', 'Sucursal'),
   positiveInt('quantity', 'La cantidad'),
-  // Lote y vencimiento: el controlador los exige solo si el producto es perecedero
   optionalText('lotNumber', 'El número de lote', 60),
   body('expirationDate').optional({ values: 'falsy' }).isISO8601().withMessage('El vencimiento debe ser una fecha válida'),
   optionalMongoId('supplierId', 'Proveedor'),
@@ -162,7 +157,6 @@ const stockEntry = [
   validate
 ];
 
-// Provisiones: alta (queda pendiente) y corrección. En una ya aprobada el motivo lo exige el controlador.
 const provisionCreate = [
   mongoId("branchId", "Sucursal"),
   optionalMongoId("supplierId", "Proveedor"),
@@ -223,7 +217,6 @@ const approveOrder = [
   validate
 ];
 
-// Modificar un pedido que todavía no empezó a prepararse
 const updateOrder = [
   idParam('orderId'),
   body('items').isArray({ min: 1 }).withMessage('El pedido tiene que tener al menos un producto. Para anularlo, cancelalo.'),

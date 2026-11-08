@@ -1,9 +1,3 @@
-// ==========================================================================
-// CLEANSTOCK — NÚCLEO DEL FRONTEND
-// Estado global, llamadas a la API, helpers de formato y componentes comunes
-// (toasts, modales, confirmaciones, paginación). Lo usan todos los módulos.
-// ==========================================================================
-
 const API_BASE = '/api';
 
 function getStoredUser() {
@@ -35,11 +29,6 @@ const state = {
   currentTab: ''
 };
 
-// ==========================================================================
-// FORMATO Y SEGURIDAD
-// ==========================================================================
-
-// Escapa texto antes de insertarlo con innerHTML (evita XSS con nombres como <img onerror=...>)
 function escapeHtml(value) {
   if (value === null || value === undefined) return '';
   return String(value)
@@ -86,7 +75,6 @@ function branchLabel(b) {
   return b.name.toLowerCase().startsWith(type.toLowerCase()) ? b.name : `${b.name} · ${capitalize(type)}`;
 }
 
-// Apellido y Nombre del usuario
 function getUserDisplayName(userOrObj) {
   if (!userOrObj) return 'Sistema';
   if (typeof userOrObj === 'string') return userOrObj;
@@ -96,7 +84,6 @@ function getUserDisplayName(userOrObj) {
   return userOrObj.username || userOrObj.email || 'Usuario';
 }
 
-// Escapa el detalle de un log y reemplaza los IDs que hayan quedado por nombres
 function formatLogDetails(details) {
   if (!details) return '';
   let text = escapeHtml(details);
@@ -109,7 +96,6 @@ function formatLogDetails(details) {
   return text;
 }
 
-// PED-0001 (los pedidos anteriores al número correlativo muestran su código corto)
 function formatOrderCode(order) {
   if (!order) return '';
   if (order.code) return order.code;
@@ -126,7 +112,6 @@ function formatDateTime(value) {
   return new Date(value).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-// Fechas sin hora (vencimientos): se guardan como medianoche UTC, se muestran en UTC para no correr un día
 function formatDateOnly(value) {
   if (!value) return '—';
   const d = new Date(value);
@@ -169,9 +154,6 @@ function debounce(fn, wait = 300) {
   };
 }
 
-// ==========================================================================
-// API
-// ==========================================================================
 async function apiFetch(path, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
@@ -195,7 +177,6 @@ async function apiFetch(path, options = {}) {
   }
 
   if (!response.ok) {
-    // El error lleva la respuesta completa: algunas pantallas usan sus datos (ej: marcas parecidas)
     const error = new Error(data.message || 'Ocurrió un error en la solicitud');
     error.status = response.status;
     error.data = data;
@@ -204,7 +185,6 @@ async function apiFetch(path, options = {}) {
   return data;
 }
 
-// Datos que usan varios paneles (productos, categorías, sucursales)
 async function loadBaseData() {
   try {
     const [products, categories, branches, brands] = await Promise.all([
@@ -234,9 +214,6 @@ async function loadSuppliers() {
   return state.suppliers;
 }
 
-// ==========================================================================
-// NOTIFICACIONES (TOASTS APILABLES)
-// ==========================================================================
 function showToast(message, type = 'info', duration = 4500) {
   const container = document.getElementById('toast-container');
   if (!container) return;
@@ -251,14 +228,10 @@ function showToast(message, type = 'info', duration = 4500) {
   };
   toast.querySelector('.toast-close').addEventListener('click', remove);
   container.appendChild(toast);
-  // Máximo 4 a la vez
   while (container.children.length > 4) container.firstElementChild.remove();
   setTimeout(remove, duration);
 }
 
-// ==========================================================================
-// MODALES
-// ==========================================================================
 function openModal(id) {
   const modal = document.getElementById(id);
   if (!modal) return;
@@ -274,7 +247,6 @@ function closeModal(id) {
   modal.dispatchEvent(new CustomEvent('modal:closed'));
 }
 
-// Cierre genérico: botones con data-close-modal, click en el fondo y tecla Escape
 document.addEventListener('click', (e) => {
   const closer = e.target.closest('[data-close-modal]');
   if (closer) {
@@ -292,7 +264,6 @@ document.addEventListener('keydown', (e) => {
   if (open && open.id !== 'modal-confirm') closeModal(open);
 });
 
-// Confirmación con el estilo de la app (reemplaza confirm()). Devuelve una promesa con true/false.
 function confirmDialog({ title = 'Confirmar', message = '', html = '', confirmText = 'Confirmar', danger = false } = {}) {
   return new Promise(resolve => {
     const modal = document.getElementById('modal-confirm');
@@ -326,9 +297,6 @@ function confirmDialog({ title = 'Confirmar', message = '', html = '', confirmTe
   });
 }
 
-// ==========================================================================
-// TABLAS: CARGA, VACÍO Y PAGINACIÓN
-// ==========================================================================
 function setTableLoading(tbody, cols, rows = 4) {
   if (!tbody) return;
   tbody.innerHTML = Array.from({ length: rows }, () => `
@@ -361,7 +329,6 @@ function renderErrorRow(tbody, cols, message) {
   tbody.innerHTML = `<tr><td colspan="${cols}" class="empty-text text-danger">No se pudo cargar: ${escapeHtml(message)}</td></tr>`;
 }
 
-// Paginador reutilizable: { page, pages, total } y un callback con la nueva página
 function renderPagination(containerId, { page, pages, total }, label, onChange) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -381,7 +348,6 @@ function renderPagination(containerId, { page, pages, total }, label, onChange) 
   });
 }
 
-// Paginación en el navegador para listas que ya están completas en memoria
 function paginate(list, page, perPage) {
   const pages = Math.max(1, Math.ceil(list.length / perPage));
   const current = Math.min(Math.max(1, page), pages);
@@ -393,10 +359,6 @@ function paginate(list, page, perPage) {
   };
 }
 
-// ==========================================================================
-// SELECTS
-// ==========================================================================
-// Llena un <select> con opciones creadas como nodos (sin innerHTML con datos del usuario)
 function fillSelect(select, items, { placeholder = null, placeholderDisabled = false, value = '', getValue = i => i.id, getLabel = i => i.name } = {}) {
   if (!select) return;
   const current = value || select.value;
@@ -411,11 +373,6 @@ function fillSelect(select, items, { placeholder = null, placeholderDisabled = f
   else if (placeholder !== null) select.selectedIndex = 0;
 }
 
-// --------------------------------------------------------------------------
-// Select con buscador: convierte un <select> común en un campo donde se escribe
-// para filtrar las opciones. El <select> original queda oculto y sigue siendo la
-// fuente de verdad: fillSelect, select.value y el evento 'change' funcionan igual.
-// --------------------------------------------------------------------------
 const SELECT_SEARCH_MAX = 50;
 const normalizeSearchText = (text) => String(text || '')
   .normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
@@ -426,7 +383,6 @@ function makeSelectSearchable(select, { placeholder = 'Buscar artículo...', inl
   const wrap = document.createElement('div');
   wrap.className = 'select-search-container';
   if (select.classList.contains('picker-grow')) wrap.classList.add('picker-grow');
-  // En una barra de filtros no ocupa todo el ancho
   if (inline) Object.assign(wrap.style, { width: 'auto', minWidth: '220px', flex: '1 1 220px' });
   wrap.innerHTML = `
     <input type="text" class="select-search-input" autocomplete="off">
@@ -484,7 +440,6 @@ function makeSelectSearchable(select, { placeholder = 'Buscar artículo...', inl
     close();
   };
 
-  // Si el código cambia el valor o las opciones del <select>, el campo visible se actualiza solo
   for (const prop of ['value', 'selectedIndex']) {
     const native = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, prop);
     Object.defineProperty(select, prop, {
@@ -499,7 +454,6 @@ function makeSelectSearchable(select, { placeholder = 'Buscar artículo...', inl
   input.addEventListener('input', () => render(input.value));
   input.addEventListener('blur', () => {
     close();
-    // Si se borró el texto, se borra la selección; si quedó a medio escribir, vuelve a la elegida
     if (!input.value.trim() && select.value) setValue('');
     else sync();
   });
@@ -524,7 +478,6 @@ function makeSelectSearchable(select, { placeholder = 'Buscar artículo...', inl
       sync();
     }
   });
-  // mousedown con preventDefault: el campo no pierde el foco antes de registrar el clic
   dropdown.addEventListener('mousedown', (e) => e.preventDefault());
   dropdown.addEventListener('click', (e) => {
     const item = e.target.closest('.select-search-item');
@@ -541,8 +494,6 @@ function makeSelectSearchable(select, { placeholder = 'Buscar artículo...', inl
   sync();
 }
 
-// Sucursales que puede operar el usuario: el admin todas, el resto solo la propia.
-// En modo de un solo local, todos operan únicamente en el local principal.
 function operableBranches() {
   if (isSingleBranch()) return state.branches.filter(b => String(b.id) === String(state.settings.mainBranchId));
   if (hasRole('Administrador')) return state.branches;
@@ -550,14 +501,10 @@ function operableBranches() {
   return state.branches.filter(b => String(b.id) === String(own));
 }
 
-// Sucursales donde se puede ingresar mercadería (el admin en cualquiera; el resto en la propia)
 function entryBranches() {
   return operableBranches();
 }
 
-// ==========================================================================
-// CONFIGURACIÓN DEL NEGOCIO (nombre y modo de un solo local)
-// ==========================================================================
 function isSingleBranch() {
   return !!state.settings?.singleBranchMode && !!state.settings?.mainBranchId;
 }
@@ -572,14 +519,10 @@ async function loadSettings() {
   return state.settings;
 }
 
-// Oculta lo que no se usa con un solo local (elementos con class="multi-only")
 function applySettingsToUI() {
   document.body.classList.toggle('single-branch', isSingleBranch());
 }
 
-// ==========================================================================
-// TEMA CLARO / OSCURO
-// ==========================================================================
 function applyThemeLabels() {
   const theme = document.documentElement.getAttribute('data-theme');
   document.querySelectorAll('[data-theme-toggle] .theme-label').forEach(el => {
@@ -591,15 +534,11 @@ document.addEventListener('click', (e) => {
   if (!e.target.closest('[data-theme-toggle]')) return;
   const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', next);
-  try { localStorage.setItem('cleanstock_theme', next); } catch (err) { /* sin almacenamiento */ }
+  try { localStorage.setItem('cleanstock_theme', next); } catch (err) {}
   applyThemeLabels();
   document.dispatchEvent(new CustomEvent('theme:changed'));
 });
 
-// ==========================================================================
-// CAPITALIZACIÓN AUTOMÁTICA DE ENTRADAS DE TEXTO
-// Todo lo que escriba el usuario empieza con mayúscula (excepto correo/login)
-// ==========================================================================
 document.addEventListener('input', (e) => {
   const el = e.target;
   if (!el || el.id === 'username') return;
@@ -614,7 +553,7 @@ document.addEventListener('input', (e) => {
     const end = el.selectionEnd;
     el.value = capitalized;
     if (typeof start === 'number' && typeof end === 'number') {
-      try { el.setSelectionRange(start, end); } catch { /* ignorar si el input no soporta selección */ }
+      try { el.setSelectionRange(start, end); } catch {}
     }
   }
 }, true);

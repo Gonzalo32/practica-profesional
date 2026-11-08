@@ -6,12 +6,7 @@
   --font-display: 'Outfit', sans-serif;
 }
 
-/* ==========================================================================
-   🎨 CLEANSTOCK — PRESET SYSTEM & DESIGN TOKENS (CSS VARIABLE SYSTEM)
-   ========================================================================== */
-
 :root {
-  /* Harmonious, HSL tailored color scheme */
   --bg-gradient-start: hsl(224, 32%, 12%);
   --bg-gradient-end: hsl(224, 35%, 6%);
   
@@ -20,25 +15,23 @@
   --glass-border: rgba(255, 255, 255, 0.07);
   --glass-border-focus: hsla(200, 85%, 65%, 0.3);
   
-  --color-primary: hsl(200, 90%, 65%);       /* Bright Clean Celeste */
+  --color-primary: hsl(200, 90%, 65%);
   --color-primary-hover: hsl(200, 100%, 72%);
   --color-primary-glow: hsla(200, 90%, 65%, 0.2);
   
-  --color-success: hsl(145, 65%, 50%);       /* Stock Efficiency Green */
+  --color-success: hsl(145, 65%, 50%);
   --color-success-hover: hsl(145, 75%, 58%);
   --color-success-glow: hsla(145, 65%, 50%, 0.15);
   
-  --color-danger: hsl(355, 80%, 62%);        /* Error/Delete Red */
+  --color-danger: hsl(355, 80%, 62%);
   --color-danger-hover: hsl(355, 90%, 68%);
   
-  --color-warning: hsl(35, 90%, 60%);        /* Validation Alert Yellow */
+  --color-warning: hsl(35, 90%, 60%);
   
-  /* Neutral scale */
   --text-main: hsl(210, 38%, 95%);
   --text-muted: hsl(215, 20%, 68%);
   --text-dark: hsl(224, 30%, 15%);
   
-  /* Spaces and radii */
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 24px;
@@ -50,7 +43,6 @@
   --shadow-lg: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
   --shadow-glow: 0 0 20px 2px var(--color-primary-glow);
 
-  /* Superficies y fondos (el tema claro redefine estos valores) */
   --bg-radial-2: hsl(220, 35%, 10%);
   --bg-radial-3: hsl(200, 35%, 9%);
   --surface-1: rgba(255, 255, 255, 0.03);
@@ -65,10 +57,6 @@
   --color-purple: hsl(270, 70%, 72%);
   color-scheme: dark;
 }
-
-/* ==========================================================================
-   📌 BASE STYLES & RESET
-   ========================================================================== */
 
 * {
   @apply box-border m-0 p-0;
@@ -85,7 +73,6 @@ body {
   color: var(--text-main);
 }
 
-/* Ambient glows (radial-gradient avoids expensive GPU Gaussian blur repaints) */
 .bg-glow {
   @apply absolute w-[650px] h-[650px] rounded-full pointer-events-none z-[-1] opacity-22;
 }
@@ -100,7 +87,6 @@ body {
   background: radial-gradient(circle, var(--color-success) 0%, transparent 70%);
 }
 
-/* Scrollbar styles */
 ::-webkit-scrollbar {
   @apply w-[8px] h-[8px];
 }
@@ -114,10 +100,6 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--surface-4);
 }
-
-/* ==========================================================================
-   🛡️ GLASSMORPHISM CARD COMPONENT & HELPERS
-   ========================================================================== */
 
 .glass {
   background: var(--glass-bg);
@@ -134,10 +116,6 @@ body {
   border: 1px solid var(--surface-1);
   border-radius: var(--radius-sm);
 }
-
-/* ==========================================================================
-   🗳️ TYPOGRAPHY & BRANDING
-   ========================================================================== */
 
 h1, h2, h3, h4, .brand h1 {
   @apply font-bold tracking-[-0.02em];
@@ -162,10 +140,6 @@ span.user-name {
   @apply text-[0.85rem] italic tracking-[0.05em] mb-[2rem] text-center;
   color: var(--text-muted);
 }
-
-/* ==========================================================================
-   🔘 BUTTONS & INTERACTIVE ELEMENTS
-   ========================================================================== */
 
 .btn {
   @apply inline-flex items-center justify-center gap-[8px] font-semibold py-[10px] px-[20px] border-none cursor-pointer outline-none;
@@ -217,7 +191,6 @@ span.user-name {
   transform: translateY(-1px);
 }
 
-
 .btn-sm {
   @apply text-[0.8rem] py-[6px] px-[12px] rounded-[6px];
 }
@@ -225,10 +198,6 @@ span.user-name {
 .btn-block {
   @apply w-full;
 }
-
-/* ==========================================================================
-   📄 FORMS & INPUTS
-   ========================================================================== */
 
 .form-group {
   @apply mb-[1.2rem];
@@ -263,10 +232,6 @@ textarea:focus {
   background: var(--input-bg-focus);
 }
 
-/* ==========================================================================
-   🔐 LOGIN VIEW
-   ========================================================================== */
-
 .container-login {
   @apply flex justify-center items-center min-h-screen p-[20px];
 }
@@ -279,7 +244,6 @@ textarea:focus {
   @apply flex flex-col items-center mb-[1.5rem];
 }
 
-/* 3D Box Logo Design */
 .logo-box, .logo-box-small {
   @apply mb-[15px];
   perspective: 600px;
@@ -308,13 +272,6 @@ textarea:focus {
   100% { transform: translateY(-10px) rotateX(28deg) rotateY(-28deg); }
 }
 
-
-
-/* ==========================================================================
-   🏠 HEADER & TABS NAVIGATION
-   ========================================================================== */
-
-/* Sidebar Layout */
 .layout-sidebar {
   @apply flex h-screen overflow-hidden;
 }
@@ -379,7 +336,6 @@ textarea:focus {
   color: var(--text-main);
 }
 
-/* 🚪 Botón de Deslogueo Moderno y Elegante */
 .btn-logout-sleek {
   @apply flex items-center justify-center gap-[8px] w-full py-[9px] px-[14px] text-[0.85rem] font-semibold cursor-pointer relative overflow-hidden;
   background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(185, 28, 28, 0.18));
@@ -430,7 +386,6 @@ textarea:focus {
   @apply text-[0.68rem] font-bold uppercase tracking-[0.05em] py-[2px] px-[6px] rounded-[4px];
 }
 
-/* Badge colors */
 .badge {
   @apply shadow-none inline-block py-[4px] px-[10px] rounded-[6px] text-[0.8rem] font-medium;
   background: var(--surface-2);
@@ -451,7 +406,6 @@ textarea:focus {
   border: 1px solid hsla(145, 63%, 49%, 0.2);
 }
 
-/* Tabs */
 .nav-tabs {
   @apply flex gap-[10px];
   margin: 0 0 20px 0;
@@ -479,10 +433,6 @@ textarea:focus {
   color: var(--color-primary);
   border-left: 4px solid var(--color-primary);
 }
-
-/* ==========================================================================
-   📦 VIEW PANELS & GENERAL CONTENT LAYOUTS
-   ========================================================================== */
 
 .content-container {
   @apply flex-1 p-[30px] overflow-y-auto;
@@ -540,15 +490,8 @@ textarea:focus {
   border-color: var(--surface-3);
 }
 
-
-
-
 @media (max-width: 900px) {
 }
-
-/* ==========================================================================
-   📊 TABLES AND LOGS LISTINGS
-   ========================================================================== */
 
 .table-card {
   @apply mt-[25px];
@@ -619,11 +562,6 @@ tr:hover td {
   border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
-/* ==========================================================================
-   🛒 SOLICITANTE VIEW — CATALOG & CART
-   ========================================================================== */
-
-
 @media (max-width: 1000px) {
 }
 
@@ -643,44 +581,10 @@ tr:hover td {
   @apply flex-1;
 }
 
-
-
-
-
-
-
-
-
-/* Cart & Orders sidebar */
-
-
 .empty-text {
   @apply text-center text-[0.9rem] py-[20px] px-0 italic;
   color: var(--text-muted);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* ==========================================================================
-   👥 USUARIO RESPONSABLE LAYOUT
-   ========================================================================== */
-
-
-
-/* ==========================================================================
-   📦 TIMELINE & DIALOG MODAL DESIGN
-   ========================================================================== */
 
 .modal {
   @apply fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center z-[1000] p-[20px];
@@ -764,7 +668,6 @@ select option {
   color: var(--color-primary);
 }
 
-/* Timeline Layout */
 .timeline {
   @apply flex flex-col gap-[20px] relative pl-[20px] max-h-[350px] overflow-y-auto;
 }
@@ -810,24 +713,11 @@ select option {
   line-height: 1.4;
 }
 
-/* Validation Token Layout */
-
-
-
-
-
-
-/* ==========================================================================
-   🏢 MULTI-BRANCH STYLES
-   ========================================================================== */
-
-/* Branch badge variant */
 .badge-branch {
   background: linear-gradient(135deg, hsl(270, 60%, 50%), hsl(300, 60%, 55%));
   color: white;
 }
 
-/* Panel header row with title */
 .panel-header-row {
   @apply flex items-center justify-between mb-[1.5rem] pb-[1rem];
   border-bottom: 1px solid var(--glass-border);
@@ -839,7 +729,6 @@ select option {
   color: var(--text-main);
 }
 
-/* Stock quantity indicators */
 .stock-qty {
   @apply font-bold text-[1.1rem] py-[4px] px-[10px] inline-block;
   border-radius: var(--radius-sm);
@@ -860,16 +749,6 @@ select option {
   background: hsla(355, 80%, 62%, 0.15);
 }
 
-/* Form group labels in cart/summary context */
-
-
-
-/* Branch order info in despachante table */
-
-
-/* Adjust form column */
-
-/* Action icon buttons (Silhouettes without borders/box) */
 .btn-icon {
   @apply bg-transparent border-none p-[4px] w-auto h-auto inline-flex items-center justify-center cursor-pointer;
   color: var(--text-muted);
@@ -897,9 +776,6 @@ select option {
   transform: scale(1.15);
 }
 
-/* ==========================================================================
-   🎨 METRIC CARDS VISUAL HIERARCHY
-   ========================================================================== */
 .stat-card.stat-card-alert {
      background: radial-gradient(circle at top right, hsla(355, 80%, 62%, 0.15), transparent 70%), var(--glass-bg);
      border: 1px solid hsla(355, 80%, 62%, 0.3);
@@ -930,9 +806,6 @@ select option {
   text-shadow: 0 4px 15px var(--color-success-glow);
 }
 
-/* ==========================================================================
-   🔍 TOOLBAR (SEARCH, FILTER & ACTIONS GROUP)
-   ========================================================================== */
 .table-toolbar {
      @apply flex justify-between items-center gap-[16px] mb-[20px] flex-wrap;
    }
@@ -971,7 +844,6 @@ select option {
   border-color: var(--color-primary);
 }
 
-/* Grouped Action Icons */
 .action-btn-group {
   @apply inline-flex items-center gap-[4px] py-[3px] px-[8px];
   background: var(--surface-1);
@@ -979,9 +851,6 @@ select option {
   border-radius: var(--radius-sm);
 }
 
-/* ==========================================================================
-   📄 PAGINATION STYLES
-   ========================================================================== */
 .pagination-container {
      @apply flex justify-between items-center mt-[20px] pt-[15px] flex-wrap gap-[12px];
      border-top: 1px solid var(--surface-2);
@@ -999,9 +868,6 @@ select option {
   background: var(--surface-2);
 }
 
-/* ==========================================================================
-   EMPTY STATE STYLES
-   ========================================================================== */
 .empty-state-wrapper {
      @apply py-[40px] px-[20px] text-center flex flex-col items-center justify-center gap-[10px];
    }
@@ -1019,10 +885,6 @@ select option {
   color: var(--text-muted);
 }
 
-/* ==========================================================================
-   TEMA CLARO
-   Los componentes usan variables; acá solo se redefinen sus valores.
-   ========================================================================== */
 :root[data-theme="light"] {
   --bg-gradient-start: hsl(205, 60%, 94%);
   --bg-gradient-end: hsl(210, 40%, 98%);
@@ -1073,14 +935,10 @@ select option {
 :root[data-theme="light"] .badge-solicita { color: var(--color-success); }
 :root[data-theme="light"] .status-despachado { color: var(--color-purple); }
 
-/* Íconos de luna/sol del botón de tema */
 .icon-sun { display: none; }
 :root[data-theme="light"] .icon-sun { display: block; }
 :root[data-theme="light"] .icon-moon { display: none; }
 
-/* ==========================================================================
-   UTILIDADES
-   ========================================================================== */
 .muted { color: var(--text-muted); }
 .strong { font-weight: 700; }
 .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
@@ -1143,7 +1001,6 @@ select option {
 
 .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
 
-/* Contadores de los gráficos y tarjetas nuevas */
 .stat-sub { font-size: 0.8rem; color: var(--text-muted); }
 .stat-card.stat-card-expiring,
 .stat-card.stat-card-warning {
@@ -1155,9 +1012,6 @@ select option {
 .grid-compact { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 .grid-compact .stat-card { padding: 20px 24px; }
 
-/* ==========================================================================
-   FORMULARIOS EN MODALES
-   ========================================================================== */
 .modal-sm { max-width: 460px; }
 .modal-md { max-width: 560px; }
 .modal-lg { max-width: 760px; }
@@ -1192,7 +1046,6 @@ select option {
 .qty-stepper input { text-align: center; font-weight: 600; }
 .qty-stepper .btn { padding: 6px 14px; font-weight: 700; }
 
-/* Selector de artículos (pedidos, ingresos, egresos) */
 .item-picker {
   @apply py-[12px] px-[15px];
   background: var(--surface-1);
@@ -1218,7 +1071,6 @@ select option {
 .table-compact th, .table-compact td { padding: 8px 10px; font-size: 0.85rem; }
 .table-compact input { padding: 6px 10px !important; }
 
-/* La confirmación se abre encima de otros modales */
 #modal-confirm { z-index: 2000; }
 
 .confirm-message { font-size: 0.92rem; color: var(--text-main); line-height: 1.5; margin-bottom: 8px; }
@@ -1255,9 +1107,6 @@ select option {
 .qty-out { color: var(--color-danger); }
 .count-input { width: 110px !important; padding: 6px 10px !important; text-align: center; }
 
-/* ==========================================================================
-   NOTIFICACIONES (TOASTS)
-   ========================================================================== */
 .toast-container {
      @apply fixed top-[20px] right-[20px] z-[3000] flex flex-col gap-[10px];
      max-width: min(420px, calc(100vw - 40px));
@@ -1285,9 +1134,6 @@ select option {
 .toast-success { background: var(--color-success); color: var(--text-dark); }
 .toast-error { background: var(--color-danger); color: #fff; }
 
-/* ==========================================================================
-   ESQUELETOS DE CARGA
-   ========================================================================== */
 .skeleton {
      @apply block h-[12px] rounded-[6px];
      background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
@@ -1301,9 +1147,6 @@ select option {
   to { background-position: -200% 0; }
 }
 
-/* ==========================================================================
-   ENCABEZADO DEL MENÚ: CAMPANITA Y TEMA
-   ========================================================================== */
 .sidebar-header {
      @apply flex items-center justify-between gap-[8px];
    }
@@ -1350,16 +1193,12 @@ select option {
   color: var(--text-muted);
 }
 
-/* Navegación con íconos */
 .tab-link {
   @apply flex items-center gap-[10px] w-full border-none bg-transparent font-[inherit];
 }
 .tab-link svg { flex-shrink: 0; opacity: 0.85; }
 .sidebar-nav { overflow-y: auto; gap: 4px; }
 
-/* ==========================================================================
-   GRÁFICOS DEL DASHBOARD
-   ========================================================================== */
 .charts-grid {
      @apply grid gap-[20px] mb-[25px];
      grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1371,9 +1210,6 @@ select option {
 }
 .chart-box { position: relative; height: 260px; }
 
-/* ==========================================================================
-   TABLERO KANBAN (DESPACHO)
-   ========================================================================== */
 .segmented {
      @apply inline-flex overflow-hidden;
      border: 1px solid var(--glass-border);
@@ -1436,9 +1272,6 @@ select option {
 .kanban-empty { color: var(--text-muted); font-size: 0.82rem; text-align: center; padding: 20px 0; font-style: italic; }
 .skeleton-card { gap: 10px; }
 
-/* ==========================================================================
-   RESPONSIVE
-   ========================================================================== */
 @media (max-width: 1100px) {
   .charts-grid { grid-template-columns: 1fr; }
   .picker-grid { grid-template-columns: 1fr 1fr 1fr; }
@@ -1469,17 +1302,9 @@ select option {
   .stat-number { font-size: 2.2rem; }
 }
 
-/* ==========================================================================
-   MODO DE UN SOLO LOCAL
-   ========================================================================== */
 body.single-branch .multi-only { display: none !important; }
-/* Con un solo local quedan 5 indicadores: entran en una fila */
 body.single-branch #panel-admin .grid-dashboard { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 
-
-/* ==========================================================================
-   PANTALLA DE INICIO
-   ========================================================================== */
 .home-header { margin-bottom: 22px; }
 .home-header h2 { font-size: 1.8rem; }
 .home-subtitle { color: var(--text-muted); margin-top: 4px; font-size: 1rem; }
@@ -1521,9 +1346,6 @@ body.single-branch #panel-admin .grid-dashboard { grid-template-columns: repeat(
 .home-list li:last-child { border-bottom: none; }
 .home-list-empty { color: var(--text-muted); font-style: italic; }
 
-/* ==========================================================================
-   VENTA RÁPIDA
-   ========================================================================== */
 .quick-sale-layout {
      @apply grid gap-[20px] mt-[6px];
      grid-template-columns: 1.3fr 1fr;
@@ -1562,9 +1384,6 @@ body.single-branch #panel-admin .grid-dashboard { grid-template-columns: repeat(
 .quick-qty { min-width: 32px; text-align: center; font-size: 1.15rem; font-weight: 700; }
 .btn-large { padding: 16px 20px; font-size: 1.1rem; }
 
-/* ==========================================================================
-   CONFIGURACIÓN DEL NEGOCIO
-   ========================================================================== */
 .settings-form { max-width: 720px; }
 .mode-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .mode-option:has(input:checked) { border-color: var(--color-primary); background: var(--color-primary-glow); }
@@ -1581,14 +1400,10 @@ body.single-branch #panel-admin .grid-dashboard { grid-template-columns: repeat(
   .home-tile { min-height: 0; }
 }
 
-/* ==========================================================================
-   PIE DEL MENÚ: PERFIL, TEMA Y CERRAR SESIÓN
-   ========================================================================== */
 .footer-actions { display: flex; gap: 8px; align-items: stretch; }
 .footer-actions .btn-logout-sleek { flex: 1; width: auto; }
 .btn-theme-footer { width: 40px; height: auto; min-height: 38px; border-radius: var(--radius-md); flex-shrink: 0; }
 
-/* El nombre puede ocupar dos líneas y el rol entra completo en una */
 .user-profile-card { align-items: center; }
 .profile-info { overflow: visible; min-width: 0; }
 .user-name {
@@ -1599,7 +1414,6 @@ body.single-branch #panel-admin .grid-dashboard { grid-template-columns: repeat(
 .user-role {
   @apply whitespace-nowrap text-[0.6rem] tracking-[0.03em] py-[2px] px-[6px];
 }
-/* Avisos que llegaron desde la última vez que se abrió la campanita */
 .notif-item.notif-new { border-color: var(--color-primary); }
 .notif-item.notif-new strong::after {
   @apply ml-[6px] text-[0.62rem] font-bold uppercase;
@@ -1607,11 +1421,6 @@ body.single-branch #panel-admin .grid-dashboard { grid-template-columns: repeat(
   color: var(--color-primary);
 }
 
-/* ==========================================================================
-   ✨ REFINEMENTS & RECENT UI ENHANCEMENTS
-   ========================================================================== */
-
-/* Grid Dashboard de 4 columnas */
 .grid-dashboard-4 {
   grid-template-columns: repeat(4, 1fr) !important;
 }
@@ -1628,7 +1437,6 @@ body.single-branch #panel-admin .grid-dashboard { grid-template-columns: repeat(
   }
 }
 
-/* Tarjetas interactivas / clickeables */
 .stat-card.clickable {
   @apply cursor-pointer;
   transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.22s ease, border-color 0.22s ease;
@@ -1644,7 +1452,6 @@ body.single-branch #panel-admin .grid-dashboard { grid-template-columns: repeat(
   transform: translateY(-1px);
 }
 
-/* Inicio: 2 cards de acceso directo principales */
 .home-actions-compact {
   @apply grid max-w-[820px] gap-[1.5rem];
   grid-template-columns: repeat(2, 1fr);
@@ -1657,7 +1464,6 @@ body.single-branch #panel-admin .grid-dashboard { grid-template-columns: repeat(
   }
 }
 
-/* Solapas de estados de pedidos */
 .orders-status-tabs {
   @apply flex gap-[8px] overflow-x-auto mb-[15px];
   padding: 6px 2px 14px;
@@ -1689,7 +1495,6 @@ body.single-branch #panel-admin .grid-dashboard { grid-template-columns: repeat(
   box-shadow: 0 2px 10px rgba(56, 189, 248, 0.25);
 }
 
-/* Searchable Combobox / SelectSearch */
 .select-search-container {
   @apply relative w-full;
 }
@@ -1769,7 +1574,6 @@ body.single-branch #panel-admin .grid-dashboard { grid-template-columns: repeat(
   color: var(--text-muted);
 }
 
-/* Stock por sucursal: producto con lotes (abre la ventana de variantes) */
 .stock-expand-btn {
   @apply inline-flex items-center gap-[8px] bg-none border-none p-0 text-inherit cursor-pointer text-left;
   font: inherit;
@@ -1781,14 +1585,12 @@ body.single-branch #panel-admin .grid-dashboard { grid-template-columns: repeat(
   border: 1px solid var(--color-primary-glow);
 }
 
-/* Ajuste manual y preparación de pedidos: tabla de variantes (lotes) con cantidad por fila */
 .adjust-variants-table { width: 100%; }
 .adjust-variants-table th, .adjust-variants-table td { padding: 6px 8px; vertical-align: middle; }
 .adjust-variants-table input.adjust-variant-qty,
 .adjust-variants-table input.prepare-variant-qty { width: 100px; max-width: 100px; text-align: center; }
 .adjust-variant-result { font-weight: 700; }
 
-/* Provisiones: casillero de aprobación y filas pendientes */
 .provision-approve { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; cursor: pointer; }
 .provision-approve input { width: 18px; height: 18px; cursor: pointer; accent-color: var(--color-success); }
 .provision-approve input:disabled { cursor: default; }
@@ -1800,11 +1602,9 @@ body.single-branch #panel-admin .grid-dashboard { grid-template-columns: repeat(
 #edit-entry-items input { min-width: 0; }
 #edit-entry-items .edit-item-qty { width: 90px; }
 
-/* Buscador de marcas: aviso de "hay más" y opción de crear */
 .select-search-more { padding: 8px 14px; font-size: 0.8rem; color: var(--text-muted); }
 .select-search-create .select-search-item-name { color: var(--color-primary); font-weight: 600; }
 
-/* Pedido cancelado por quien lo pidió */
 .status-cancelado {
   background: rgba(148, 163, 184, 0.14);
   color: var(--text-muted);

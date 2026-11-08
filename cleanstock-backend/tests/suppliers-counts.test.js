@@ -40,7 +40,7 @@ describe('Proveedores y órdenes de compra', () => {
       lots: [{ productId: s.product._id, lotNumber: 'OC1-L1', expirationDate: '2031-03-01' }]
     });
     expect((await receive()).status).toBe(200);
-    expect((await receive()).status).toBe(400); // no se puede recibir dos veces
+    expect((await receive()).status).toBe(400);
 
     expect((await stockOf(s.central)).quantity).toBe(12);
     const lot = await StockEntry.findOne({ lotNumber: 'OC1-L1' }).lean();
@@ -95,7 +95,7 @@ describe('Conteo físico de inventario', () => {
     expect(open.body.items[0].systemQty).toBe(10);
 
     const again = await request(app).post('/api/counts').set(auth(s.tokens.responsable)).send({ branchId: s.central._id });
-    expect(again.status).toBe(400); // un solo conteo abierto por sucursal
+    expect(again.status).toBe(400);
 
     await request(app).put(`/api/counts/${open.body.id}`).set(auth(s.tokens.responsable))
       .send({ items: [{ productId: s.product._id, countedQty: 7 }] });

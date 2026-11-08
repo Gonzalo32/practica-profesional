@@ -2,8 +2,6 @@ const { BranchStock, Product, PhysicalSpace, ActivityLog, Order, StockEntry } = 
 const { toId, startOfDay, todayAsUTCDate, daysUntil } = require('../utils/format');
 const { effectiveBranchId } = require('../services/settingsService');
 
-// ─── Módulo 1: Sistema de Alertas de Stock Bajo ───────────────────────────────
-
 const effectiveMinFor = (item, prod) => (
   item.branchMinStock !== null && item.branchMinStock !== undefined
     ? item.branchMinStock
@@ -55,12 +53,10 @@ const buildStockAlerts = async (user) => {
       };
     });
 
-  // Para el administrador también cuentan los productos con mínimo que nunca
-  // tuvieron stock en ninguna sucursal: no tienen registro de stock, pero faltan.
   const neverStocked = user.role === 'Administrador' ? await buildNeverStockedAlerts() : [];
 
   return [...branchAlerts, ...neverStocked]
-    .sort((a, b) => a.currentQuantity - b.currentQuantity); // Más críticos primero
+    .sort((a, b) => a.currentQuantity - b.currentQuantity);
 };
 
 const buildNeverStockedAlerts = async () => {
@@ -85,11 +81,6 @@ const buildNeverStockedAlerts = async () => {
   }));
 };
 
-/**
- * GET /api/alerts
- * Pares (sucursal, producto) con stock por debajo del mínimo.
- * Admin ve todo. Otros roles solo ven su propia sucursal.
- */
 const getStockAlerts = async (req, res) => {
   try {
     res.json(await buildStockAlerts(req.user));
@@ -98,9 +89,6 @@ const getStockAlerts = async (req, res) => {
   }
 };
 
-/**
- * Lotes con stock que vencen dentro de `days` días (o ya vencidos).
- */
 const buildExpirationAlerts = async (user, days = 30) => {
   const scope = await branchScope(user);
   if (!scope) return [];
@@ -137,9 +125,6 @@ const buildExpirationAlerts = async (user, days = 30) => {
   });
 };
 
-/**
- * GET /api/alerts/expirations?days=30
- */
 const getExpirationAlerts = async (req, res) => {
   try {
     const days = Math.min(365, Math.max(0, parseInt(req.query.days, 10) || 30));
@@ -149,10 +134,6 @@ const getExpirationAlerts = async (req, res) => {
   }
 };
 
-/**
- * GET /api/alerts/summary
- * Resumen para la campanita de notificaciones del encabezado.
- */
 const getAlertSummary = async (req, res) => {
   try {
     const user = req.user;
@@ -166,11 +147,9 @@ const getAlertSummary = async (req, res) => {
     if (user.role === 'Administrador') {
       pendingApprovals = await Order.countDocuments({ status: 'PENDIENTE_VALIDACION' });
     } else if (user.role === 'Usuario Responsable' && user.branchId) {
-      // El responsable aprueba los pedidos en revisión que le piden a su sucursal
       pendingApprovals = await Order.countDocuments({ status: 'PENDIENTE_VALIDACION', fromBranchId: user.branchId });
     }
 
-    // Pedidos despachados que el usuario tiene que confirmar como recibidos
     let toReceive = 0;
     if (user.role === 'Solicitante') {
       toReceive = await Order.countDocuments({ status: 'DESPACHADO', solicitanteId: user.id });
@@ -218,10 +197,6 @@ const getAlertSummary = async (req, res) => {
   }
 };
 
-/**
- * GET /api/alerts/kpis
- * KPIs del dashboard (solo Admin)
- */
 const getKPIs = async (req, res) => {
   try {
     const allStock = await BranchStock.find()
@@ -262,10 +237,6 @@ const getKPIs = async (req, res) => {
   }
 };
 
-/**
- * PUT /api/alerts/branch-min-stock
- * Configura el stock mínimo específico de una sucursal para un producto
- */
 const setBranchMinStock = async (req, res) => {
   try {
     const { branchId, productId, branchMinStock } = req.body;

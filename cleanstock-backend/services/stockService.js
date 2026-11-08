@@ -1,10 +1,6 @@
 const { BranchStock, StockEntry, StockMovement } = require('../models');
 const { todayAsUTCDate } = require('../utils/format');
 
-// Todas las operaciones sobre BranchStock son atómicas: la condición y la
-// modificación viajan en una sola consulta a MongoDB, así dos usuarios
-// trabajando al mismo tiempo no pueden reservar o retirar más stock del que hay.
-
 const availableAtLeast = (qty) => ({
   $expr: { $gte: [{ $subtract: ['$quantity', { $ifNull: ['$reservedQuantity', 0] }] }, qty] }
 });
@@ -13,14 +9,12 @@ const subtractReserved = (qty) => ({
   $max: [0, { $subtract: [{ $ifNull: ['$reservedQuantity', 0] }, qty] }]
 });
 
-// Suma unidades al stock de una sucursal (crea el registro si no existe).
 const increaseStock = async (branchId, productId, qty) => {
   const update = { $inc: { quantity: qty }, $setOnInsert: { reservedQuantity: 0 } };
   const options = { returnDocument: 'after', upsert: true };
   try {
     return await BranchStock.findOneAndUpdate({ branchId, productId }, update, options);
   } catch (error) {
-    // Dos altas simultáneas del mismo producto: la segunda choca con el índice único y se reintenta
     if (error.code === 11000) {
       return BranchStock.findOneAndUpdate({ branchId, productId }, update, options);
     }
@@ -28,30 +22,24 @@ const increaseStock = async (branchId, productId, qty) => {
   }
 };
 
-// Resta unidades disponibles (sin tocar lo reservado). Devuelve null si no alcanza.
 const decreaseAvailableStock = (branchId, productId, qty) => BranchStock.findOneAndUpdate(
   { branchId, productId, ...availableAtLeast(qty) },
   { $inc: { quantity: -qty } },
   { returnDocument: 'after' }
 );
 
-// Reserva unidades para un pedido. Devuelve null si no hay disponible suficiente.
 const reserveStock = (branchId, productId, qty) => BranchStock.findOneAndUpdate(
   { branchId, productId, ...availableAtLeast(qty) },
   { $inc: { reservedQuantity: qty } },
   { returnDocument: 'after' }
 );
 
-// Libera una reserva (pedido rechazado o reserva revertida).
 const releaseReservation = (branchId, productId, qty) => BranchStock.findOneAndUpdate(
   { branchId, productId },
   [{ $set: { reservedQuantity: subtractReserved(qty) } }],
   { returnDocument: 'after', updatePipeline: true }
 );
 
-// Entrega de un pedido: descuenta del origen las unidades reservadas.
-// Si el sistema tiene menos stock físico del que se despachó, no lo redondea en
-// silencio: deja el stock en 0 y devuelve el faltante para registrarlo como discrepancia.
 const consumeReservedStock = async (branchId, productId, qty) => {
   for (let attempt = 0; attempt < 3; attempt++) {
     const full = await BranchStock.findOneAndUpdate(
@@ -70,12 +58,10 @@ const consumeReservedStock = async (branchId, productId, qty) => {
 
     const exists = await BranchStock.exists({ branchId, productId });
     if (!exists) return { removed: 0, missing: qty };
-    // El stock cambió entre las dos consultas: se reintenta
   }
   throw new Error('No se pudo descontar el stock por cambios concurrentes. Intentá de nuevo.');
 };
 
-// Fija la cantidad exacta (conteo físico). Devuelve la cantidad anterior.
 const setStockQuantity = async (branchId, productId, newQty) => {
   const before = await BranchStock.findOneAndUpdate(
     { branchId, productId },
@@ -85,13 +71,8 @@ const setStockQuantity = async (branchId, productId, newQty) => {
   return before ? before.quantity : 0;
 };
 
-// ─── Lotes y vencimientos ────────────────────────────────────────────────────
-
 const createLot = (data) => StockEntry.create({ ...data, remaining: data.quantity });
 
-// Descuenta unidades de los lotes de una sucursal en orden FEFO.
-// Devuelve los lotes usados (sirve para trasladarlos a otra sucursal).
-// Si parte del stock se cargó sin lote, esas unidades simplemente no figuran.
 const consumeLots = async (branchId, productId, qty) => {
   const lots = await StockEntry.find({ branchId, productId, remaining: { $gt: 0 } })
     .sort({ expirationDate: 1, createdAt: 1 })
@@ -121,9 +102,6 @@ const consumeLots = async (branchId, productId, qty) => {
   return used;
 };
 
-// Descuenta unidades de las variantes/lotes específicos que el despachante preparó.
-// Si un lote específico tiene menos saldo del esperado (o si es una línea sin lote),
-// completa lo que falte en orden FEFO.
 const consumePreparedVariants = async (branchId, productId, preparedVariants, totalQty) => {
   if (!Array.isArray(preparedVariants) || !preparedVariants.length) {
     return consumeLots(branchId, productId, totalQty);
@@ -158,7 +136,6 @@ const consumePreparedVariants = async (branchId, productId, preparedVariants, to
       }
       generalNeeded += qty;
     }
-    // Las unidades seleccionadas explícitamente de "Sin lote (Stock general)" no descuentan de lotes
   }
 
   if (generalNeeded > 0) {
@@ -168,7 +145,6 @@ const consumePreparedVariants = async (branchId, productId, preparedVariants, to
   return used;
 };
 
-// Marca como VENCIDOS los lotes con stock cuya fecha ya pasó (el día del vencimiento todavía es válido).
 const markExpiredLots = async () => {
   const result = await StockEntry.updateMany(
     { status: 'DISPONIBLE', remaining: { $gt: 0 }, expirationDate: { $ne: null, $lt: todayAsUTCDate() } },

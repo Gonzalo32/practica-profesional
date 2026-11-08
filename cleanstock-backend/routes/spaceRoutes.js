@@ -7,7 +7,6 @@ const router = express.Router();
 
 router.use(verifyToken);
 
-// Rutas de Espacios Físicos (restringidas a Administrador)
 router.get('/', requireRole(['Administrador']), getSpaces);
 router.post('/', requireRole(['Administrador']), v.space, createSpace);
 router.put('/:id', requireRole(['Administrador']), v.spaceUpdate, updateSpace);

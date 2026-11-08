@@ -1,7 +1,3 @@
-// ==========================================================================
-// PROVEEDORES Y PROVISIONES
-// ==========================================================================
-
 let supplierSearch = '';
 let suppliersPage = 1;
 const SUPPLIERS_PER_PAGE = 10;
@@ -18,11 +14,6 @@ async function loadSuppliersPanel() {
   await renderSuppliersTable();
 }
 
-// --------------------------------------------------------------------------
-// Menú "Provisiones": la mercadería que llega de los proveedores.
-// Se carga pendiente y entra al stock recién cuando el Responsable o el Administrador
-// la aprueba con el casillero. El proveedor ve solo lo que entregó.
-// --------------------------------------------------------------------------
 let provisionsPage = 1;
 let loadedProvisions = [];
 
@@ -37,7 +28,6 @@ async function loadProvisionsPanel() {
   document.getElementById('provisions-hint').classList.toggle('hidden', !canManage);
   document.getElementById('btn-provisions-entry')?.classList.toggle('hidden', !canManage);
 
-  // Solo el administrador elige sucursal; el resto ve la suya (o sus entregas)
   const branchSel = document.getElementById('provisions-branch-select');
   const showBranchFilter = hasRole('Administrador') && !isSingleBranch();
   branchSel.classList.toggle('hidden', !showBranchFilter);
@@ -121,7 +111,6 @@ async function loadProvisionEntries() {
 
 document.getElementById('btn-provisions-entry')?.addEventListener('click', () => openCreateStockEntryModal('provision'));
 
-// Aprobar con el casillero: recién ahí todos los productos entran al stock y figuran como movimiento
 window.approveProvision = async (provisionId, checkbox) => {
   const p = loadedProvisions.find(x => x.id === provisionId);
   if (!p) return;
@@ -153,7 +142,6 @@ window.approveProvision = async (provisionId, checkbox) => {
   }
 };
 
-// Ojo: datos de la provisión y la lista de sus productos
 window.openViewProvisionModal = (provisionId) => {
   const p = loadedProvisions.find(x => x.id === provisionId);
   if (!p) return;
@@ -183,8 +171,6 @@ window.openViewProvisionModal = (provisionId) => {
   openModal('modal-view-provision');
 };
 
-// Lápiz: corregir una provisión, producto por producto en la misma lista.
-// Pendiente: solo los datos. Aprobada: también el stock y los lotes, y pide un motivo.
 let editingEntry = null;
 let editBrandPickers = new Map();
 
@@ -210,7 +196,6 @@ window.openEditEntryModal = async (provisionId) => {
         <td>${needsExp ? `<input type="date" class="edit-item-exp" value="${i.expirationDate ? String(i.expirationDate).slice(0, 10) : ''}" required aria-label="Vencimiento">` : '<span class="muted">Sin vencimiento</span>'}</td>
       </tr>`;
   }).join('');
-  // Un buscador de marca por producto
   editBrandPickers = new Map();
   document.querySelectorAll('#edit-entry-items tr[data-item]').forEach(tr => {
     const picker = createBrandPicker(tr.querySelector('.edit-item-brand'));
@@ -218,7 +203,6 @@ window.openEditEntryModal = async (provisionId) => {
     editBrandPickers.set(tr.dataset.item, picker);
   });
 
-  // El motivo se pide solo si ya ingresó al stock
   document.getElementById('edit-entry-reason-group').classList.toggle('hidden', !approved);
   document.getElementById('edit-entry-reason').required = approved;
 
@@ -343,9 +327,6 @@ document.getElementById('supplier-search')?.addEventListener('input', debounce((
   renderSuppliersTable();
 }, 250));
 
-// --------------------------------------------------------------------------
-// Alta / edición de proveedor
-// --------------------------------------------------------------------------
 window.openSupplierModal = (supplierId = null) => {
   const s = supplierId ? state.suppliers.find(x => x.id === supplierId) : null;
   document.getElementById('form-supplier').reset();

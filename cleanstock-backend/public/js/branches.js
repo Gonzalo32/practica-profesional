@@ -1,7 +1,3 @@
-// ==========================================================================
-// SUCURSALES, STOCK POR SUCURSAL, AJUSTE MANUAL E HISTORIAL DE MOVIMIENTOS
-// ==========================================================================
-
 const branchFilters = { search: '', type: '' };
 
 async function loadBranchesPanel() {
@@ -70,7 +66,6 @@ window.openViewBranchModal = (branchId) => {
   openModal('modal-view-branch');
 };
 
-// Modal único para crear y editar sucursales
 const branchDesc = document.getElementById('branch-description');
 const branchCounter = document.getElementById('branch-desc-counter');
 branchDesc?.addEventListener('input', () => { branchCounter.textContent = `${branchDesc.value.length} / 200`; });
@@ -129,9 +124,6 @@ window.deleteBranch = async (branchId) => {
   }
 };
 
-// --------------------------------------------------------------------------
-// Stock por sucursal
-// --------------------------------------------------------------------------
 let currentStockItems = [];
 let currentStockBranch = null;
 let stockSearch = '';
@@ -193,7 +185,6 @@ function filteredStockItems() {
 
 function expirationCell(date) {
   if (!date) return '<span class="muted">—</span>';
-  // Vencimientos guardados como medianoche UTC: "hoy" se compara en el mismo formato
   const now = new Date();
   const days = Math.round((new Date(date) - Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
   const cls = days < 0 ? 'text-danger' : days <= 30 ? 'text-warning' : '';
@@ -203,7 +194,6 @@ function expirationCell(date) {
 let stockPage = 1;
 const STOCK_PER_PAGE = 10;
 
-// Variantes de cada producto (lotes y vencimientos) en esta sucursal: se ven en una ventana flotante
 let lotsByProduct = new Map();
 
 function openStockLotsModal(productId) {
@@ -320,11 +310,8 @@ registerExporter('stock', async () => ({
   rows: filteredStockItems()
 }));
 
-// --------------------------------------------------------------------------
-// Baja de stock por sucursal y variante
-// --------------------------------------------------------------------------
-let adjustBranchStockItems = []; // stockItems de la sucursal seleccionada en el modal
-let adjustBranchLotsByProduct = new Map(); // productId -> lotes con stock en esa sucursal
+let adjustBranchStockItems = [];
+let adjustBranchLotsByProduct = new Map();
 let adjustLots = [];
 let adjustWithoutLot = 0;
 let adjustBranchRequest = 0;
@@ -356,7 +343,6 @@ async function loadAdjustBranchProducts(branchId, { focusSearch = false } = {}) 
     return;
   }
 
-  // Si es la misma sucursal que ya está cargada en la vista principal, usamos sus datos al instante (0ms)
   if (currentStockBranch && String(currentStockBranch.id) === String(branchId) && currentStockItems.length) {
     adjustBranchStockItems = currentStockItems.filter(i => (i.availableQuantity ?? i.quantity ?? 0) > 0);
     adjustBranchLotsByProduct = new Map(lotsByProduct);
@@ -605,7 +591,7 @@ function readAdjustVariants() {
       lotId: input.dataset.lot || null,
       inStock,
       deduct: rawDeduct,
-      quantity: -rawDeduct // Solo baja (negativo para el backend)
+      quantity: -rawDeduct
     };
   });
 }
@@ -718,12 +704,8 @@ document.getElementById('form-stock-adjust')?.addEventListener('submit', async (
   }
 });
 
-// --------------------------------------------------------------------------
-// Historial de movimientos (paginado y filtrado en el servidor)
-// --------------------------------------------------------------------------
 const movementFilters = { page: 1, type: '', productId: '', from: '', to: '' };
 
-// Menú "Movimientos": la misma sucursal por defecto que en "Stock por sucursal"
 async function loadMovementsPanel() {
   await ensureBaseData();
   const branches = operableBranches();
@@ -817,5 +799,4 @@ registerExporter('movements', async () => ({
   rows: (await apiFetch(movementsQuery({ page: 1, limit: 0 }))).items
 }));
 
-// Filtro de producto de Movimientos con buscador
 makeSelectSearchable(document.getElementById('movements-filter-product'), { inline: true });
