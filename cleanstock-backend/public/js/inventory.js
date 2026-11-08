@@ -451,3 +451,7 @@ document.getElementById('form-exit')?.addEventListener('submit', async (e) => {
   }
   afterStockChange();
 });
+
+// Los desplegables de artículos se eligen escribiendo para buscar
+['stock-modal-product-select', 'informal-modal-product-select', 'exit-product-select']
+  .forEach(id => makeSelectSearchable(document.getElementById(id)));

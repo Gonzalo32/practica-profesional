@@ -816,3 +816,6 @@ registerExporter('movements', async () => ({
   ],
   rows: (await apiFetch(movementsQuery({ page: 1, limit: 0 }))).items
 }));
+
+// Filtro de producto de Movimientos con buscador
+makeSelectSearchable(document.getElementById('movements-filter-product'), { inline: true });

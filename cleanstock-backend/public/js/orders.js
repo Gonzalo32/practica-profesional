@@ -67,10 +67,12 @@ function canRejectOrder(order) {
   return ['PENDIENTE_VALIDACION', 'PENDIENTE', 'EN_PREPARACION'].includes(order.status) && hasRole('Administrador');
 }
 
-// El botón Modificar en Pendientes (o Revisión) lo ven todos menos el Despachante
+// Lápiz para modificar un pedido en Pendientes (o Revisión), mientras nadie empezó a prepararlo.
+// Igual que en el servidor: el Administrador, el Usuario Responsable o quien hizo el pedido.
 function canEditOrder(order) {
   if (!['PENDIENTE_VALIDACION', 'PENDIENTE'].includes(order.status)) return false;
-  return !hasRole('Despachante');
+  if (hasRole('Administrador', 'Usuario Responsable')) return true;
+  return String(order.solicitanteId) === String(state.user.id);
 }
 
 // Ojo: datos del pedido y sus productos
@@ -150,10 +152,10 @@ function renderSolicitanteOrdersTable() {
           <div class="action-btn-group">
             ${canApproveOrder(order) ? `<button class="btn btn-primary btn-sm" onclick="approveOrderFromPedidos('${order.id}')">Aprobar</button>` : ''}
             ${canPrepareOrder(order) ? `<button class="btn btn-primary btn-sm" onclick="openPrepareOrderModal('${order.id}')">Preparar</button>` : ''}
-            ${canEditOrder(order) ? `<button class="btn btn-secondary btn-sm" onclick="openEditOrderModal('${order.id}')">Modificar</button>` : ''}
             ${canConfirmReception(order) ? `<button class="btn btn-success btn-sm" onclick="markOrderEntregado('${order.id}')">Confirmación de recepción</button>` : ''}
             ${canRejectOrder(order) ? `<button class="btn btn-danger-soft btn-sm" onclick="rejectOrderFromPedidos('${order.id}')">Rechazar</button>` : ''}
             <button class="btn-icon" title="Ver pedido" onclick="openViewOrderModal('${order.id}')">${ICON_VIEW}</button>
+            ${canEditOrder(order) ? `<button class="btn-icon" title="Modificar pedido" onclick="openEditOrderModal('${order.id}')">${ICON_EDIT}</button>` : ''}
           </div>
         </td>
       </tr>`).join('');

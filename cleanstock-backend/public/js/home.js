@@ -14,9 +14,13 @@ function greeting() {
 async function loadHomePanel() {
   const name = state.user?.firstName || getUserDisplayName(state.user);
   document.getElementById('home-greeting').textContent = `${greeting()}, ${name}`;
+  // El Inicio muestra solo la sucursal donde trabaja el usuario. Únicamente un
+  // administrador sin sucursal asignada ve todas.
+  const ownBranch = userBranchId();
+  const ownBranchName = state.user?.EspacioFisico?.name || (ownBranch ? getBranchName(ownBranch) : '');
   const place = isSingleBranch()
     ? (state.settings.businessName || state.settings.mainBranch?.name)
-    : (hasRole('Administrador') ? 'Todas las sucursales' : getBranchName(userBranchId()));
+    : (ownBranch ? ownBranchName : 'Todas las sucursales');
   document.getElementById('home-subtitle').textContent = `${place || ''} — ¿Qué desea hacer?`;
 
   const lowList = document.getElementById('home-list-low');
@@ -25,8 +29,11 @@ async function loadHomePanel() {
   expList.innerHTML = '<li class="home-list-empty">Cargando...</li>';
 
   try {
-    const [alerts, expirations] = await Promise.all([apiFetch('/alerts'), apiFetch('/alerts/expirations?days=30')]);
-    const showBranch = !isSingleBranch() && hasRole('Administrador');
+    const [allAlerts, allExpirations] = await Promise.all([apiFetch('/alerts'), apiFetch('/alerts/expirations?days=30')]);
+    const inOwnBranch = item => !ownBranch || String(item.branchId) === String(ownBranch);
+    const alerts = allAlerts.filter(inOwnBranch);
+    const expirations = allExpirations.filter(inOwnBranch);
+    const showBranch = !isSingleBranch() && !ownBranch;
 
     document.getElementById('home-count-low').textContent = alerts.length;
     document.getElementById('home-count-exp').textContent = expirations.length;

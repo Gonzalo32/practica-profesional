@@ -411,6 +411,136 @@ function fillSelect(select, items, { placeholder = null, placeholderDisabled = f
   else if (placeholder !== null) select.selectedIndex = 0;
 }
 
+// --------------------------------------------------------------------------
+// Select con buscador: convierte un <select> común en un campo donde se escribe
+// para filtrar las opciones. El <select> original queda oculto y sigue siendo la
+// fuente de verdad: fillSelect, select.value y el evento 'change' funcionan igual.
+// --------------------------------------------------------------------------
+const SELECT_SEARCH_MAX = 50;
+const normalizeSearchText = (text) => String(text || '')
+  .normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+
+function makeSelectSearchable(select, { placeholder = 'Buscar artículo...', inline = false } = {}) {
+  if (!select || select._searchable) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'select-search-container';
+  if (select.classList.contains('picker-grow')) wrap.classList.add('picker-grow');
+  // En una barra de filtros no ocupa todo el ancho
+  if (inline) Object.assign(wrap.style, { width: 'auto', minWidth: '220px', flex: '1 1 220px' });
+  wrap.innerHTML = `
+    <input type="text" class="select-search-input" autocomplete="off">
+    <button type="button" class="select-search-toggle" tabindex="-1" aria-label="Ver opciones">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </button>
+    <div class="select-search-dropdown hidden"></div>`;
+  select.parentNode.insertBefore(wrap, select);
+  wrap.appendChild(select);
+  select.style.display = 'none';
+
+  const input = wrap.querySelector('.select-search-input');
+  const toggle = wrap.querySelector('.select-search-toggle');
+  const dropdown = wrap.querySelector('.select-search-dropdown');
+  if (select.id) input.id = `${select.id}-search`;
+  let shown = [];
+  let highlighted = -1;
+
+  const sync = () => {
+    const first = select.options[0];
+    const opt = select.options[select.selectedIndex];
+    input.value = opt && opt.value ? opt.text : '';
+    input.placeholder = first && !first.value ? first.text : placeholder;
+    input.disabled = select.disabled;
+  };
+  const close = () => {
+    dropdown.classList.add('hidden');
+    highlighted = -1;
+  };
+  const paintHighlight = () => {
+    dropdown.querySelectorAll('.select-search-item').forEach((el, i) => el.classList.toggle('highlighted', i === highlighted));
+    dropdown.querySelector('.select-search-item.highlighted')?.scrollIntoView({ block: 'nearest' });
+  };
+  const render = (query) => {
+    const q = normalizeSearchText(query);
+    const all = [...select.options].filter(o => o.value && !o.disabled);
+    const matches = q ? all.filter(o => normalizeSearchText(o.text).includes(q)) : all;
+    shown = matches.slice(0, SELECT_SEARCH_MAX);
+    dropdown.innerHTML = shown.length
+      ? shown.map((o, i) => `<div class="select-search-item" data-index="${i}"><span class="select-search-item-name">${escapeHtml(o.text)}</span></div>`).join('')
+        + (matches.length > shown.length ? `<div class="select-search-more">Hay ${matches.length - shown.length} más: escribí para filtrar</div>` : '')
+      : '<div class="select-search-more">Sin resultados</div>';
+    highlighted = q && shown.length ? 0 : shown.findIndex(o => o.value === select.value);
+    paintHighlight();
+    dropdown.classList.remove('hidden');
+  };
+  const setValue = (value) => {
+    const changed = select.value !== value;
+    select.value = value;
+    sync();
+    if (changed) select.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  const choose = (opt) => {
+    setValue(opt.value);
+    close();
+  };
+
+  // Si el código cambia el valor o las opciones del <select>, el campo visible se actualiza solo
+  for (const prop of ['value', 'selectedIndex']) {
+    const native = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, prop);
+    Object.defineProperty(select, prop, {
+      configurable: true,
+      get() { return native.get.call(this); },
+      set(v) { native.set.call(this, v); sync(); }
+    });
+  }
+  new MutationObserver(sync).observe(select, { childList: true, attributes: true, attributeFilter: ['disabled'] });
+
+  input.addEventListener('focus', () => { input.select(); render(''); });
+  input.addEventListener('input', () => render(input.value));
+  input.addEventListener('blur', () => {
+    close();
+    // Si se borró el texto, se borra la selección; si quedó a medio escribir, vuelve a la elegida
+    if (!input.value.trim() && select.value) setValue('');
+    else sync();
+  });
+  input.addEventListener('keydown', (e) => {
+    const open = !dropdown.classList.contains('hidden');
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!open) return render('');
+      if (!shown.length) return;
+      highlighted = e.key === 'ArrowDown'
+        ? Math.min(shown.length - 1, highlighted + 1)
+        : Math.max(0, highlighted - 1);
+      paintHighlight();
+    } else if (e.key === 'Enter') {
+      if (!open) return;
+      e.preventDefault();
+      const opt = shown[highlighted] || (shown.length === 1 ? shown[0] : null);
+      if (opt) choose(opt);
+    } else if (e.key === 'Escape' && open) {
+      e.stopPropagation();
+      close();
+      sync();
+    }
+  });
+  // mousedown con preventDefault: el campo no pierde el foco antes de registrar el clic
+  dropdown.addEventListener('mousedown', (e) => e.preventDefault());
+  dropdown.addEventListener('click', (e) => {
+    const item = e.target.closest('.select-search-item');
+    if (item) choose(shown[Number(item.dataset.index)]);
+  });
+  toggle.addEventListener('mousedown', (e) => e.preventDefault());
+  toggle.addEventListener('click', () => {
+    if (input.disabled) return;
+    if (dropdown.classList.contains('hidden')) input.focus();
+    else close();
+  });
+
+  select._searchable = { sync, close };
+  sync();
+}
+
 // Sucursales que puede operar el usuario: el admin todas, el resto solo la propia.
 // En modo de un solo local, todos operan únicamente en el local principal.
 function operableBranches() {
