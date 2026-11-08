@@ -1,4 +1,3 @@
-// Utilidades compartidas por los tests: base de datos en memoria y datos de prueba
 process.env.JWT_SECRET = 'secreto_solo_para_tests';
 process.env.LOGIN_RATE_LIMIT = '1000';
 
@@ -42,7 +41,6 @@ const login = async (user) => {
   return res.body.token;
 };
 
-// Escenario base: dos sucursales, un producto y un usuario por rol
 const seedScenario = async () => {
   const [central, norte] = await PhysicalSpace.create([
     { name: 'Central', type: 'sucursal' },
@@ -76,7 +74,6 @@ const seedScenario = async () => {
 
 const auth = (token) => ({ Authorization: `Bearer ${token}` });
 
-// Aserciones con la misma forma que expect() de Jest, sobre node:assert
 const assert = require('node:assert/strict');
 const expect = (actual) => ({
   toBe: (expected) => assert.strictEqual(actual, expected),

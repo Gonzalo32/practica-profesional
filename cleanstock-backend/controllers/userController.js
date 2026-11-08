@@ -3,7 +3,6 @@ const { User, ActivityLog } = require('../models');
 const { toId, escapeRegex, parsePagination, startOfDay } = require('../utils/format');
 const { getSettings } = require('../services/settingsService');
 
-// T2.1: Crear nuevo usuario (Solo Administrador)
 const createUser = async (req, res) => {
   try {
     const { username, password, role, physicalSpaceId, supplierId, firstName, lastName, email, phone, document, cuil, birthDate, address, zipCode } = req.body;
@@ -16,7 +15,6 @@ const createUser = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // En modo de un solo local, todos trabajan en el local principal
     const settings = await getSettings();
     const targetRole = role || 'Solicitante';
     const branchId = physicalSpaceId || (settings.singleBranchMode ? settings.mainBranchId : null);
@@ -54,7 +52,6 @@ const createUser = async (req, res) => {
   }
 };
 
-// T2.1: Obtener todos los usuarios (y T2.2: Dashboard admin)
 const getUsers = async (req, res) => {
   try {
     const users = await User.find()
@@ -94,7 +91,6 @@ const getUsers = async (req, res) => {
   }
 };
 
-// T2.1: Modificar usuario
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -155,7 +151,6 @@ const updateUser = async (req, res) => {
   }
 };
 
-// T2.1: Dar de baja usuario (Soft Delete)
 const deactivateUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -184,8 +179,6 @@ const deactivateUser = async (req, res) => {
   }
 };
 
-// Historial de auditoría con filtros y paginación
-// ?action &q (texto) &from &to &page &limit (limit=0 trae todo para exportar)
 const getAuditLogs = async (req, res) => {
   try {
     const { action, q, from, to } = req.query;

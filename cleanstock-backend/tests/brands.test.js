@@ -58,7 +58,6 @@ describe('Marcas', () => {
     const lav = products.body.find(p => p.name === 'LAVANDINA 2L');
     expect(lav.Brand.name).toBe('Ayudín');
 
-    // No se puede borrar mientras un producto la use
     expect((await request(app).delete(`/api/inventory/brands/${brand.id}`).set(auth(s.tokens.admin))).status).toBe(400);
   });
 
@@ -78,7 +77,6 @@ describe('Marcas', () => {
     const lotsOf = async () => (await request(app).get(`/api/inventory/lots?branchId=${s.central._id}&productId=${s.product._id}`)
       .set(auth(s.tokens.responsable))).body;
 
-    // Provisión: la marca va en cada producto y pasa al lote al aprobarla
     const prov = await request(app).post('/api/inventory/provisions').set(auth(s.tokens.responsable)).send({
       branchId: s.central._id,
       items: [{ productId: s.product._id, quantity: 10, lotNumber: 'P-1', expirationDate: '2030-01-01', brandId: ayudin.id }]
@@ -87,7 +85,6 @@ describe('Marcas', () => {
     expect(prov.body.items[0].brandName).toBe('Ayudín');
     await request(app).post(`/api/inventory/provisions/${prov.body.id}/approve`).set(auth(s.tokens.responsable));
 
-    // Ingreso manual con otra marca
     const manual = await request(app).post('/api/inventory/stock').set(auth(s.tokens.responsable)).send({
       productId: s.product._id, branchId: s.central._id, quantity: 5, lotNumber: 'M-1', expirationDate: '2031-01-01', brandId: magistral.id
     });
@@ -96,7 +93,6 @@ describe('Marcas', () => {
     const lots = await lotsOf();
     expect(lots.map(l => `${l.lotNumber}:${l.brandName}`)).toEqual(['P-1:Ayudín', 'M-1:Magistral']);
 
-    // Corregir la marca de una provisión aprobada la cambia también en el lote
     const fix = await request(app).put(`/api/inventory/provisions/${prov.body.id}`).set(auth(s.tokens.responsable))
       .send({ reason: 'Era otra marca', items: [{ id: prov.body.items[0].id, brandId: magistral.id }] });
     expect(fix.status).toBe(200);

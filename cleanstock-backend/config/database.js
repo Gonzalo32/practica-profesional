@@ -1,11 +1,9 @@
 const mongoose = require('mongoose');
 const dns = require('dns');
 
-// Resolver DNS SRV usando DNS de Google para evitar ECONNREFUSED en Windows/proveedores locales
 try {
   dns.setServers(['8.8.8.8', '8.8.4.4']);
 } catch (e) {
-  // Ignorar si el sistema no permite sobreescribir servidores DNS
 }
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/cleanstock';

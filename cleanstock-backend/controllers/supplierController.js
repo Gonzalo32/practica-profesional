@@ -17,11 +17,9 @@ const formatSupplier = (s) => ({
   createdAt: s.createdAt
 });
 
-// GET /api/suppliers  (?all=true incluye los dados de baja)
 const getSuppliers = async (req, res) => {
   try {
     const filter = req.query.all === 'true' ? {} : { isActive: true };
-    // El rol Proveedor solo ve su propia empresa
     if (req.user.role === 'Proveedor') {
       if (!req.user.supplierId) return res.json([]);
       filter._id = req.user.supplierId;
@@ -79,7 +77,6 @@ const updateSupplier = async (req, res) => {
   }
 };
 
-// Baja lógica: el proveedor deja de aparecer pero se conserva su historial
 const deactivateSupplier = async (req, res) => {
   try {
     const supplier = await Supplier.findByIdAndUpdate(req.params.id, { isActive: false }, { returnDocument: 'after' });
@@ -94,8 +91,6 @@ const deactivateSupplier = async (req, res) => {
     res.status(500).json({ message: 'Error dando de baja el proveedor', error: error.message });
   }
 };
-
-// ─── Órdenes de compra ───────────────────────────────────────────────────────
 
 const formatPurchaseOrder = (po) => ({
   id: po._id.toString(),
@@ -126,7 +121,6 @@ const populatePurchaseOrder = (query) => query
   .populate('items.productId', 'name perishable')
   .populate('createdBy', 'firstName lastName username');
 
-// GET /api/suppliers/purchase-orders  (?status &supplierId)
 const getPurchaseOrders = async (req, res) => {
   try {
     const filter = {};
@@ -182,9 +176,6 @@ const createPurchaseOrder = async (req, res) => {
   }
 };
 
-// POST /api/suppliers/purchase-orders/:id/receive
-// body: { lots: [{ productId, lotNumber, expirationDate }] } — lote y vencimiento por producto.
-// Solo son obligatorios para los productos perecederos.
 const receivePurchaseOrder = async (req, res) => {
   try {
     const lots = req.body.lots || [];
@@ -204,7 +195,6 @@ const receivePurchaseOrder = async (req, res) => {
       }
     }
 
-    // Cambio de estado atómico: evita recibir dos veces la misma orden
     const po = await PurchaseOrder.findOneAndUpdate(
       { _id: req.params.id, status: 'PENDIENTE' },
       { $set: { status: 'RECIBIDA', receivedBy: req.user.id, receivedAt: new Date() } },

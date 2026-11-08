@@ -1,9 +1,3 @@
-// ==========================================================================
-// EXPORTAR A EXCEL Y PDF
-// Las librerías se descargan recién la primera vez que se exporta, así la
-// página carga rápido. Cada panel registra qué datos exporta con registerExporter.
-// ==========================================================================
-
 const EXPORT_LIBS = {
   xlsx: ['https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'],
   pdf: [
@@ -35,7 +29,6 @@ async function loadExportLibs(format) {
 
 const exporters = {};
 
-// provider: async () => ({ title, filename, columns: [{ header, value: row => texto }], rows })
 function registerExporter(name, provider) {
   exporters[name] = provider;
 }

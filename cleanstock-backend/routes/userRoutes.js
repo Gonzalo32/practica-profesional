@@ -5,7 +5,6 @@ const v = require('../validators');
 
 const router = express.Router();
 
-// Todas las rutas de usuarios requieren autenticación y rol de Administrador
 router.use(verifyToken);
 router.use(requireRole(['Administrador']));
 

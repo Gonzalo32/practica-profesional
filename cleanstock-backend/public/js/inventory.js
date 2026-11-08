@@ -1,8 +1,3 @@
-// ==========================================================================
-// INGRESOS Y EGRESOS: pedidos por recibir, últimos movimientos y los modales
-// de ingreso con lote, ingreso extraordinario y egreso (mermas)
-// ==========================================================================
-
 window.loadedDeliveries = [];
 const respMovementFilters = { page: 1, type: 'INGRESO,INGRESO_EXTRAORDINARIO,EGRESO' };
 
@@ -12,7 +7,6 @@ async function loadResponsablePanel() {
   loadRecentStockTable();
 }
 
-// Pedidos despachados que llegan a la sucursal del usuario (el admin ve todos)
 async function loadResponsableDeliveries() {
   const tbody = document.getElementById('table-resp-deliveries-body');
   setTableLoading(tbody, 6, 2);
@@ -107,7 +101,6 @@ document.getElementById('resp-movements-type')?.addEventListener('change', (e) =
   loadRecentStockTable();
 });
 
-// Recarga los paneles afectados después de mover stock
 function afterStockChange() {
   if (state.currentTab === 'panel-responsable') loadRecentStockTable();
   if (state.currentTab === 'panel-stock-view') loadBranchStockPanel();
@@ -117,12 +110,7 @@ function afterStockChange() {
   refreshNotifications();
 }
 
-// --------------------------------------------------------------------------
-// Modal: ingreso con lote y vencimiento
-// --------------------------------------------------------------------------
 let draftStockEntryItems = [];
-// 'direct': entra al stock en el momento (Stock por sucursal).
-// 'provision': queda como provisión pendiente y entra recién al aprobarla (Provisiones).
 let stockEntryMode = 'direct';
 
 async function openCreateStockEntryModal(mode = 'direct') {
@@ -131,7 +119,6 @@ async function openCreateStockEntryModal(mode = 'direct') {
   document.getElementById('stock-modal-submit').textContent = stockEntryMode === 'provision' ? 'Cargar provisión (queda pendiente)' : 'Confirmar Ingreso de Stock';
   await ensureBaseData();
   const suppliers = await loadSuppliers().catch(() => []);
-  // Desde "Stock por sucursal" el ingreso va, por defecto, a la sucursal que se está viendo
   const viewedBranch = state.currentTab === 'panel-stock-view' ? document.getElementById('stock-view-branch-select')?.value : null;
   fillSelect(document.getElementById('stock-modal-branch'), entryBranches(), { placeholder: 'Seleccionar sucursal destino...', placeholderDisabled: true, getLabel: branchLabel, value: viewedBranch || userBranchId() });
   fillSelect(document.getElementById('stock-modal-supplier'), suppliers, { placeholder: 'Sin proveedor' });
@@ -146,7 +133,6 @@ async function openCreateStockEntryModal(mode = 'direct') {
 }
 document.getElementById('btn-open-stock-entry-modal')?.addEventListener('click', () => openCreateStockEntryModal('direct'));
 
-// Todos los productos pueden tener lote, pero no todos tienen fecha de vencimiento
 function updateLotFields(product) {
   const needsExp = !product || product.perishable !== false;
   const lotInput = document.getElementById('stock-modal-lot-number');
@@ -163,7 +149,6 @@ function updateLotFields(product) {
   document.querySelectorAll('#modal-create-stock-entry .lot-opt').forEach(el => el.classList.toggle('hidden', needsExp));
 }
 
-// Marca de lo que se ingresa (buscador; se propone la marca habitual del producto)
 let stockEntryBrandPicker = null;
 function entryBrandPicker() {
   const host = document.getElementById('stock-modal-brand-picker');
@@ -171,7 +156,6 @@ function entryBrandPicker() {
   return stockEntryBrandPicker;
 }
 
-// Al elegir un producto se muestran u ocultan los campos de lote y se propone su marca
 document.getElementById('stock-modal-product-select')?.addEventListener('change', (e) => {
   const product = state.products.find(p => p.id === e.target.value);
   updateLotFields(product);
@@ -225,7 +209,6 @@ window.removeStockModalItem = (index) => {
   renderStockModalItemsTable();
 };
 
-// Envía los ítems de a uno y avisa cuáles fallaron (los que se guardaron se quitan de la lista)
 async function submitDraftItems(items, send) {
   const failed = [];
   for (const item of [...items]) {
@@ -249,7 +232,6 @@ document.getElementById('form-create-stock-entry-modal')?.addEventListener('subm
   const total = draftStockEntryItems.length;
   const isProvision = stockEntryMode === 'provision';
 
-  // Provisión: una sola entrega con todos los productos de la lista
   if (isProvision) {
     try {
       await apiFetch('/inventory/provisions', {
@@ -284,9 +266,6 @@ document.getElementById('form-create-stock-entry-modal')?.addEventListener('subm
   afterStockChange();
 });
 
-// --------------------------------------------------------------------------
-// Modal: ingreso extraordinario
-// --------------------------------------------------------------------------
 let draftInformalEntryItems = [];
 
 async function openCreateInformalEntryModal() {
@@ -349,12 +328,8 @@ document.getElementById('form-create-informal-entry-modal')?.addEventListener('s
   afterStockChange();
 });
 
-// --------------------------------------------------------------------------
-// Modal: egreso (venta, consumo, rotura, vencido)
-// --------------------------------------------------------------------------
 let draftExitItems = [];
 
-// prefill: { branchId, productId, quantity, exitType, description } (ej: desde Vencimientos)
 async function openExitModal(prefill = {}) {
   await ensureBaseData();
   const branches = operableBranches();
@@ -388,7 +363,6 @@ async function showExitAvailability() {
       ? `Stock: ${item.quantity} u. — reservado: ${item.reservedQuantity} — disponible para egreso: ${item.availableQuantity}`
       : 'Este producto no tiene stock en la sucursal.';
   } catch (err) {
-    // sin acceso a esa sucursal
   }
 }
 document.getElementById('exit-product-select')?.addEventListener('change', showExitAvailability);
@@ -452,6 +426,5 @@ document.getElementById('form-exit')?.addEventListener('submit', async (e) => {
   afterStockChange();
 });
 
-// Los desplegables de artículos se eligen escribiendo para buscar
 ['stock-modal-product-select', 'informal-modal-product-select', 'exit-product-select']
   .forEach(id => makeSelectSearchable(document.getElementById(id)));

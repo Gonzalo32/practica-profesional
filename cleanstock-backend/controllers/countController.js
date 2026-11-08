@@ -4,11 +4,6 @@ const { effectiveBranchId } = require('../services/settingsService');
 const stock = require('../services/stockService');
 const { toId } = require('../utils/format');
 
-// Conteo físico de inventario:
-// 1) se abre un conteo para una sucursal (se toma una foto del stock del sistema),
-// 2) se carga lo que se contó en el depósito,
-// 3) al cerrarlo, el sistema ajusta las diferencias y deja registro de cada una.
-
 const formatCount = (c, includeItems = true) => ({
   id: c._id.toString(),
   branchId: toId(c.branchId),
@@ -84,7 +79,6 @@ const createCount = async (req, res) => {
     const open = await InventoryCount.exists({ branchId, status: 'ABIERTO' });
     if (open) return res.status(400).json({ message: 'Ya hay un conteo abierto para esta sucursal. Cerralo o cancelalo primero.' });
 
-    // Se incluyen todos los productos del catálogo: alguno puede estar en el depósito sin figurar en el sistema
     const [products, stockItems] = await Promise.all([
       Product.find().sort({ name: 1 }).lean(),
       BranchStock.find({ branchId }).lean()
@@ -114,7 +108,6 @@ const createCount = async (req, res) => {
   }
 };
 
-// PUT /api/counts/:id  body: { items: [{ productId, countedQty }] }  (guardado parcial)
 const updateCountItems = async (req, res) => {
   try {
     const count = await InventoryCount.findById(req.params.id);
@@ -135,14 +128,12 @@ const updateCountItems = async (req, res) => {
   }
 };
 
-// POST /api/counts/:id/close — aplica las diferencias al stock
 const closeCount = async (req, res) => {
   try {
     const pending = await InventoryCount.findById(req.params.id);
     if (!pending) return res.status(404).json({ message: 'Conteo no encontrado' });
     if (!(await canAccessBranch(req.user, pending.branchId))) return res.status(403).json({ message: 'No tenés acceso a esta sucursal' });
 
-    // Cierre atómico: si dos personas lo cierran a la vez, solo una aplica los ajustes
     const count = await InventoryCount.findOneAndUpdate(
       { _id: req.params.id, status: 'ABIERTO' },
       { $set: { status: 'CERRADO', closedBy: req.user.id, closedAt: new Date() } },
@@ -153,7 +144,6 @@ const closeCount = async (req, res) => {
     let adjusted = 0;
     for (const item of count.items) {
       if (item.countedQty === null || item.countedQty === undefined) continue;
-      // La diferencia se calcula contra el stock actual (puede haber cambiado desde que se abrió el conteo)
       const previous = await stock.setStockQuantity(count.branchId._id, item.productId._id, item.countedQty);
       const difference = item.countedQty - previous;
       item.appliedDifference = difference;

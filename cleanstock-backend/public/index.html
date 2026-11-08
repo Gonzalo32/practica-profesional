@@ -4,27 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CleanStock — Sistema de Gestión de Inventario</title>
-  <!-- Aplica el tema guardado antes de pintar la página (evita el parpadeo) -->
   <script src="js/theme.js"></script>
-  <!-- Google Fonts: Inter and Outfit -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-  <!-- Gráficos del dashboard -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
 </head>
 <body>
-  <!-- Ambient background glow elements -->
   <div class="bg-glow bg-glow-1"></div>
   <div class="bg-glow bg-glow-2"></div>
 
-  <!-- Notificaciones (toasts apilables) -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
-  <!-- APP CONTAINER -->
   <div id="app">
-    <!-- LOGIN VIEW -->
     <div id="login-view" class="view container-login">
       <div class="login-card glass">
         <div class="brand">
@@ -56,10 +49,8 @@
       </div>
     </div>
 
-    <!-- MAIN APP VIEW (DASHBOARD) -->
     <div id="main-view" class="view hidden layout-sidebar">
 
-      <!-- SIDEBAR -->
       <aside class="sidebar glass">
         <div class="sidebar-header">
           <div class="header-brand">
@@ -70,9 +61,7 @@
           </div>
         </div>
 
-        <!-- NAVIGATION TABS -->
         <nav class="nav-tabs sidebar-nav" id="main-navigation">
-          <!-- Generado dinámicamente según el rol -->
         </nav>
 
         <div class="sidebar-footer">
@@ -102,9 +91,7 @@
         </div>
       </aside>
 
-      <!-- VIEW PANELS -->
       <main class="content-container">
-        <!-- PANEL INICIO: accesos directos para las tareas de todos los días -->
         <section id="panel-home" class="panel hidden">
           <div class="home-header">
             <h2 id="home-greeting">Inicio</h2>
@@ -136,7 +123,6 @@
           </div>
         </section>
 
-        <!-- PANEL ADMINISTRADOR -->
         <section id="panel-admin" class="panel hidden">
           <div class="grid-dashboard grid-dashboard-4">
             <div class="card glass stat-card">
@@ -176,7 +162,6 @@
             </div>
           </div>
 
-          <!-- Gráficos -->
           <div class="charts-grid">
             <div class="card glass chart-card multi-only">
               <h3>Pedidos por estado</h3>
@@ -188,14 +173,12 @@
             </div>
           </div>
 
-          <!-- Admin Sub-tabs -->
           <div class="sub-nav">
             <button class="btn btn-tab active" data-sub="admin-users">Gestión de Usuarios</button>
             <button class="btn btn-tab" data-sub="admin-alerts">Alertas de Stock</button>
             <button class="btn btn-tab" data-sub="admin-logs">Logs</button>
           </div>
 
-          <!-- Subpanel: Users CRUD -->
           <div id="subpanel-admin-users" class="subpanel">
             <div class="card glass table-card">
               <div class="card-title-row">
@@ -244,7 +227,6 @@
             </div>
           </div>
 
-          <!-- Subpanel: Alerts -->
           <div id="subpanel-admin-alerts" class="subpanel hidden">
             <div class="card glass table-card">
               <div class="card-title-row">
@@ -275,7 +257,6 @@
             </div>
           </div>
 
-          <!-- Subpanel: Audit Logs -->
           <div id="subpanel-admin-logs" class="subpanel hidden">
             <div class="card glass table-card">
               <div class="card-title-row">
@@ -314,7 +295,6 @@
           </div>
         </section>
 
-        <!-- PANEL SOLICITANTE: PEDIDOS -->
         <section id="panel-solicitante" class="panel hidden">
           <div class="panel-header-row">
             <h2>Catálogo y Pedidos Realizados</h2>
@@ -359,7 +339,6 @@
           </div>
         </section>
 
-        <!-- PANEL SUCURSALES -->
         <section id="panel-branches" class="panel hidden">
           <div class="panel-header-row">
             <h2>Gestión de Sucursales</h2>
@@ -402,7 +381,6 @@
           </div>
         </section>
 
-        <!-- PANEL STOCK POR SUCURSAL -->
         <section id="panel-stock-view" class="panel hidden">
           <div class="panel-header-row">
             <h2 id="stock-view-branch-title">Stock por Sucursal</h2>
@@ -431,7 +409,6 @@
             </div>
           </div>
 
-          <!-- Tabla de stock -->
           <div class="card glass table-card">
             <div class="table-responsive">
               <table>
@@ -454,7 +431,6 @@
           </div>
         </section>
 
-        <!-- PANEL MOVIMIENTOS DE STOCK -->
         <section id="panel-movements" class="panel hidden">
           <div class="panel-header-row">
             <h2 id="movements-branch-title">Movimientos de Stock</h2>
@@ -515,7 +491,6 @@
           </div>
         </section>
 
-        <!-- PANEL VENCIMIENTOS -->
         <section id="panel-expirations" class="panel hidden">
           <div class="panel-header-row">
             <h2>Control de Vencimientos</h2>
@@ -563,7 +538,6 @@
           </div>
         </section>
 
-        <!-- PANEL CONTEO DE INVENTARIO -->
         <section id="panel-counts" class="panel hidden">
           <div class="panel-header-row">
             <h2>Conteo Físico de Inventario</h2>
@@ -578,7 +552,6 @@
             <p class="hint-text">El sistema toma una foto del stock actual. Cargá lo que contaste en el depósito y, al cerrar, se ajustan las diferencias y quedan registradas.</p>
           </div>
 
-          <!-- Conteo abierto -->
           <div class="card glass table-card hidden" id="count-editor">
             <div class="card-title-row">
               <h3 id="count-editor-title">Conteo en curso</h3>
@@ -632,7 +605,6 @@
           </div>
         </section>
 
-        <!-- PANEL PROVEEDORES -->
         <section id="panel-suppliers" class="panel hidden">
           <div class="panel-header-row">
             <h2 id="suppliers-panel-title">Proveedores</h2>
@@ -669,7 +641,6 @@
           </div>
         </section>
 
-        <!-- PANEL PROVISIONES: todo lo que entra de afuera de la empresa (proveedores) -->
         <section id="panel-provisions" class="panel hidden">
           <div class="panel-header-row">
             <h2 id="provisions-panel-title">Provisiones</h2>
@@ -716,7 +687,6 @@
           </div>
         </section>
 
-        <!-- PANEL CATÁLOGO -->
         <section id="panel-catalog" class="panel hidden">
           <div class="panel-header-row">
             <h2>Catálogo de Productos / Insumos</h2>
@@ -756,7 +726,6 @@
           </div>
         </section>
 
-        <!-- PANEL CATEGORÍAS -->
         <section id="panel-categories" class="panel hidden">
           <div class="panel-header-row">
             <h2>Gestión de Categorías / Rubros</h2>
@@ -781,7 +750,6 @@
           </div>
         </section>
 
-        <!-- PANEL MARCAS -->
         <section id="panel-brands" class="panel hidden">
           <div class="panel-header-row">
             <h2>Marcas</h2>
@@ -814,11 +782,6 @@
     </div>
   </div>
 
-  <!-- ===================================================================== -->
-  <!-- MODALES                                                                -->
-  <!-- ===================================================================== -->
-
-  <!-- Confirmación genérica (reemplaza confirm() del navegador) -->
   <div id="modal-confirm" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
     <div class="modal-content glass card modal-sm">
       <div class="modal-header">
@@ -833,7 +796,6 @@
     </div>
   </div>
 
-  <!-- Modal: Venta rápida -->
   <div id="modal-quick-sale" class="modal hidden">
     <div class="modal-content glass card modal-xl quick-sale">
       <div class="modal-header">
@@ -862,7 +824,6 @@
     </div>
   </div>
 
-  <!-- Modal: Crear Usuario -->
   <div id="modal-create-user" class="modal hidden">
     <div class="modal-content glass card modal-lg">
       <div class="modal-header">
@@ -929,7 +890,6 @@
     </div>
   </div>
 
-  <!-- Modal: Ver Usuario -->
   <div id="modal-view-user" class="modal hidden">
     <div class="modal-content glass card modal-md">
       <div class="modal-header">
@@ -943,7 +903,6 @@
     </div>
   </div>
 
-  <!-- Modal: Editar Usuario -->
   <div id="modal-edit-user" class="modal hidden">
     <div class="modal-content glass card modal-lg">
       <div class="modal-header">
@@ -1011,7 +970,6 @@
     </div>
   </div>
 
-  <!-- Modal: Crear / Editar Sucursal -->
   <div id="modal-branch" class="modal hidden">
     <div class="modal-content glass card modal-lg">
       <div class="modal-header">
@@ -1057,7 +1015,6 @@
     </div>
   </div>
 
-  <!-- Modal: Ver Sucursal -->
   <div id="modal-view-branch" class="modal hidden">
     <div class="modal-content glass card modal-md">
       <div class="modal-header">
@@ -1071,8 +1028,6 @@
     </div>
   </div>
 
-  <!-- Modal: Ajuste Manual de Stock -->
-  <!-- Modal: variantes de un producto (lotes y vencimientos) en la sucursal -->
   <div id="modal-stock-lots" class="modal hidden">
     <div class="modal-content glass card modal-lg">
       <div class="modal-header">
@@ -1148,7 +1103,6 @@
     </div>
   </div>
 
-  <!-- Modal: Ver un pedido -->
   <div id="modal-view-order" class="modal hidden">
     <div class="modal-content glass card modal-lg">
       <div class="modal-header">
@@ -1168,7 +1122,6 @@
     </div>
   </div>
 
-  <!-- Modal: Preparar pedido (seleccionar cantidad a enviar de cada variante) -->
   <div id="modal-prepare-order" class="modal hidden">
     <div class="modal-content glass card modal-xl">
       <div class="modal-header">
@@ -1187,7 +1140,6 @@
     </div>
   </div>
 
-  <!-- Modal: Trazabilidad del pedido -->
   <div id="timeline-modal" class="modal hidden">
     <div class="modal-content glass">
       <div class="modal-header">
@@ -1201,8 +1153,6 @@
     </div>
   </div>
 
-
-  <!-- Modal: Crear / Editar Producto -->
   <div id="modal-product" class="modal hidden">
     <div class="modal-content glass card modal-lg">
       <div class="modal-header">
@@ -1255,7 +1205,6 @@
     </div>
   </div>
 
-  <!-- Modal: Crear / Renombrar Marca -->
   <div id="modal-brand" class="modal hidden">
     <div class="modal-content glass card modal-md">
       <div class="modal-header">
@@ -1276,7 +1225,6 @@
     </div>
   </div>
 
-  <!-- Modal: Crear / Editar Categoría -->
   <div id="modal-create-category" class="modal hidden">
     <div class="modal-content glass card modal-md">
       <div class="modal-header">
@@ -1301,7 +1249,6 @@
     </div>
   </div>
 
-  <!-- Modal: Ver Categoría -->
   <div id="modal-view-category" class="modal hidden">
     <div class="modal-content glass card modal-md">
       <div class="modal-header">
@@ -1315,7 +1262,6 @@
     </div>
   </div>
 
-  <!-- Modal: Crear Nuevo Pedido -->
   <div id="modal-create-order" class="modal hidden">
     <div class="modal-content glass card modal-lg">
       <div class="modal-header">
@@ -1384,7 +1330,6 @@
     </div>
   </div>
 
-  <!-- Modal: Agregar Ingreso de Stock (Provisión Estándar) -->
   <div id="modal-create-stock-entry" class="modal hidden">
     <div class="modal-content glass card modal-xl">
       <div class="modal-header">
@@ -1463,7 +1408,6 @@
     </div>
   </div>
 
-  <!-- Modal: Ingreso Extraordinario / Extraoficial -->
   <div id="modal-create-informal-entry" class="modal hidden">
     <div class="modal-content glass card modal-lg">
       <div class="modal-header">
@@ -1530,7 +1474,6 @@
     </div>
   </div>
 
-  <!-- Modal: Registrar Egreso / Merma -->
   <div id="modal-exit" class="modal hidden">
     <div class="modal-content glass card modal-lg">
       <div class="modal-header">
@@ -1599,7 +1542,6 @@
     </div>
   </div>
 
-  <!-- Modal: Crear / Editar Proveedor -->
   <div id="modal-supplier" class="modal hidden">
     <div class="modal-content glass card modal-lg">
       <div class="modal-header">
@@ -1644,7 +1586,6 @@
     </div>
   </div>
 
-  <!-- Modal: Ver Proveedor -->
   <div id="modal-view-supplier" class="modal hidden">
     <div class="modal-content glass card modal-md">
       <div class="modal-header">
@@ -1658,8 +1599,6 @@
     </div>
   </div>
 
-
-  <!-- Modal: Ver una provisión -->
   <div id="modal-view-provision" class="modal hidden">
     <div class="modal-content glass card modal-lg">
       <div class="modal-header">
@@ -1679,7 +1618,6 @@
     </div>
   </div>
 
-  <!-- Modal: Modificar una provisión -->
   <div id="modal-edit-entry" class="modal hidden">
     <div class="modal-content glass card modal-lg">
       <div class="modal-header">
@@ -1717,8 +1655,6 @@
     </div>
   </div>
 
-
-  <!-- Librerías (orden: núcleo primero, inicio al final) -->
   <script src="js/core.js"></script>
   <script src="js/export.js"></script>
   <script src="js/auth.js"></script>

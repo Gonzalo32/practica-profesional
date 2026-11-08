@@ -1,8 +1,3 @@
-// ==========================================================================
-// CONTROL DE VENCIMIENTOS
-// Lotes vencidos o por vencer, con acceso directo a darlos de baja
-// ==========================================================================
-
 let loadedExpirations = [];
 
 async function loadExpirationsPanel() {
@@ -68,7 +63,6 @@ function renderExpirations() {
   }).join('');
 }
 
-// Abre el egreso precargado como "Producto vencido" con las unidades del lote
 window.writeOffLot = (lotId) => {
   const lot = loadedExpirations.find(e => e.id === lotId);
   if (!lot) return;

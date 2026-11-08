@@ -1,8 +1,3 @@
-// ==========================================================================
-// CONTEO FÍSICO DE INVENTARIO
-// Abrir conteo -> cargar lo contado -> cerrar (ajusta y registra diferencias)
-// ==========================================================================
-
 let activeCount = null;
 let countSearch = '';
 
@@ -27,7 +22,6 @@ async function loadCountsHistory() {
   setTableLoading(tbody, 7, 2);
   try {
     const counts = await apiFetch('/counts');
-    // Si hay un conteo abierto se muestra directamente para seguir cargándolo
     const open = counts.find(c => c.status === 'ABIERTO');
     if (open && (!activeCount || activeCount.id !== open.id)) await openCountEditor(open.id);
     if (!open) hideCountEditor();
@@ -128,7 +122,6 @@ function renderCountEditor() {
   }).join('');
 }
 
-// Actualiza la diferencia en vivo mientras se escribe
 document.getElementById('table-count-items')?.addEventListener('input', (e) => {
   if (!e.target.classList.contains('count-input') || !activeCount) return;
   const item = activeCount.items.find(i => i.productId === e.target.dataset.productId);
@@ -142,7 +135,6 @@ document.getElementById('table-count-items')?.addEventListener('input', (e) => {
   document.getElementById('count-progress').textContent = `${counted} de ${activeCount.items.length} productos contados`;
 });
 
-// Enter pasa al siguiente casillero (más rápido para cargar)
 document.getElementById('table-count-items')?.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' || !e.target.classList.contains('count-input')) return;
   e.preventDefault();

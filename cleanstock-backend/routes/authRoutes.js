@@ -6,7 +6,6 @@ const v = require('../validators');
 
 const router = express.Router();
 
-// Máximo de intentos fallidos de login por IP en 15 minutos (frena ataques de fuerza bruta)
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: parseInt(process.env.LOGIN_RATE_LIMIT, 10) || 10,
@@ -18,6 +17,5 @@ const loginLimiter = rateLimit({
 
 router.post('/login', loginLimiter, v.login, login);
 router.get('/me', verifyToken, getMe);
-
 
 module.exports = router;

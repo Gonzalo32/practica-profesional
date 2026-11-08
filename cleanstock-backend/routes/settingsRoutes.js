@@ -7,7 +7,6 @@ const router = express.Router();
 
 router.use(verifyToken);
 
-// Configuración del negocio (nombre y modo de trabajo)
 router.get('/', getBusinessSettings);
 router.put('/', requireRole(['Administrador']), v.settings, updateBusinessSettings);
 

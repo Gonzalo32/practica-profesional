@@ -1,7 +1,3 @@
-// ==========================================================================
-// CATÁLOGO DE PRODUCTOS Y CATEGORÍAS
-// ==========================================================================
-
 const catalogFilters = { search: '', category: '', page: 1 };
 const CATALOG_PER_PAGE = 10;
 
@@ -73,7 +69,6 @@ function renderCatalogTable() {
   });
 }
 
-// Modal único para crear y editar productos
 window.openProductModal = async (productId = null) => {
   await ensureBaseData();
   const product = productId ? state.products.find(p => p.id === productId) : null;
@@ -87,7 +82,6 @@ window.openProductModal = async (productId = null) => {
   document.getElementById('prod-minstock').value = product ? (product.minimumStock || 0) : 10;
   document.getElementById('prod-sku').value = product?.sku || '';
   setBrandPickerValue(product?.brandId || null);
-  // Productos nuevos: sin vencimiento por defecto (lo más común en un almacén)
   document.getElementById('prod-perishable').checked = product ? product.perishable !== false : false;
   const reqAppEl = document.getElementById('prod-requires-approval');
   if (reqAppEl) reqAppEl.checked = !!product?.requiresApproval;
@@ -126,9 +120,6 @@ document.getElementById('form-product')?.addEventListener('submit', async (e) =>
   }
 });
 
-// --------------------------------------------------------------------------
-// Categorías / rubros
-// --------------------------------------------------------------------------
 let categoriesPage = 1;
 const CATEGORIES_PER_PAGE = 10;
 

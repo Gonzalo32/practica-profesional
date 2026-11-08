@@ -4,10 +4,6 @@ const { effectiveBranchId } = require('../services/settingsService');
 const stock = require('../services/stockService');
 const { toId, parsePagination, todayAsUTCDate } = require('../utils/format');
 
-// Provisiones: entregas de los proveedores (como un remito), con uno o varios productos.
-// Se cargan PENDIENTES (no tocan el stock ni figuran como movimiento) y recién al
-// aprobarlas el Responsable o el Administrador entran todos sus productos al stock.
-
 const dateOnly = (d) => (d ? new Date(d).toISOString().slice(0, 10) : '—');
 const userName = (u) => (u && typeof u === 'object'
   ? ([u.firstName, u.lastName].filter(Boolean).join(' ') || u.username)
@@ -32,7 +28,6 @@ const format = (p) => ({
     expirationDate: i.expirationDate,
     brandId: toId(i.brandId),
     brandName: i.brandId?.name || null,
-    // Unidades del lote que ya salieron (solo aprobadas): no se puede bajar la cantidad por debajo de eso
     used: i.stockEntryId && typeof i.stockEntryId === 'object'
       ? i.stockEntryId.quantity - (i.stockEntryId.remaining ?? i.stockEntryId.quantity)
       : 0
@@ -55,7 +50,6 @@ const populateAll = (query) => query
   .populate('approvedBy', 'username firstName lastName')
   .populate('editedBy', 'username firstName lastName');
 
-// Lote y vencimiento: obligatorios para productos que vencen (como en cualquier ingreso)
 const lotError = (product, lotNumber, expirationDate) => (
   product.perishable !== false && !(lotNumber && expirationDate)
     ? `"${product.name}" tiene vencimiento: indicá el número de lote y la fecha de vencimiento.`
@@ -66,10 +60,6 @@ const itemsText = (items, productsById) => items
   .map(i => `${i.quantity} u. de "${productsById.get(String(i.productId))?.name || 'producto'}"${i.lotNumber ? ` (lote ${i.lotNumber})` : ''}`)
   .join(', ');
 
-/**
- * GET /api/inventory/provisions?branchId&status&page&limit
- * Admin: todas (o la sucursal elegida). Responsable: su sucursal. Proveedor: lo que entregó él.
- */
 const getProvisions = async (req, res) => {
   try {
     const filter = {};
@@ -100,11 +90,6 @@ const getProvisions = async (req, res) => {
   }
 };
 
-/**
- * POST /api/inventory/provisions
- * { branchId, supplierId?, notes?, items: [{ productId, quantity, lotNumber?, expirationDate? }] }
- * Carga una provisión pendiente con todos sus productos. No mueve stock.
- */
 const createProvision = async (req, res) => {
   try {
     const { branchId, supplierId, notes } = req.body;
@@ -163,10 +148,6 @@ const createProvision = async (req, res) => {
   }
 };
 
-/**
- * POST /api/inventory/provisions/:id/approve
- * Aprueba la provisión: por cada producto crea el lote, suma el stock y registra el movimiento de INGRESO.
- */
 const approveProvision = async (req, res) => {
   try {
     const current = await Provision.findById(req.params.id).lean();
@@ -175,7 +156,6 @@ const approveProvision = async (req, res) => {
       return res.status(403).json({ message: 'Solo podés aprobar provisiones de tu sucursal' });
     }
 
-    // Se marca aprobada de forma atómica: dos clics o dos usuarios no la ingresan dos veces
     const provision = await Provision.findOneAndUpdate(
       { _id: current._id, status: 'PENDIENTE' },
       { $set: { status: 'APROBADA', approvedBy: req.user.id, approvedAt: new Date() } },
@@ -236,13 +216,6 @@ const approveProvision = async (req, res) => {
   }
 };
 
-/**
- * PUT /api/inventory/provisions/:id
- * { supplierId?, notes?, reason?, items?: [{ id, quantity?, lotNumber?, expirationDate? }] }
- * Pendiente: se corrigen los datos sin tocar el stock.
- * Aprobada: además se corrigen, producto por producto, el lote, el stock (por la diferencia) y el movimiento.
- * Se valida todo antes de tocar nada; si algo falla a mitad de camino se deshace lo aplicado.
- */
 const updateProvision = async (req, res) => {
   try {
     const provision = await Provision.findById(req.params.id).lean();
@@ -280,7 +253,6 @@ const updateProvision = async (req, res) => {
       }
     }
 
-    // Estado nuevo de cada producto
     const plan = provision.items.map(item => {
       const edit = editsById.get(item._id.toString()) || {};
       return {
@@ -293,7 +265,6 @@ const updateProvision = async (req, res) => {
       };
     });
 
-    // Validaciones antes de tocar nada
     const lotsById = new Map();
     if (approved) {
       const lotIds = provision.items.map(i => i.stockEntryId).filter(Boolean);
@@ -319,7 +290,6 @@ const updateProvision = async (req, res) => {
       const rollback = async () => { for (const fn of undo.reverse()) await fn(); };
       for (const step of plan) {
         const { item, delta, lot, newLot, newExp } = step;
-        // Stock de la sucursal por la diferencia (atómico, respeta lo reservado para pedidos)
         if (delta < 0) {
           const ok = await stock.decreaseAvailableStock(provision.branchId, item.productId, -delta);
           if (!ok) {

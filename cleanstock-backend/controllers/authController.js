@@ -4,7 +4,6 @@ const User = require('../models/User');
 const ActivityLog = require('../models/ActivityLog');
 const { JWT_SECRET } = require('../middlewares/authMiddleware');
 
-// T1.2: Generación de Tokens al loguear exitosamente
 const login = async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -25,7 +24,6 @@ const login = async (req, res) => {
       return res.status(401).json({ message: 'Credenciales inválidas' });
     }
 
-    // T1.2: Incluir rol + sucursal del usuario en el payload (Módulo 4)
     const payload = {
       id: user._id.toString(),
       username: user.username,
@@ -39,7 +37,6 @@ const login = async (req, res) => {
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '8h' });
 
-    // T1.5: Registro de Actividad
     await ActivityLog.create({
       userId: user._id,
       action: 'LOGIN',

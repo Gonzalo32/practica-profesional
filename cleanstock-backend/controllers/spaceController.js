@@ -1,9 +1,7 @@
 const { PhysicalSpace, ActivityLog } = require('../models');
 
-// Crear Espacio Físico (Solo Administrador)
 const createSpace = async (req, res) => {
   try {
-    // Nombre, tipo y descripción ya llegan validados por validators/index.js (space)
     const { name, description, type } = req.body;
 
     const spaceExists = await PhysicalSpace.findOne({ name });
@@ -25,7 +23,6 @@ const createSpace = async (req, res) => {
   }
 };
 
-// Obtener todos los Espacios Físicos
 const getSpaces = async (req, res) => {
   try {
     const spaces = await PhysicalSpace.find().sort({ name: 1 }).lean();
@@ -39,7 +36,6 @@ const getSpaces = async (req, res) => {
   }
 };
 
-// Modificar Espacio Físico (Solo Administrador)
 const updateSpace = async (req, res) => {
   try {
     const { id } = req.params;
@@ -80,7 +76,6 @@ const updateSpace = async (req, res) => {
   }
 };
 
-// Dar de baja/Eliminar Espacio Físico (Solo Administrador)
 const deleteSpace = async (req, res) => {
   try {
     const { id } = req.params;

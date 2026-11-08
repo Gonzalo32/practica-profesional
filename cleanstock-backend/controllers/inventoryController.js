@@ -4,7 +4,6 @@ const { effectiveBranchId } = require('../services/settingsService');
 const stock = require('../services/stockService');
 const { toId, escapeRegex } = require('../utils/format');
 
-// --- Categorías ---
 const createCategory = async (req, res) => {
   try {
     const { name, description } = req.body;
@@ -65,7 +64,6 @@ const deleteCategory = async (req, res) => {
   }
 };
 
-// --- Productos ---
 const duplicateProductMessage = (error) => {
   const field = Object.keys(error.keyPattern || {})[0];
   if (field === 'sku') return 'Ya existe un producto con ese código interno.';
@@ -122,7 +120,6 @@ const formatProduct = (p) => ({
   } : null
 });
 
-// ?q= busca por nombre, descripción o código interno (SKU)
 const getProducts = async (req, res) => {
   try {
     const filter = {};
@@ -178,7 +175,6 @@ const updateProduct = async (req, res) => {
   }
 };
 
-// --- Ingresos de Stock (T3.2) ---
 const registerStockEntry = async (req, res) => {
   try {
     const { productId, lotNumber, expirationDate, branchId, supplierId, brandId } = req.body;
@@ -195,14 +191,12 @@ const registerStockEntry = async (req, res) => {
     if (supplierId && !supplier) return res.status(404).json({ message: 'Proveedor no encontrado' });
     if (brandId && !brand) return res.status(404).json({ message: 'Marca no encontrada' });
 
-    // Todos los productos pueden tener lote, pero solo los perecederos exigen lote y fecha de vencimiento
     if (prod.perishable !== false && !(lotNumber && expirationDate)) {
       return res.status(400).json({ message: `"${prod.name}" tiene vencimiento: indicá el número de lote y la fecha de vencimiento.` });
     }
     const hasLot = !!lotNumber;
     const effectiveExp = prod.perishable !== false ? expirationDate : (expirationDate || null);
 
-    // Sin lote no se crea registro de lote: el stock se suma igual
     const stockEntry = hasLot
       ? await stock.createLot({
         productId,
@@ -243,7 +237,6 @@ const registerStockEntry = async (req, res) => {
   }
 };
 
-// --- Ingresos Extraordinarios / Extraoficiales (Módulo 2) ---
 const INFORMAL_ENTRY_TYPES = ['ENCONTRADO', 'DONACION', 'DEVOLUCION', 'EXCEDENTE', 'SIN_OC'];
 
 const registerInformalEntry = async (req, res) => {
@@ -288,7 +281,6 @@ const registerInformalEntry = async (req, res) => {
   }
 };
 
-// --- Egresos y mermas ---
 const EXIT_TYPES = ['VENTA', 'CONSUMO', 'ROTURA', 'VENCIDO', 'OTRO'];
 
 const registerExit = async (req, res) => {
@@ -346,7 +338,6 @@ const registerExit = async (req, res) => {
   }
 };
 
-// --- Lotes ---
 const getLots = async (req, res) => {
   try {
     const filter = { branchId: { $ne: null } };

@@ -4,9 +4,6 @@ const app = require('./app');
 const { connectDB, mongoose, User } = require('./models');
 const { seedDemo } = require('./services/demoSeed');
 
-// Carga datos de demostración (sucursales, productos, lotes, proveedores, pedidos y un usuario por rol).
-// Solo funciona sobre una base vacía: nunca borra ni pisa datos existentes.
-// Uso: npm run seed:demo
 async function main() {
   const password = process.env.ADMIN_INITIAL_PASSWORD;
   if (!password) {

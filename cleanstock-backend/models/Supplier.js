@@ -1,7 +1,7 @@
 const { mongoose } = require('../config/database');
 
 const supplierSchema = new mongoose.Schema({
-  name: { type: String, required: true, unique: true, trim: true }, // Razón social
+  name: { type: String, required: true, unique: true, trim: true },
   cuit: { type: String, default: null, trim: true },
   contactName: { type: String, default: null },
   email: { type: String, default: null },
@@ -16,7 +16,6 @@ const supplierSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// CUIT único solo cuando está cargado
 supplierSchema.index({ cuit: 1 }, { unique: true, partialFilterExpression: { cuit: { $type: 'string' } } });
 
 const Supplier = mongoose.models.Supplier || mongoose.model('Supplier', supplierSchema);

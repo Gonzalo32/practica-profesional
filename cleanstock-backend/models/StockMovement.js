@@ -1,7 +1,5 @@
 const { mongoose } = require('../config/database');
 
-// Registro estructurado de cada movimiento de stock (ingresos, egresos, ajustes,
-// transferencias y conteos). Reemplaza la lectura de detalles de texto del ActivityLog.
 const MOVEMENT_TYPES = [
   'INGRESO',
   'INGRESO_EXTRAORDINARIO',
@@ -15,10 +13,10 @@ const MOVEMENT_TYPES = [
 
 const stockMovementSchema = new mongoose.Schema({
   type: { type: String, enum: MOVEMENT_TYPES, required: true },
-  subtype: { type: String, default: null }, // ej: VENTA, ROTURA, DONACION...
+  subtype: { type: String, default: null },
   branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'PhysicalSpace', required: true },
   productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
-  quantity: { type: Number, required: true }, // positivo entra, negativo sale
+  quantity: { type: Number, required: true },
   lotNumber: { type: String, default: null },
   expirationDate: { type: Date, default: null },
   supplierId: { type: mongoose.Schema.Types.ObjectId, ref: 'Supplier', default: null },
@@ -28,7 +26,6 @@ const stockMovementSchema = new mongoose.Schema({
   countId: { type: mongoose.Schema.Types.ObjectId, ref: 'InventoryCount', default: null },
   reason: { type: String, default: null },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-  // Ingresos: el lote que generó y, si se corrigió después, cuándo y quién
   stockEntryId: { type: mongoose.Schema.Types.ObjectId, ref: 'StockEntry', default: null },
   editedAt: { type: Date, default: null },
   editedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }

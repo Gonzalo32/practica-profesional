@@ -2,9 +2,6 @@ require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const { connectDB, User } = require('./models');
 
-// Crea o restablece el usuario administrador de prueba (admin@cleanstock.com).
-// La contraseña se toma de ADMIN_INITIAL_PASSWORD en el .env: nunca se escribe en el código.
-// Uso: npm run seed:admin
 async function seedAdmin() {
   try {
     const password = process.env.ADMIN_INITIAL_PASSWORD;
@@ -20,7 +17,6 @@ async function seedAdmin() {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // Datos ficticios del usuario de prueba
     const testData = {
       username,
       email,

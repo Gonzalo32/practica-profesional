@@ -3,7 +3,6 @@ const stock = require('../services/stockService');
 const { toId, parsePagination, startOfDay } = require('../utils/format');
 const { getSettings, effectiveBranchId } = require('../services/settingsService');
 
-// Obtener todas las sucursales
 const getBranches = async (req, res) => {
   try {
     const branches = await PhysicalSpace.find().sort({ name: 1 }).lean();
@@ -17,7 +16,6 @@ const getBranches = async (req, res) => {
   }
 };
 
-// Crear una nueva sucursal
 const createBranch = async (req, res) => {
   try {
     const { name, description, address, phone, type } = req.body;
@@ -50,7 +48,6 @@ const createBranch = async (req, res) => {
   }
 };
 
-// Eliminar una sucursal
 const deleteBranch = async (req, res) => {
   try {
     const { id } = req.params;
@@ -65,10 +62,8 @@ const deleteBranch = async (req, res) => {
       return res.status(400).json({ message: 'No se puede eliminar el local principal mientras el negocio trabaja en modo de un solo local.' });
     }
 
-    // Desasociar usuarios antes de eliminar
     await User.updateMany({ physicalSpaceId: id }, { physicalSpaceId: null });
 
-    // Eliminar stock asociado
     await BranchStock.deleteMany({ branchId: id });
 
     const branchName = branch.name;
@@ -86,7 +81,6 @@ const deleteBranch = async (req, res) => {
   }
 };
 
-// Actualizar una sucursal
 const updateBranch = async (req, res) => {
   try {
     const { id } = req.params;
@@ -123,13 +117,6 @@ const updateBranch = async (req, res) => {
     res.status(500).json({ message: 'Error actualizando sucursal', error: error.message });
   }
 };
-// Obtener stock de una sucursal específica
-/**
- * GET /api/branches/:id/available
- * Productos que se le pueden pedir a una sucursal: solo los que tienen unidades
- * disponibles (stock menos lo reservado para otros pedidos). Lo usa el formulario
- * de pedidos, así no se ofrece lo que no hay. Devuelve solo id y disponible.
- */
 const getAvailableProducts = async (req, res) => {
   try {
     const branch = await PhysicalSpace.findById(req.params.id).lean();
@@ -146,7 +133,6 @@ const getAvailableProducts = async (req, res) => {
       },
       { $match: { quantity: { $gt: 0 } } }
     ]);
-    // Para compatibilidad con armar pedidos: si no pide ?includeTotal=true, filtramos available > 0 y devolvemos { productId, available }
     if (req.query.includeTotal === 'true') {
       return res.json(rows.map(r => ({
         productId: r.productId.toString(),
@@ -177,7 +163,6 @@ const getBranchStock = async (req, res) => {
           populate: { path: 'categoryId' }
         })
         .lean(),
-      // Próximo vencimiento de cada producto (lotes con stock)
       StockEntry.aggregate([
         { $match: { branchId: branch._id, remaining: { $gt: 0 } } },
         { $group: { _id: '$productId', nextExpiration: { $min: '$expirationDate' }, lots: { $sum: 1 } } }
@@ -185,7 +170,6 @@ const getBranchStock = async (req, res) => {
     ]);
     const lotInfo = new Map(lotsByProduct.map(l => [l._id.toString(), l]));
 
-    // Enriquecer con cantidad disponible y mínimo efectivo
     const enrichedItems = stockItems.map(item => {
       const productObj = item.productId && typeof item.productId === 'object' ? item.productId : null;
       const categoryObj = productObj && productObj.categoryId && typeof productObj.categoryId === 'object' ? productObj.categoryId : null;
@@ -242,14 +226,11 @@ const getBranchStock = async (req, res) => {
   }
 };
 
-// Ajustar stock manualmente en una sucursal (ingreso/egreso manual)
 const adjustBranchStock = async (req, res) => {
   try {
     const { id } = req.params;
     const { productId, reason } = req.body;
 
-    // Varias variantes (lotes) en un solo ajuste: [{ lotId, quantity }]. lotId vacío = stock general.
-    // También se acepta el formato simple { quantity, lotId }.
     const lines = (Array.isArray(req.body.adjustments)
       ? req.body.adjustments
       : [{ lotId: req.body.lotId, quantity: req.body.quantity }])
@@ -279,7 +260,6 @@ const adjustBranchStock = async (req, res) => {
     }
     const lotsById = new Map(lotDocs.map(l => [l._id.toString(), l]));
 
-    // Se valida todo antes de tocar nada
     for (const line of lines) {
       const lot = line.lotId && lotsById.get(line.lotId);
       if (lot && line.quantity < 0 && -line.quantity > lot.remaining) {
@@ -287,7 +267,6 @@ const adjustBranchStock = async (req, res) => {
       }
     }
 
-    // 1) Total de la sucursal: se mueve una sola vez por la diferencia neta (atómico, respeta lo reservado)
     const net = lines.reduce((sum, l) => sum + l.quantity, 0);
     let stockRecord;
     if (net < 0) {
@@ -304,7 +283,6 @@ const adjustBranchStock = async (req, res) => {
       stockRecord = await BranchStock.findOne({ branchId: id, productId });
     }
 
-    // 2) Cada lote elegido. Si uno falla (otro usuario lo modificó recién), se deshace todo.
     const applied = [];
     const undo = async () => {
       for (const a of applied) {
@@ -331,16 +309,12 @@ const adjustBranchStock = async (req, res) => {
       applied.push({ lot, quantity: line.quantity });
     }
 
-    // 3) Ajuste general (sin lote): si se usa el formato simple sin indicar ajustes por variante,
-    // descuenta de los lotes en orden FEFO; si viene desde el selector de variantes (adjustments),
-    // la línea "Sin lote (Stock general)" solo descuenta del saldo sin lote sin tocar los lotes existentes.
     const general = lines.find(l => !l.lotId);
     let generalLots = [];
     if (general && general.quantity < 0 && !Array.isArray(req.body.adjustments)) {
       generalLots = await stock.consumeLots(id, productId, -general.quantity);
     }
 
-    // Un movimiento por variante, para la trazabilidad
     for (const line of lines) {
       const lot = line.lotId && lotsById.get(line.lotId);
       await stock.recordMovement({
@@ -370,8 +344,6 @@ const adjustBranchStock = async (req, res) => {
   }
 };
 
-// Trazabilidad: movimientos de stock con filtros y paginación
-// ?branchId &productId &type &from &to &page &limit (limit=0 trae todo para exportar)
 const getStockMovements = async (req, res) => {
   try {
     const { branchId, productId, type, from, to } = req.query;

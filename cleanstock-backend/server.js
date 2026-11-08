@@ -8,9 +8,6 @@ const { seedDemo, isDatabaseEmpty } = require('./services/demoSeed');
 
 const PORT = process.env.PORT || 3000;
 
-// Crea el usuario administrador de prueba solo si todavía no existe ningún administrador.
-// Nunca pisa la contraseña de un administrador existente. La clave sale de
-// ADMIN_INITIAL_PASSWORD; si no está definida se genera una al azar y se muestra una sola vez.
 const autoSeedAdmin = async () => {
   try {
     const hasAdmin = await User.exists({ role: 'Administrador' });
@@ -40,7 +37,6 @@ const autoSeedAdmin = async () => {
   }
 };
 
-// Revisa los vencimientos al iniciar y luego una vez por hora
 const scheduleExpirationCheck = () => {
   const run = async () => {
     try {
@@ -54,8 +50,6 @@ const scheduleExpirationCheck = () => {
   setInterval(run, 60 * 60 * 1000).unref();
 };
 
-// Con DEMO_DATA=true, si la base está vacía se cargan los datos de demostración al iniciar.
-// Sirve sobre todo cuando no hay conexión y el sistema arranca con la base en memoria.
 const autoSeedDemo = async () => {
   if (process.env.DEMO_DATA !== 'true') return;
   try {
@@ -67,8 +61,6 @@ const autoSeedDemo = async () => {
   }
 };
 
-// Bases creadas antes de las marcas tenían el nombre del producto único a secas;
-// ahora es único por nombre + marca. syncIndexes deja los índices como dice el modelo.
 const syncProductIndexes = async () => {
   try {
     await Product.syncIndexes();
@@ -77,7 +69,6 @@ const syncProductIndexes = async () => {
   }
 };
 
-// Start Server
 const startServer = async () => {
   await syncDatabase();
   await syncProductIndexes();

@@ -1,15 +1,7 @@
-// ==========================================================================
-// MARCAS
-// Se eligen de una lista con buscador (no un desplegable infinito) y no se
-// pueden duplicar escritas de otra forma: "AYUDIN", "ayudín" y "Ayudin " son la misma.
-// ==========================================================================
-
-// Igual que en el servidor: sin mayúsculas, tildes ni espacios de más
 const normalizeBrandText = (s) => String(s || '')
   .normalize('NFD').replace(/[̀-ͯ]/g, '')
   .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
-// Cuántas letras hay que cambiar para pasar de una palabra a otra (detecta errores de tipeo)
 function brandDistance(a, b) {
   const row = Array.from({ length: b.length + 1 }, (_, j) => j);
   for (let i = 1; i <= a.length; i++) {
@@ -24,8 +16,6 @@ function brandDistance(a, b) {
   return row[b.length];
 }
 
-// Crea una marca. Si ya existe escrita de otra forma, devuelve la existente.
-// Si se parece a otra, pregunta antes de crearla.
 async function createBrandSafely(name) {
   const send = (force) => apiFetch('/inventory/brands', { method: 'POST', body: JSON.stringify({ name, force }) });
   try {
@@ -50,11 +40,6 @@ async function createBrandSafely(name) {
   }
 }
 
-// --------------------------------------------------------------------------
-// Buscador de marcas reutilizable: escribir para buscar, máximo 8 resultados,
-// sugerencias por error de tipeo y opción de crear la marca si no existe.
-// Se usa en el producto, en el ingreso de stock y en las provisiones.
-// --------------------------------------------------------------------------
 const BRAND_PICKER_LIMIT = 8;
 
 function createBrandPicker(host, { placeholder = 'Buscar marca...', onChange = null } = {}) {
@@ -81,7 +66,6 @@ function createBrandPicker(host, { placeholder = 'Buscar marca...', onChange = n
       .filter(b => !q || normalizeBrandText(b.name).includes(q))
       .sort((a, b) => normalizeBrandText(a.name).indexOf(q) - normalizeBrandText(b.name).indexOf(q) || a.name.localeCompare(b.name));
     const exact = state.brands.find(b => normalizeBrandText(b.name) === q);
-    // Parecidas que no contienen lo escrito (posibles errores de tipeo: "ayudim" → "Ayudín")
     const similar = q.length >= 3 && !exact
       ? state.brands.filter(b => !matches.includes(b) && brandDistance(q, normalizeBrandText(b.name)) <= (q.length <= 4 ? 1 : 2)).slice(0, 3)
       : [];
@@ -114,7 +98,6 @@ function createBrandPicker(host, { placeholder = 'Buscar marca...', onChange = n
     }
     render();
   });
-  // Al salir sin elegir, el texto vuelve a la marca elegida (no queda texto suelto sin marca)
   input.addEventListener('blur', () => setTimeout(() => {
     if (!host.contains(document.activeElement)) {
       const brand = state.brands.find(b => String(b.id) === selectedId);
@@ -122,7 +105,7 @@ function createBrandPicker(host, { placeholder = 'Buscar marca...', onChange = n
     }
   }, 200));
 
-  dropdown.addEventListener('mousedown', (e) => e.preventDefault()); // que el clic no le saque el foco al campo
+  dropdown.addEventListener('mousedown', (e) => e.preventDefault());
   dropdown.addEventListener('click', async (e) => {
     const el = e.target.closest('.select-search-item');
     if (!el) return;
@@ -154,7 +137,6 @@ function createBrandPicker(host, { placeholder = 'Buscar marca...', onChange = n
   };
 }
 
-// Campo "Marca" del formulario de producto
 let productBrandPicker = null;
 function setBrandPickerValue(brandId) {
   const host = document.getElementById('prod-brand-picker');
@@ -163,9 +145,6 @@ function setBrandPickerValue(brandId) {
   productBrandPicker.set(brandId);
 }
 
-// --------------------------------------------------------------------------
-// Menú "Marcas": alta, renombrar y eliminar
-// --------------------------------------------------------------------------
 let brandsPage = 1;
 let brandsSearch = '';
 const BRANDS_PER_PAGE = 10;
