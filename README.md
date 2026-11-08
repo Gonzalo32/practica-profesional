@@ -2,28 +2,27 @@
 
 **Datos claros generan información confiable.**
 
-CleanStock es un sistema web de gestión de stock por sucursales para empresas, comercios y supermercados. Centraliza el catálogo de productos, los ingresos y egresos de mercadería, los lotes con vencimiento, los pedidos internos entre sucursales y las compras a proveedores, con control de acceso según el rol de cada usuario.
+CleanStock es un sistema web de gestión de stock por sucursales para empresas, comercios y supermercados. Centraliza el catálogo de productos y marcas, los ingresos de mercadería, las provisiones de los proveedores, los lotes con vencimiento y los pedidos internos entre sucursales, con control de acceso según el rol de cada usuario.
 
 Proyecto Final de Práctica Profesional II — IFES. Grupo: Guerrero, Marambio.
 
 ## Funcionalidades
 
-- Inicio de sesión con roles: Administrador, Usuario Responsable, Solicitante, Despachante y Proveedor.
+- Inicio de sesión con roles: Administrador, Usuario Responsable, Solicitante, Despachante y Proveedor. Cada rol ve solo su menú y su sucursal.
 - Catálogo de productos con categorías, marcas (elegidas de una lista con buscador, sin duplicados), SKU y stock mínimo.
-- Ingresos de stock con lote y vencimiento, ingresos extraordinarios, egresos y mermas.
-- Pedidos entre sucursales con aprobación, panel de despacho (Kanban) y trazabilidad de cada estado.
+- Stock por sucursal con lotes, vencimiento y marca; ingresos manuales, baja por variantes (lote por lote) e historial de movimientos.
 - Provisiones: la mercadería de los proveedores se carga pendiente y entra al stock recién cuando el Responsable o el Administrador la aprueba; se puede ver y corregir.
-- Alertas de stock bajo y de vencimientos, con salida FEFO (primero vence, primero sale).
+- Pedidos entre sucursales: solo se ofrecen productos con stock en el origen; se pueden modificar o cancelar mientras no se preparan; los grandes pasan por Revisión y los aprueba el Administrador o el Responsable de la sucursal de origen; el Despachante elige los lotes al preparar.
+- Alertas de stock bajo y de vencimientos, con salida FEFO (primero vence, primero sale), e Inicio con lo pendiente de la sucursal propia.
 - Conteo físico de inventario con ajuste de diferencias.
 - Panel con gráficos y exportación a Excel y PDF.
-- Modo para comercios de un solo local.
 - Auditoría de las acciones de los usuarios.
 
 ## Tecnologías
 
 | Parte | Tecnología |
 | --- | --- |
-| Frontend | HTML, CSS y JavaScript sin frameworks, dividido en módulos (`public/js/`); Chart.js, SheetJS y jsPDF desde CDN |
+| Frontend | HTML y JavaScript sin frameworks, dividido en módulos (`public/js/`); estilos con Tailwind CSS; Chart.js, SheetJS y jsPDF desde CDN |
 | Backend | Node.js con Express 5, organizado en rutas, middlewares, validadores, controladores, servicios y modelos |
 | Base de datos | MongoDB con Mongoose |
 | Seguridad | JWT, bcryptjs, helmet, express-rate-limit y express-validator |
@@ -75,7 +74,7 @@ npm start
 
 Abrir <http://localhost:3000> en el navegador (o el puerto configurado en `PORT`).
 
-Durante el desarrollo, `npm run dev` reinicia el servidor cada vez que se guarda un archivo.
+Durante el desarrollo, `npm run dev` reinicia el servidor cada vez que se guarda un archivo. Los estilos se escriben en `src/tailwind.css`; después de cambiarlos, `npm run build:css` genera `public/style.css` (o `npm run watch:css` mientras se trabaja).
 
 ### Usuario de prueba
 
@@ -118,7 +117,7 @@ Con `DEMO_DATA=true` en el `.env`, los mismos datos se cargan al iniciar el serv
 npm test
 ```
 
-Corre 72 pruebas automatizadas sobre una base de datos en memoria, sin tocar la base real. Cubren autenticación, permisos por rol y por sucursal, pedidos, stock, provisiones, marcas, proveedores, conteos, configuración, espacios físicos y reportes.
+Corre 75 pruebas automatizadas sobre una base de datos en memoria, sin tocar la base real. Cubren autenticación, permisos por rol y por sucursal, pedidos, stock, provisiones, marcas, proveedores, conteos, configuración, espacios físicos, reportes y datos de demostración.
 
 ## Estructura del proyecto
 
@@ -132,10 +131,11 @@ cleanstock-backend/
 ├── middlewares/      Token, roles, acceso por sucursal y validación
 ├── validators/       Reglas de los datos de entrada
 ├── controllers/      Lógica de cada operación
-├── services/         Stock atómico, lotes y configuración del negocio
+├── services/         Stock atómico, lotes, configuración del negocio y datos de demostración
 ├── models/           Esquemas de Mongoose
 ├── utils/            Funciones auxiliares
-├── public/           Frontend: index.html, style.css y módulos en js/
+├── src/              Fuente de los estilos (Tailwind CSS)
+├── public/           Frontend: index.html, style.css (generado) y módulos en js/
 └── tests/            Pruebas automatizadas
 ```
 
@@ -148,11 +148,11 @@ La API REST se publica bajo `/api` y, salvo el inicio de sesión, exige un token
 | `/api/auth` | Inicio de sesión |
 | `/api/users` | Usuarios y auditoría |
 | `/api/branches` | Sucursales, stock por sucursal y movimientos |
-| `/api/inventory` | Categorías, productos, ingresos, egresos y lotes |
-| `/api/orders` | Pedidos: alta, modificación, cancelación, aprobación, estados e historial |
+| `/api/inventory` | Categorías, marcas, productos, ingresos, provisiones y lotes |
+| `/api/orders` | Pedidos: alta, modificación, cancelación, aprobación, preparación por variantes, estados e historial |
 | `/api/alerts` | Alertas de stock y vencimientos, indicadores |
-| `/api/suppliers` | Proveedores y órdenes de compra |
+| `/api/suppliers` | Proveedores (las órdenes de compra siguen en la API, sin pantalla) |
 | `/api/counts` | Conteos físicos de inventario |
 | `/api/reports` | Datos del panel |
 | `/api/spaces` | Espacios físicos |
-| `/api/settings` | Configuración del negocio |
+| `/api/settings` | Configuración del negocio (sin pantalla) |
