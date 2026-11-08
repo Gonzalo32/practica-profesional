@@ -138,11 +138,19 @@ let stockSearch = '';
 
 async function loadBranchStockPanel() {
   await ensureBaseData();
+  const canManageStock = hasRole('Administrador', 'Usuario Responsable');
+  document.getElementById('btn-toggle-stock-adjust')?.classList.toggle('hidden', !canManageStock);
+  document.getElementById('btn-open-stock-entry-modal')?.classList.toggle('hidden', !canManageStock);
+
   const branches = operableBranches();
   const sel = document.getElementById('stock-view-branch-select');
+  const label = document.querySelector('label[for="stock-view-branch-select"]');
+  const showBranchPicker = hasRole('Administrador') && !isSingleBranch() && branches.length > 1;
+  sel?.classList.toggle('hidden', !showBranchPicker);
+  label?.classList.toggle('hidden', !showBranchPicker);
+
   fillSelect(sel, branches, { placeholder: branches.length > 1 ? '— Seleccionar sucursal —' : null, getLabel: branchLabel, value: sel.value || userBranchId() || branches[0]?.id });
   sel.disabled = branches.length <= 1;
-
 
   if (!sel.value && branches.length) sel.value = branches[0].id;
   if (sel.value) await loadStockForBranch(sel.value);
@@ -310,9 +318,85 @@ registerExporter('stock', async () => ({
 }));
 
 // --------------------------------------------------------------------------
-// Ajuste manual de stock
+// Baja de stock por sucursal y variante
 // --------------------------------------------------------------------------
-let pendingAdjustData = null;
+let adjustBranchStockItems = []; // stockItems de la sucursal seleccionada en el modal
+let adjustBranchLotsByProduct = new Map(); // productId -> lotes con stock en esa sucursal
+let adjustLots = [];
+let adjustWithoutLot = 0;
+let adjustBranchRequest = 0;
+let renderAdjustProductDropdown = () => {};
+
+async function loadAdjustBranchProducts(branchId, { focusSearch = false } = {}) {
+  const searchInput = document.getElementById('adjust-product-search');
+  const hiddenInput = document.getElementById('adjust-product');
+  const dropdown = document.getElementById('adjust-product-dropdown');
+  const variantsGroup = document.getElementById('adjust-variants-group');
+  const variantsBody = document.getElementById('adjust-variants-body');
+  const request = ++adjustBranchRequest;
+
+  if (hiddenInput) hiddenInput.value = '';
+  if (searchInput) searchInput.value = '';
+  if (dropdown) dropdown.classList.add('hidden');
+  if (variantsGroup) variantsGroup.classList.add('hidden');
+  if (variantsBody) variantsBody.innerHTML = '';
+  adjustLots = [];
+  adjustWithoutLot = 0;
+
+  if (!branchId) {
+    adjustBranchStockItems = [];
+    adjustBranchLotsByProduct = new Map();
+    if (searchInput) {
+      searchInput.disabled = true;
+      searchInput.placeholder = 'Elegí primero la sucursal...';
+    }
+    return;
+  }
+
+  // Si es la misma sucursal que ya está cargada en la vista principal, usamos sus datos al instante (0ms)
+  if (currentStockBranch && String(currentStockBranch.id) === String(branchId) && currentStockItems.length) {
+    adjustBranchStockItems = currentStockItems.filter(i => (i.availableQuantity ?? i.quantity ?? 0) > 0);
+    adjustBranchLotsByProduct = new Map(lotsByProduct);
+    updateAdjustSearchInputState(focusSearch);
+  } else if (searchInput) {
+    searchInput.disabled = true;
+    searchInput.placeholder = 'Cargando artículos de la sucursal...';
+  }
+
+  try {
+    const [{ stockItems }, lots] = await Promise.all([
+      apiFetch(`/branches/${branchId}/stock`),
+      apiFetch(`/inventory/lots?branchId=${encodeURIComponent(branchId)}&withStock=true`).catch(() => [])
+    ]);
+    if (request !== adjustBranchRequest) return;
+    adjustBranchStockItems = (stockItems || []).filter(i => (i.availableQuantity ?? i.quantity ?? 0) > 0);
+    adjustBranchLotsByProduct = new Map();
+    for (const lot of lots) {
+      const pid = String(lot.productId);
+      if (!adjustBranchLotsByProduct.has(pid)) adjustBranchLotsByProduct.set(pid, []);
+      adjustBranchLotsByProduct.get(pid).push(lot);
+    }
+    updateAdjustSearchInputState(focusSearch);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function updateAdjustSearchInputState(focusSearch = false) {
+  const searchInput = document.getElementById('adjust-product-search');
+  if (!searchInput) return;
+  if (!adjustBranchStockItems.length) {
+    searchInput.disabled = true;
+    searchInput.placeholder = 'Esta sucursal no tiene artículos con stock disponible';
+    return;
+  }
+  searchInput.disabled = false;
+  searchInput.placeholder = 'Escribí para buscar o seleccioná un artículo...';
+  if (focusSearch) {
+    searchInput.focus();
+    renderAdjustProductDropdown('');
+  }
+}
 
 function setupAdjustProductSearch() {
   const searchInput = document.getElementById('adjust-product-search');
@@ -323,39 +407,115 @@ function setupAdjustProductSearch() {
   if (!searchInput || !dropdown) return;
 
   function renderDropdown(filterText = '') {
-    const q = filterText.toLowerCase().trim();
-    const list = state.products
-      .filter(p => !q || [p.name, p.sku, p.Category?.name].join(' ').toLowerCase().includes(q))
-      .sort((a, b) => a.name.localeCompare(b.name));
-
-    if (!list.length) {
-      dropdown.innerHTML = '<div style="padding:10px 14px; color:var(--text-muted); font-size:0.85rem;">No se encontraron productos</div>';
+    const branchId = document.getElementById('adjust-branch')?.value;
+    if (!branchId) {
+      dropdown.innerHTML = '<div style="padding:10px 14px; color:var(--text-muted); font-size:0.85rem;">Elegí primero la sucursal</div>';
       dropdown.classList.remove('hidden');
       return;
     }
 
-    dropdown.innerHTML = list.map(p => `
-      <div class="select-search-item ${hiddenInput.value === p.id ? 'highlighted' : ''}" data-id="${p.id}" data-name="${escapeHtml(p.name)}">
-        <span class="select-search-item-name">${escapeHtml(p.name)}</span>
-        <span class="select-search-item-sub">${p.sku ? `SKU: ${escapeHtml(p.sku)} · ` : ''}${escapeHtml(p.Category?.name || 'Sin categoría')}</span>
-      </div>
-    `).join('');
+    const q = filterText.toLowerCase().trim();
+    const list = adjustBranchStockItems
+      .filter(item => {
+        const p = item.Producto || {};
+        if (!q) return true;
+        return [p.name, p.sku, p.Category?.name].filter(Boolean).join(' ').toLowerCase().includes(q);
+      })
+      .sort((a, b) => (a.Producto?.name || '').localeCompare(b.Producto?.name || ''));
+
+    if (!list.length) {
+      dropdown.innerHTML = '<div style="padding:10px 14px; color:var(--text-muted); font-size:0.85rem;">No se encontraron artículos con stock en esta sucursal</div>';
+      dropdown.classList.remove('hidden');
+      return;
+    }
+
+    dropdown.innerHTML = list.map((item, idx) => {
+      const p = item.Producto || {};
+      const pid = String(p.id || item.productId);
+      const avail = item.availableQuantity ?? item.quantity ?? 0;
+      const lotsCount = (adjustBranchLotsByProduct.get(pid) || []).length;
+      const isSelected = hiddenInput.value ? (hiddenInput.value === pid) : (idx === 0);
+      return `
+        <div class="select-search-item ${isSelected ? 'highlighted' : ''}" data-id="${escapeHtml(pid)}" data-name="${escapeHtml(p.name || 'Artículo')}">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <span class="select-search-item-name">${escapeHtml(p.name || 'Artículo')}</span>
+            <span class="badge badge-success" style="font-size:0.75rem; padding:2px 8px; white-space:nowrap;">${avail} disp.${lotsCount ? ` · ${lotsCount} lote${lotsCount === 1 ? '' : 's'}` : ''}</span>
+          </div>
+          <span class="select-search-item-sub">${p.sku ? `SKU: ${escapeHtml(p.sku)} · ` : ''}${escapeHtml(p.Category?.name || 'Sin categoría')}</span>
+        </div>
+      `;
+    }).join('');
     dropdown.classList.remove('hidden');
   }
 
+  renderAdjustProductDropdown = renderDropdown;
+
+  const selectItem = (item) => {
+    if (!item) return;
+    hiddenInput.value = item.dataset.id;
+    searchInput.value = item.dataset.name;
+    dropdown.classList.add('hidden');
+    loadAdjustLots();
+  };
+
   searchInput.addEventListener('focus', () => {
-    renderDropdown(searchInput.value);
+    if (!searchInput.disabled) renderDropdown(searchInput.value);
+  });
+
+  searchInput.addEventListener('click', () => {
+    if (!searchInput.disabled && dropdown.classList.contains('hidden')) renderDropdown(searchInput.value);
   });
 
   searchInput.addEventListener('input', () => {
     hiddenInput.value = '';
-    loadAdjustLots();
+    document.getElementById('adjust-variants-group')?.classList.add('hidden');
     renderDropdown(searchInput.value);
+  });
+
+  searchInput.addEventListener('keydown', (e) => {
+    const items = Array.from(dropdown.querySelectorAll('.select-search-item'));
+    const isClosed = dropdown.classList.contains('hidden') || !items.length;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (isClosed) {
+        renderDropdown(searchInput.value);
+        return;
+      }
+      const currentIndex = items.findIndex(i => i.classList.contains('highlighted'));
+      items.forEach(i => i.classList.remove('highlighted'));
+      const nextIndex = currentIndex >= 0 && currentIndex < items.length - 1 ? currentIndex + 1 : 0;
+      items[nextIndex].classList.add('highlighted');
+      items[nextIndex].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (isClosed) {
+        renderDropdown(searchInput.value);
+        return;
+      }
+      const currentIndex = items.findIndex(i => i.classList.contains('highlighted'));
+      items.forEach(i => i.classList.remove('highlighted'));
+      const prevIndex = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
+      items[prevIndex].classList.add('highlighted');
+      items[prevIndex].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (!isClosed) {
+        const target = items.find(i => i.classList.contains('highlighted')) || items[0];
+        if (target) selectItem(target);
+      }
+    } else if (e.key === 'Escape') {
+      if (!dropdown.classList.contains('hidden')) {
+        e.stopPropagation();
+        dropdown.classList.add('hidden');
+      }
+    }
   });
 
   toggleBtn?.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (searchInput.disabled) return;
     if (dropdown.classList.contains('hidden')) {
       searchInput.focus();
       renderDropdown('');
@@ -364,13 +524,12 @@ function setupAdjustProductSearch() {
     }
   });
 
-  dropdown.addEventListener('click', (e) => {
+  dropdown.addEventListener('mousedown', (e) => {
     const item = e.target.closest('.select-search-item');
-    if (!item) return;
-    hiddenInput.value = item.dataset.id;
-    searchInput.value = item.dataset.name;
-    dropdown.classList.add('hidden');
-    loadAdjustLots();
+    if (item) {
+      e.preventDefault();
+      selectItem(item);
+    }
   });
 
   document.addEventListener('click', (e) => {
@@ -382,108 +541,116 @@ function setupAdjustProductSearch() {
 
 setupAdjustProductSearch();
 
-// Variantes (lotes) del producto elegido en la sucursal elegida: se ajustan todas en un solo movimiento
-let adjustLots = [];
-let adjustWithoutLot = 0;
-let adjustLotsRequest = 0;
-
-const variantsMode = () => !document.getElementById('adjust-variants-group').classList.contains('hidden');
-
-function setAdjustVariantsMode(on) {
-  document.getElementById('adjust-variants-group').classList.toggle('hidden', !on);
-  document.getElementById('adjust-quantity-group').classList.toggle('hidden', on);
-  document.getElementById('adjust-quantity').required = !on;
-}
-
-async function loadAdjustLots() {
+function loadAdjustLots() {
   const branchId = document.getElementById('adjust-branch').value;
   const productId = document.getElementById('adjust-product').value;
-  const request = ++adjustLotsRequest;
+  const variantsGroup = document.getElementById('adjust-variants-group');
+  const variantsBody = document.getElementById('adjust-variants-body');
+
   adjustLots = [];
   adjustWithoutLot = 0;
-  document.getElementById('adjust-variants-body').innerHTML = '';
-  setAdjustVariantsMode(false);
-  if (!branchId || !productId) return;
-
-  let total = 0;
-  try {
-    const [lots, branchStock] = await Promise.all([
-      apiFetch(`/inventory/lots?branchId=${encodeURIComponent(branchId)}&productId=${encodeURIComponent(productId)}&withStock=true`),
-      apiFetch(`/branches/${branchId}/stock`)
-    ]);
-    if (request !== adjustLotsRequest) return; // llegó una respuesta vieja
-    adjustLots = lots;
-    const item = branchStock.stockItems.find(i => String(i.Producto?.id || i.productId) === String(productId));
-    total = item?.quantity || 0;
-  } catch {
+  variantsBody.innerHTML = '';
+  if (!branchId || !productId) {
+    variantsGroup.classList.add('hidden');
     return;
   }
-  if (!adjustLots.length) return;
 
-  adjustWithoutLot = Math.max(0, total - adjustLots.reduce((sum, l) => sum + (l.remaining || 0), 0));
+  const stockItem = adjustBranchStockItems.find(i => String(i.Producto?.id || i.productId) === String(productId));
+  const totalAvailable = stockItem ? (stockItem.availableQuantity ?? stockItem.quantity ?? 0) : 0;
+  adjustLots = (adjustBranchLotsByProduct.get(String(productId)) || []).filter(l => (l.remaining || 0) > 0);
+  const inLots = adjustLots.reduce((sum, l) => sum + (l.remaining || 0), 0);
+  adjustWithoutLot = Math.max(0, (stockItem?.quantity || 0) - inLots);
+
   const row = (lotId, label, expiration, inStock, brand = '') => `
     <tr>
       <td>${label}</td>
       <td>${brand || '<span class="muted">—</span>'}</td>
       <td>${expiration}</td>
-      <td><strong>${inStock}</strong></td>
-      <td><input type="number" class="adjust-variant-qty" data-lot="${escapeHtml(lotId)}" data-stock="${inStock}" value="0" step="1" aria-label="Ajuste"></td>
+      <td><strong>${inStock}</strong> u.</td>
+      <td>
+        <div style="display:inline-flex; align-items:center; gap:6px;">
+          <button type="button" class="btn btn-secondary btn-sm adjust-step-btn" data-delta="-1" style="padding:2px 8px; line-height:1;">-</button>
+          <input type="number" class="adjust-variant-qty" data-lot="${escapeHtml(lotId)}" data-stock="${inStock}" value="0" min="0" max="${inStock}" step="1" aria-label="Cantidad a descontar">
+          <button type="button" class="btn btn-secondary btn-sm adjust-step-btn" data-delta="1" style="padding:2px 8px; line-height:1;">+</button>
+        </div>
+      </td>
       <td class="adjust-variant-result">${inStock}</td>
     </tr>`;
-  document.getElementById('adjust-variants-body').innerHTML = [
+
+  const rowsHtml = [
     ...adjustLots.map(l => row(l.id, `<span class="badge">${escapeHtml(l.lotNumber || 'Sin número')}</span>`, expirationCell(l.expirationDate), l.remaining, l.brandName ? escapeHtml(l.brandName) : '')),
-    row('', '<span class="muted">Sin lote</span>', '<span class="muted">—</span>', adjustWithoutLot)
-  ].join('');
-  setAdjustVariantsMode(true);
+    ...(adjustWithoutLot > 0 || !adjustLots.length ? [row('', '<span class="muted">Sin lote (Stock general)</span>', '<span class="muted">—</span>', adjustWithoutLot || totalAvailable)] : [])
+  ];
+
+  variantsBody.innerHTML = rowsHtml.join('');
+  variantsGroup.classList.remove('hidden');
   updateAdjustVariantsTotal();
+
+  const firstInput = variantsBody.querySelector('.adjust-variant-qty');
+  if (firstInput) {
+    firstInput.focus();
+    firstInput.select();
+  }
 }
 
 function readAdjustVariants() {
-  return [...document.querySelectorAll('.adjust-variant-qty')].map(input => ({
-    input,
-    lotId: input.dataset.lot || null,
-    inStock: Number(input.dataset.stock) || 0,
-    quantity: parseInt(input.value, 10) || 0
-  }));
+  return [...document.querySelectorAll('.adjust-variant-qty')].map(input => {
+    const inStock = Number(input.dataset.stock) || 0;
+    const rawDeduct = Math.max(0, parseInt(input.value, 10) || 0);
+    return {
+      input,
+      lotId: input.dataset.lot || null,
+      inStock,
+      deduct: rawDeduct,
+      quantity: -rawDeduct // Solo baja (negativo para el backend)
+    };
+  });
 }
 
 function updateAdjustVariantsTotal() {
   const variants = readAdjustVariants();
-  let net = 0;
+  let totalDeduct = 0;
   for (const v of variants) {
-    const result = v.inStock + v.quantity;
+    const result = v.inStock - v.deduct;
     const cell = v.input.closest('tr').querySelector('.adjust-variant-result');
-    cell.textContent = result;
-    cell.className = `adjust-variant-result ${v.quantity > 0 ? 'qty-in' : v.quantity < 0 ? 'qty-out' : ''} ${result < 0 && v.lotId ? 'text-danger' : ''}`;
-    net += v.quantity;
+    cell.textContent = `${result} u.`;
+    cell.className = `adjust-variant-result ${v.deduct > 0 ? 'qty-out' : ''} ${result < 0 ? 'text-danger' : ''}`;
+    totalDeduct += v.deduct;
   }
-  const changed = variants.filter(v => v.quantity).length;
+  const changed = variants.filter(v => v.deduct > 0).length;
   document.getElementById('adjust-variants-total').textContent = changed
-    ? `${changed} variante${changed === 1 ? '' : 's'} con cambios. Diferencia total: ${net > 0 ? '+' : ''}${net} u.`
-    : 'Sin cambios todavía. En "Sin lote", si restás, se descuenta del lote que vence primero.';
+    ? `Se descontarán ${totalDeduct} u. en ${changed} variante${changed === 1 ? '' : 's'}.`
+    : 'Indicá cuántas unidades descontar en la(s) variante(s) que quieras dar de baja.';
 }
 
 document.getElementById('adjust-variants-body')?.addEventListener('input', updateAdjustVariantsTotal);
-document.getElementById('adjust-branch')?.addEventListener('change', loadAdjustLots);
-
-document.getElementById('btn-toggle-stock-adjust')?.addEventListener('click', () => {
-  if (!hasRole('Administrador', 'Usuario Responsable')) return showToast('Tu rol no puede ajustar stock.', 'error');
-  const branches = operableBranches();
-  const current = document.getElementById('stock-view-branch-select').value;
-  fillSelect(document.getElementById('adjust-branch'), branches, { getLabel: branchLabel, value: current });
-  document.getElementById('form-stock-adjust').reset();
-  document.getElementById('adjust-product').value = '';
-  document.getElementById('adjust-product-search').value = '';
-  document.getElementById('adjust-product-dropdown')?.classList.add('hidden');
-  document.getElementById('adjust-branch').value = current;
-  document.getElementById('adjust-reason-other-group').classList.add('hidden');
-  loadAdjustLots();
-  openModal('modal-stock-adjust');
+document.getElementById('adjust-variants-body')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('.adjust-step-btn');
+  if (!btn) return;
+  const input = btn.closest('tr')?.querySelector('.adjust-variant-qty');
+  if (!input) return;
+  const max = Number(input.dataset.stock) || 0;
+  const delta = Number(btn.dataset.delta) || 0;
+  const current = parseInt(input.value, 10) || 0;
+  input.value = String(Math.min(max, Math.max(0, current + delta)));
+  updateAdjustVariantsTotal();
 });
 
-const adjustQty = document.getElementById('adjust-quantity');
-document.getElementById('btn-adjust-qty-minus')?.addEventListener('click', () => { adjustQty.value = (parseInt(adjustQty.value, 10) || 0) - 1; });
-document.getElementById('btn-adjust-qty-plus')?.addEventListener('click', () => { adjustQty.value = (parseInt(adjustQty.value, 10) || 0) + 1; });
+document.getElementById('adjust-branch')?.addEventListener('change', (e) => {
+  loadAdjustBranchProducts(e.target.value, { focusSearch: true });
+});
+
+document.getElementById('btn-toggle-stock-adjust')?.addEventListener('click', () => {
+  if (!hasRole('Administrador', 'Usuario Responsable')) return showToast('Tu rol no puede dar de baja stock.', 'error');
+  const branches = operableBranches();
+  const current = document.getElementById('stock-view-branch-select').value || userBranchId() || branches[0]?.id || '';
+  fillSelect(document.getElementById('adjust-branch'), branches, { placeholder: 'Seleccionar sucursal...', getLabel: branchLabel, value: current });
+  document.getElementById('form-stock-adjust').reset();
+  document.getElementById('adjust-branch').value = current;
+  document.getElementById('adjust-reason-other-group').classList.add('hidden');
+  openModal('modal-stock-adjust');
+  loadAdjustBranchProducts(current, { focusSearch: false });
+});
 
 document.getElementById('adjust-reason-select')?.addEventListener('change', (e) => {
   const isOther = e.target.value === 'Otro';
@@ -497,42 +664,39 @@ document.getElementById('form-stock-adjust')?.addEventListener('submit', async (
   const productId = document.getElementById('adjust-product').value;
   const reasonSelect = document.getElementById('adjust-reason-select').value;
   const reason = reasonSelect === 'Otro' ? document.getElementById('adjust-reason-other').value.trim() : reasonSelect;
-  const withVariants = variantsMode();
 
-  // Con variantes: una línea por lote cambiado. Sin variantes: una sola cantidad.
-  const lines = withVariants
-    ? readAdjustVariants().filter(v => v.quantity)
-    : [{ lotId: null, quantity: parseInt(adjustQty.value, 10) || 0, inStock: null }].filter(v => v.quantity);
+  const lines = readAdjustVariants().filter(v => v.deduct > 0);
 
   if (!branchId || !productId || !reason) {
-    return showToast('Completá todos los campos.', 'error');
+    return showToast('Seleccioná la sucursal, el artículo y el motivo de la baja.', 'error');
   }
   if (!lines.length) {
-    return showToast(withVariants ? 'Cargá el ajuste en al menos una variante.' : 'La cantidad no puede ser 0.', 'error');
+    return showToast('Indicá la cantidad a descontar (mayor a 0) en al menos una variante.', 'error');
   }
-  const tooMuch = lines.find(v => v.lotId && v.inStock + v.quantity < 0);
+  const tooMuch = lines.find(v => v.deduct > v.inStock);
   if (tooMuch) {
     const lot = adjustLots.find(l => l.id === tooMuch.lotId);
-    return showToast(`El lote ${lot?.lotNumber || ''} tiene ${tooMuch.inStock} u.; no se pueden descontar ${-tooMuch.quantity}.`, 'error');
+    return showToast(`La variante ${lot?.lotNumber ? `Lote ${lot.lotNumber}` : 'Sin lote'} tiene ${tooMuch.inStock} u. disponibles; no se pueden descontar ${tooMuch.deduct}.`, 'error');
   }
 
-  const fmt = (q) => q > 0 ? `<span class="qty-in strong">+${q}</span>` : `<span class="qty-out strong">${q}</span>`;
+  const fmt = (q) => `<span class="qty-out strong">${q}</span>`;
   const lineLabel = (v) => {
     const lot = adjustLots.find(l => l.id === v.lotId);
-    return lot ? `Lote ${escapeHtml(lot.lotNumber)}` : withVariants ? 'Sin lote' : 'Ajuste';
+    return lot ? `Lote ${escapeHtml(lot.lotNumber)}` : 'Sin lote';
   };
   const net = lines.reduce((sum, v) => sum + v.quantity, 0);
   const ok = await confirmDialog({
-    title: 'Confirmar ajuste de stock',
+    title: 'Confirmar baja de stock',
+    danger: true,
     html: `
       <div class="confirm-summary">
         <div><strong>Sucursal:</strong> ${escapeHtml(getBranchName(branchId))}</div>
-        <div><strong>Producto:</strong> ${escapeHtml(getProductName(productId))}</div>
+        <div><strong>Artículo:</strong> ${escapeHtml(getProductName(productId))}</div>
         ${lines.map(v => `<div><strong>${lineLabel(v)}:</strong> ${fmt(v.quantity)} u.</div>`).join('')}
-        ${lines.length > 1 ? `<div><strong>Diferencia total:</strong> ${fmt(net)} u.</div>` : ''}
+        ${lines.length > 1 ? `<div><strong>Total a descontar:</strong> ${fmt(net)} u.</div>` : ''}
         <div><strong>Motivo:</strong> ${escapeHtml(reason)}</div>
       </div>`,
-    confirmText: 'Aplicar ajuste'
+    confirmText: 'Confirmar baja'
   });
   if (!ok) return;
 
@@ -541,7 +705,7 @@ document.getElementById('form-stock-adjust')?.addEventListener('submit', async (
       method: 'POST',
       body: JSON.stringify({ productId, reason, adjustments: lines.map(v => ({ lotId: v.lotId, quantity: v.quantity })) })
     });
-    showToast(lines.length > 1 ? `Ajuste aplicado en ${lines.length} variantes` : 'Ajuste de stock aplicado correctamente', 'success');
+    showToast(lines.length > 1 ? `Baja aplicada en ${lines.length} variantes` : 'Baja de stock aplicada correctamente', 'success');
     closeModal('modal-stock-adjust');
     document.getElementById('stock-view-branch-select').value = branchId;
     loadStockForBranch(branchId);
@@ -561,6 +725,10 @@ async function loadMovementsPanel() {
   await ensureBaseData();
   const branches = operableBranches();
   const sel = document.getElementById('movements-branch-select');
+  const filterCard = sel?.closest('.filter-card');
+  const showBranchPicker = hasRole('Administrador') && !isSingleBranch() && branches.length > 1;
+  filterCard?.classList.toggle('hidden', !showBranchPicker);
+
   const preferred = sel.value || document.getElementById('stock-view-branch-select').value || userBranchId() || branches[0]?.id;
   fillSelect(sel, branches, { placeholder: branches.length > 1 ? '— Seleccionar sucursal —' : null, getLabel: branchLabel, value: preferred });
   sel.disabled = branches.length <= 1;

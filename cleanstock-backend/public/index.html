@@ -68,24 +68,6 @@
             </div>
             <h2>Clean<span>Stock</span></h2>
           </div>
-          <div class="header-actions">
-            <!-- Campanita de notificaciones -->
-            <div class="notif-wrapper">
-              <button type="button" id="btn-notifications" class="btn-icon-round" title="Notificaciones" aria-haspopup="true">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-                <span id="notif-count" class="notif-count hidden">0</span>
-              </button>
-              <div id="notif-dropdown" class="notif-dropdown glass hidden">
-                <div class="notif-header">
-                  <strong>Notificaciones</strong>
-                  <button type="button" class="btn btn-secondary btn-sm" id="btn-notif-refresh">Actualizar</button>
-                </div>
-                <div id="notif-list" class="notif-list">
-                  <p class="empty-text">Sin novedades.</p>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
         <!-- NAVIGATION TABS -->
@@ -174,7 +156,7 @@
               <p class="stat-number" id="admin-stat-alerts">0</p>
               <span class="stat-sub" id="admin-stat-critical">0 críticas</span>
             </div>
-            <div class="card glass stat-card stat-card-warning multi-only clickable" id="card-admin-approvals" title="Ver pedidos pendientes de aprobación">
+            <div class="card glass stat-card stat-card-warning multi-only" id="card-admin-approvals">
               <h3>Pedidos por Aprobar</h3>
               <p class="stat-number" id="admin-stat-approvals">0</p>
               <span class="stat-sub">Esperan validación</span>
@@ -197,14 +179,6 @@
           <!-- Gráficos -->
           <div class="charts-grid">
             <div class="card glass chart-card multi-only">
-              <h3>Stock por sucursal</h3>
-              <div class="chart-box"><canvas id="chart-stock-branch"></canvas></div>
-            </div>
-            <div class="card glass chart-card">
-              <h3>Productos con más faltante</h3>
-              <div class="chart-box"><canvas id="chart-shortages"></canvas></div>
-            </div>
-            <div class="card glass chart-card multi-only">
               <h3>Pedidos por estado</h3>
               <div class="chart-box"><canvas id="chart-orders-status"></canvas></div>
             </div>
@@ -217,7 +191,6 @@
           <!-- Admin Sub-tabs -->
           <div class="sub-nav">
             <button class="btn btn-tab active" data-sub="admin-users">Gestión de Usuarios</button>
-            <button class="btn btn-tab multi-only" data-sub="admin-approvals">Aprobación de Pedidos</button>
             <button class="btn btn-tab" data-sub="admin-alerts">Alertas de Stock</button>
             <button class="btn btn-tab" data-sub="admin-logs">Logs</button>
           </div>
@@ -242,7 +215,6 @@
                     <option value="Solicitante">Solicitante</option>
                     <option value="Usuario Responsable">Usuario Responsable</option>
                     <option value="Despachante">Despachante</option>
-                    <option value="Proveedor">Proveedor</option>
                   </select>
                   <select id="user-filter-branch" class="multi-only">
                     <option value="">Todas las Sucursales</option>
@@ -269,27 +241,6 @@
               </div>
 
               <div class="pagination-container" id="users-pagination"></div>
-            </div>
-          </div>
-
-          <!-- Subpanel: Admin Approvals -->
-          <div id="subpanel-admin-approvals" class="subpanel hidden">
-            <div class="card glass table-card">
-              <h3>Pedidos Pendientes de Aprobación</h3>
-              <div class="table-responsive">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>N° Pedido</th>
-                      <th>Solicitante</th>
-                      <th>Fecha</th>
-                      <th>Detalle</th>
-                      <th>Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody id="table-admin-approvals-body"></tbody>
-                </table>
-              </div>
             </div>
           </div>
 
@@ -382,13 +333,10 @@
 
             <div class="orders-status-tabs" id="orders-status-tabs">
               <button type="button" class="order-tab active" data-status="PENDIENTE">Pendientes</button>
-              <button type="button" class="order-tab" data-status="EN_PREPARACION">En preparación</button>
+              <button type="button" class="order-tab" data-status="PENDIENTE_VALIDACION">Revisión</button>
               <button type="button" class="order-tab" data-status="DESPACHADO">Despachados</button>
               <button type="button" class="order-tab" data-status="ENTREGADO">Entregados</button>
-              <button type="button" class="order-tab" data-status="PENDIENTE_VALIDACION">Esperando validación</button>
               <button type="button" class="order-tab" data-status="RECHAZADO">Rechazados</button>
-              <button type="button" class="order-tab" data-status="CANCELADO">Cancelados</button>
-              <button type="button" class="order-tab" data-status="">Todos</button>
             </div>
 
             <div class="table-responsive">
@@ -461,7 +409,7 @@
             <div class="btn-row">
               <button type="button" class="btn btn-secondary btn-sm" data-export="stock" data-format="xlsx">Excel</button>
               <button type="button" class="btn btn-secondary btn-sm" data-export="stock" data-format="pdf">PDF</button>
-              <button type="button" id="btn-toggle-stock-adjust" class="btn btn-secondary">Ajuste Manual de Stock</button>
+              <button type="button" id="btn-toggle-stock-adjust" class="btn btn-secondary">Baja Stock</button>
               <button type="button" id="btn-open-stock-entry-modal" class="btn btn-primary">Agregar Ingreso</button>
             </div>
           </div>
@@ -768,72 +716,6 @@
           </div>
         </section>
 
-        <!-- PANEL DESPACHANTE -->
-        <section id="panel-despachante" class="panel hidden">
-          <div class="panel-header-row">
-            <h2>Panel de Despacho de Pedidos</h2>
-            <div class="btn-row">
-              <div class="segmented" role="group" aria-label="Vista">
-                <button type="button" class="segmented-btn active" data-dispatch-view="board">Tablero</button>
-                <button type="button" class="segmented-btn" data-dispatch-view="list">Lista</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Vista tablero (Kanban) -->
-          <div id="dispatch-board" class="kanban">
-            <div class="kanban-col" data-status="PENDIENTE">
-              <div class="kanban-col-header"><span class="kanban-dot dot-pendiente"></span>Pendientes <span class="kanban-count" data-count="PENDIENTE">0</span></div>
-              <div class="kanban-cards" data-cards="PENDIENTE"></div>
-            </div>
-            <div class="kanban-col" data-status="EN_PREPARACION">
-              <div class="kanban-col-header"><span class="kanban-dot dot-preparacion"></span>En preparación <span class="kanban-count" data-count="EN_PREPARACION">0</span></div>
-              <div class="kanban-cards" data-cards="EN_PREPARACION"></div>
-            </div>
-            <div class="kanban-col" data-status="DESPACHADO">
-              <div class="kanban-col-header"><span class="kanban-dot dot-despachado"></span>Despachados <span class="kanban-count" data-count="DESPACHADO">0</span></div>
-              <div class="kanban-cards" data-cards="DESPACHADO"></div>
-            </div>
-            <div class="kanban-col" data-status="ENTREGADO">
-              <div class="kanban-col-header"><span class="kanban-dot dot-entregado"></span>Entregados (últimos 10) <span class="kanban-count" data-count="ENTREGADO">0</span></div>
-              <div class="kanban-cards" data-cards="ENTREGADO"></div>
-            </div>
-          </div>
-
-          <!-- Vista lista -->
-          <div id="dispatch-list" class="card glass table-card hidden">
-            <div class="card-title-row">
-              <h3>Todos los pedidos</h3>
-              <div class="filter-box">
-                <label for="despachante-filter-status" class="inline-label">Filtrar por Estado:</label>
-                <select id="despachante-filter-status">
-                  <option value="">Todos los Estados</option>
-                  <option value="PENDIENTE">Pendientes</option>
-                  <option value="EN_PREPARACION">En Preparación</option>
-                  <option value="DESPACHADO">Despachados</option>
-                  <option value="ENTREGADO">Entregados</option>
-                </select>
-              </div>
-            </div>
-            <div class="table-responsive">
-              <table>
-                <thead>
-                  <tr>
-                    <th>N° Pedido</th>
-                    <th>Solicitante</th>
-                    <th>Sucursal Destino</th>
-                    <th>Fecha</th>
-                    <th>Estado</th>
-                    <th>Detalle Insumos</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody id="table-despachante-orders-body"></tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
         <!-- PANEL CATÁLOGO -->
         <section id="panel-catalog" class="panel hidden">
           <div class="panel-header-row">
@@ -1030,7 +912,6 @@
             <option value="Solicitante">Solicitante</option>
             <option value="Despachante">Despachante</option>
             <option value="Usuario Responsable">Usuario Responsable</option>
-            <option value="Proveedor">Proveedor</option>
             <option value="Administrador">Administrador</option>
           </select>
         </div>
@@ -1039,10 +920,6 @@
           <select id="new-user-space">
             <option value="">Seleccionar Sucursal...</option>
           </select>
-        </div>
-        <div class="form-group hidden" id="new-user-supplier-group">
-          <label for="new-user-supplier">Empresa Proveedora <span class="req">*</span></label>
-          <select id="new-user-supplier"></select>
         </div>
         <div class="modal-actions span-2">
           <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
@@ -1117,7 +994,6 @@
             <option value="Solicitante">Solicitante</option>
             <option value="Despachante">Despachante</option>
             <option value="Usuario Responsable">Usuario Responsable</option>
-            <option value="Proveedor">Proveedor</option>
             <option value="Administrador">Administrador</option>
           </select>
         </div>
@@ -1126,10 +1002,6 @@
           <select id="edit-user-space">
             <option value="">Seleccionar Sucursal...</option>
           </select>
-        </div>
-        <div class="form-group hidden" id="edit-user-supplier-group">
-          <label for="edit-user-supplier">Empresa Proveedora <span class="req">*</span></label>
-          <select id="edit-user-supplier"></select>
         </div>
         <div class="modal-actions span-2">
           <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
@@ -1223,19 +1095,19 @@
   <div id="modal-stock-adjust" class="modal hidden">
     <div class="modal-content glass card modal-lg">
       <div class="modal-header">
-        <h3>Ajuste Manual de Stock</h3>
+        <h3>Baja Stock</h3>
         <button type="button" class="close-btn" data-close-modal>&times;</button>
       </div>
-      <p class="hint-text">Usar para dar de baja lo consumido, vencido o roto, o para correcciones puntuales. Si el producto tiene lotes, elegí a cuál corresponde. Para recuentos completos, usá "Conteo de Inventario".</p>
+      <p class="hint-text">Seleccioná la sucursal y el artículo para ver sus variantes disponibles y descontar únicamente de las que elijas.</p>
       <form id="form-stock-adjust" class="form-grid">
         <div class="form-group multi-only">
           <label for="adjust-branch">Sucursal <span class="req">*</span></label>
           <select id="adjust-branch" required></select>
         </div>
         <div class="form-group select-search-group">
-          <label for="adjust-product-search">Producto <span class="req">*</span></label>
+          <label for="adjust-product-search">Artículo <span class="req">*</span></label>
           <div class="select-search-container" id="adjust-product-container">
-            <input type="text" id="adjust-product-search" class="select-search-input" placeholder="Escribí para buscar o seleccioná..." autocomplete="off">
+            <input type="text" id="adjust-product-search" class="select-search-input" placeholder="Elegí primero la sucursal..." autocomplete="off" disabled>
             <input type="hidden" id="adjust-product" required>
             <button type="button" class="select-search-toggle" id="adjust-product-toggle" aria-label="Ver opciones">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
@@ -1244,41 +1116,33 @@
           </div>
         </div>
         <div class="form-group span-2 hidden" id="adjust-variants-group">
-          <label>Variantes del producto <span class="opt">(cargá el ajuste en cada lote que quieras cambiar: + suma, - resta)</span></label>
+          <label>Variantes disponibles del artículo <span class="opt">(indicá cuántas unidades descontar de cada variante que elijas)</span></label>
           <div class="table-responsive">
             <table class="adjust-variants-table">
-              <thead><tr><th>Lote</th><th>Marca</th><th>Vence</th><th>En stock</th><th>Ajuste</th><th>Queda</th></tr></thead>
+              <thead><tr><th>Variante / Lote</th><th>Marca</th><th>Vence</th><th>Disponible</th><th>Descontar</th><th>Queda</th></tr></thead>
               <tbody id="adjust-variants-body"></tbody>
             </table>
           </div>
           <p class="hint-text" id="adjust-variants-total"></p>
         </div>
-        <div class="form-group" id="adjust-quantity-group">
-          <label for="adjust-quantity">Cantidad <span class="opt">(+ suma, - resta)</span> <span class="req">*</span></label>
-          <div class="qty-stepper">
-            <button type="button" class="btn btn-secondary" id="btn-adjust-qty-minus">-</button>
-            <input type="number" id="adjust-quantity" placeholder="0" required>
-            <button type="button" class="btn btn-secondary" id="btn-adjust-qty-plus">+</button>
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="adjust-reason-select">Motivo del Ajuste <span class="req">*</span></label>
+        <div class="form-group span-2">
+          <label for="adjust-reason-select">Motivo de la Baja <span class="req">*</span></label>
           <select id="adjust-reason-select" required>
             <option value="" disabled selected>— Seleccionar motivo —</option>
-            <option value="Corrección de conteo / Inventario">Corrección de conteo / Inventario</option>
+            <option value="Consumo interno">Consumo interno</option>
             <option value="Pérdida por vencimiento">Pérdida por vencimiento</option>
             <option value="Rotura / Daño de insumo">Rotura / Daño de insumo</option>
-            <option value="Ingreso directo de insumos">Ingreso directo de insumos</option>
+            <option value="Corrección de conteo / Inventario">Corrección de conteo / Inventario</option>
             <option value="Otro">Otro (Especificar)</option>
           </select>
         </div>
         <div class="form-group span-2 hidden" id="adjust-reason-other-group">
           <label for="adjust-reason-other">Especificar Otro Motivo <span class="req">*</span></label>
-          <input type="text" id="adjust-reason-other" placeholder="Describí el motivo del ajuste...">
+          <input type="text" id="adjust-reason-other" placeholder="Describí el motivo de la baja...">
         </div>
         <div class="modal-actions span-2">
           <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
-          <button type="submit" class="btn btn-primary">Aplicar Ajuste</button>
+          <button type="submit" class="btn btn-danger">Confirmar Baja</button>
         </div>
       </form>
     </div>
@@ -1294,13 +1158,32 @@
       <div id="view-order-content" class="details-grid"></div>
       <div class="table-responsive">
         <table>
-          <thead><tr><th>Producto</th><th>Cantidad</th></tr></thead>
+          <thead><tr><th>Producto</th><th>Solicitado</th><th>Enviado / Variantes</th></tr></thead>
           <tbody id="view-order-items"></tbody>
         </table>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn btn-secondary" data-close-modal>Cerrar</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Modal: Preparar pedido (seleccionar cantidad a enviar de cada variante) -->
+  <div id="modal-prepare-order" class="modal hidden">
+    <div class="modal-content glass card modal-xl">
+      <div class="modal-header">
+        <h3 id="prepare-order-title">Preparar Pedido</h3>
+        <button type="button" class="close-btn" data-close-modal>&times;</button>
+      </div>
+      <p class="hint-text" id="prepare-order-summary"></p>
+      <form id="form-prepare-order" class="form-stack">
+        <input type="hidden" id="prepare-order-id">
+        <div id="prepare-order-items-container" class="form-stack"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close-modal>Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-prepare-order-submit">Enviar</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -1352,6 +1235,12 @@
           <label class="checkbox-item checkbox-large">
             <input type="checkbox" id="prod-perishable">
             <span>Este producto tiene fecha de vencimiento <span class="opt">(al ingresar mercadería se pedirá el lote y la fecha)</span></span>
+          </label>
+        </div>
+        <div class="form-group span-2">
+          <label class="checkbox-item checkbox-large">
+            <input type="checkbox" id="prod-requires-approval">
+            <span>Este artículo requiere aprobación al pedirse <span class="opt">(los pedidos con este insumo pasarán por la solapa Revisión)</span></span>
           </label>
         </div>
         <div class="form-group span-2">
@@ -1449,7 +1338,14 @@
         <div class="item-picker">
           <label class="picker-label">Agregar Insumo al Pedido:</label>
           <div class="picker-row">
-            <select id="order-modal-product-select" class="picker-grow"></select>
+            <div class="select-search-container picker-grow" id="order-product-search-container">
+              <input type="text" id="order-modal-product-search" class="select-search-input" placeholder="Elegí primero la sucursal de origen" autocomplete="off" disabled>
+              <input type="hidden" id="order-modal-product-select">
+              <button type="button" class="select-search-toggle" id="order-product-search-toggle" aria-label="Ver opciones">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+              <div class="select-search-dropdown hidden" id="order-product-search-dropdown"></div>
+            </div>
             <input type="number" id="order-modal-product-qty" min="1" value="1" class="picker-qty" title="Cantidad">
             <button type="button" id="btn-order-modal-add-item" class="btn btn-secondary">Agregar</button>
           </div>
@@ -1524,11 +1420,11 @@
               <input type="number" id="stock-modal-product-qty" min="1" value="1">
             </div>
             <div>
-              <label class="mini-label">Lote <span class="req lot-req">*</span></label>
+              <label class="mini-label">Lote <span class="req lot-req">*</span> <span class="opt lot-opt hidden">(opcional)</span></label>
               <input type="text" id="stock-modal-lot-number" placeholder="Ej: LOT-2026-99">
             </div>
             <div>
-              <label class="mini-label">Vencimiento <span class="req lot-req">*</span></label>
+              <label class="mini-label">Vencimiento <span class="req exp-req">*</span></label>
               <input type="date" id="stock-modal-expiration-date">
             </div>
             <div class="picker-btn-cell">

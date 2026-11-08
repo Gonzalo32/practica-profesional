@@ -147,11 +147,12 @@ const NAV_BY_ROLE = {
     ['counts', 'Conteo de Inventario'],
     ['provisions', 'Provisiones'],
     ['suppliers', 'Proveedores'],
-    ['solicitante', 'Pedidos'],
-    ['despachante', 'Panel Despacho']
+    ['solicitante', 'Pedidos']
   ],
   Solicitante: [
-    ['solicitante', 'Catálogo y Pedidos']
+    ['solicitante', 'Pedidos'],
+    ['stock-view', 'Stock de mi Sucursal'],
+    ['catalog', 'Catálogo']
   ],
   'Usuario Responsable': [
     ['home', 'Inicio'],
@@ -162,19 +163,16 @@ const NAV_BY_ROLE = {
     ['provisions', 'Provisiones'],
     ['suppliers', 'Proveedores'],
     ['catalog', 'Catálogo'],
-    ['categories', 'Categorías'],
-    ['brands', 'Marcas']
+    ['solicitante', 'Pedidos']
   ],
   Despachante: [
-    ['despachante', 'Panel Despacho']
-  ],
-  Proveedor: [
-    ['provisions', 'Mis Entregas']
+    ['solicitante', 'Pedidos'],
+    ['stock-view', 'Stock de mi Sucursal']
   ]
 };
 
 // Secciones que no aplican a un comercio de un solo local
-const MULTI_BRANCH_SECTIONS = ['branches', 'solicitante', 'despachante'];
+const MULTI_BRANCH_SECTIONS = ['branches', 'solicitante'];
 
 function navigationForUser() {
   let tabs = NAV_BY_ROLE[state.user.role] || [];
@@ -243,8 +241,7 @@ function refreshPanelData(panelId) {
     'panel-counts': loadCountsPanel,
     'panel-suppliers': loadSuppliersPanel,
     'panel-provisions': loadProvisionsPanel,
-    'panel-solicitante': loadSolicitanteOrders,
-    'panel-despachante': loadDespachantePanel
+    'panel-solicitante': loadSolicitanteOrders
   };
   const loader = loaders[panelId];
   if (loader) {

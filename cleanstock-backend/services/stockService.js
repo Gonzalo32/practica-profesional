@@ -110,12 +110,60 @@ const consumeLots = async (branchId, productId, qty) => {
     );
     if (!updated) continue;
     pending -= take;
-    used.push({
+  used.push({
       lotNumber: lot.lotNumber,
       expirationDate: lot.expirationDate,
       quantity: take,
-      supplierId: lot.supplierId || null
+      supplierId: lot.supplierId || null,
+      brandId: lot.brandId || null
     });
+  }
+  return used;
+};
+
+// Descuenta unidades de las variantes/lotes específicos que el despachante preparó.
+// Si un lote específico tiene menos saldo del esperado (o si es una línea sin lote),
+// completa lo que falte en orden FEFO.
+const consumePreparedVariants = async (branchId, productId, preparedVariants, totalQty) => {
+  if (!Array.isArray(preparedVariants) || !preparedVariants.length) {
+    return consumeLots(branchId, productId, totalQty);
+  }
+  const used = [];
+  let generalNeeded = 0;
+
+  for (const v of preparedVariants) {
+    const qty = Number(v.quantity) || 0;
+    if (qty <= 0) continue;
+    if (v.lotId) {
+      const lot = await StockEntry.findOne({ _id: v.lotId, branchId, productId }).lean();
+      if (lot && (lot.remaining || 0) > 0) {
+        const take = Math.min(lot.remaining, qty);
+        const newRemaining = { $subtract: ['$remaining', take] };
+        const updated = await StockEntry.findOneAndUpdate(
+          { _id: lot._id, remaining: { $gte: take } },
+          [{ $set: { remaining: newRemaining, status: { $cond: [{ $eq: [newRemaining, 0] }, 'AGOTADO', '$status'] } } }],
+          { returnDocument: 'after', updatePipeline: true }
+        );
+        if (updated) {
+          used.push({
+            lotNumber: lot.lotNumber,
+            expirationDate: lot.expirationDate,
+            quantity: take,
+            supplierId: lot.supplierId || null,
+            brandId: lot.brandId || null
+          });
+          if (take < qty) generalNeeded += (qty - take);
+          continue;
+        }
+      }
+      generalNeeded += qty;
+    }
+    // Las unidades seleccionadas explícitamente de "Sin lote (Stock general)" no descuentan de lotes
+  }
+
+  if (generalNeeded > 0) {
+    const fefoUsed = await consumeLots(branchId, productId, generalNeeded);
+    used.push(...fefoUsed);
   }
   return used;
 };
@@ -123,7 +171,7 @@ const consumeLots = async (branchId, productId, qty) => {
 // Marca como VENCIDOS los lotes con stock cuya fecha ya pasó (el día del vencimiento todavía es válido).
 const markExpiredLots = async () => {
   const result = await StockEntry.updateMany(
-    { status: 'DISPONIBLE', remaining: { $gt: 0 }, expirationDate: { $lt: todayAsUTCDate() } },
+    { status: 'DISPONIBLE', remaining: { $gt: 0 }, expirationDate: { $ne: null, $lt: todayAsUTCDate() } },
     { $set: { status: 'VENCIDO' } }
   );
   return result.modifiedCount || 0;
@@ -140,6 +188,7 @@ module.exports = {
   setStockQuantity,
   createLot,
   consumeLots,
+  consumePreparedVariants,
   markExpiredLots,
   recordMovement
 };

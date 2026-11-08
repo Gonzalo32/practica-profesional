@@ -40,14 +40,6 @@ document.getElementById('card-admin-alerts')?.addEventListener('click', () => {
   }
 });
 
-document.getElementById('card-admin-approvals')?.addEventListener('click', () => {
-  const tab = document.querySelector('#panel-admin .btn-tab[data-sub="admin-approvals"]');
-  if (tab) {
-    tab.click();
-    document.getElementById('subpanel-admin-approvals')?.scrollIntoView({ behavior: 'smooth' });
-  }
-});
-
 // --------------------------------------------------------------------------
 // Gráficos (Chart.js)
 // --------------------------------------------------------------------------
@@ -98,36 +90,6 @@ function drawDashboardCharts(data) {
     return;
   }
   const t = chartTheme();
-
-  renderChart('chart-stock-branch', {
-    type: 'bar',
-    data: {
-      labels: data.stockByBranch.map(b => b.branchName),
-      datasets: [{ label: 'Unidades', data: data.stockByBranch.map(b => b.totalUnits), backgroundColor: t.primary, borderRadius: 6 }]
-    },
-    options: baseChartOptions(t, {
-      plugins: {
-        legend: { display: false }
-      }
-    })
-  });
-
-  renderChart('chart-shortages', {
-    type: 'bar',
-    data: {
-      // Dos renglones (producto y sucursal) para que los nombres largos no se corten
-      labels: data.topShortages.length ? data.topShortages.map(s => [s.productName, s.branchName]) : ['Sin faltantes'],
-      datasets: [{ label: 'Unidades faltantes para el mínimo', data: data.topShortages.map(s => s.deficit), backgroundColor: t.danger, borderRadius: 6 }]
-    },
-    options: baseChartOptions(t, {
-      indexAxis: 'y',
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { color: t.text, precision: 0 }, grid: { color: t.grid }, beginAtZero: true },
-        y: { ticks: { color: t.text, autoSkip: false, font: { size: 11 } }, grid: { display: false } }
-      }
-    })
-  });
 
   // Esperando validación, pendiente, en preparación, despachado, entregado, rechazado
   const statusColors = [t.text, t.warning, t.primary, t.purple, t.success, t.danger];
@@ -276,24 +238,13 @@ window.openViewUserModal = (userId) => {
   openModal('modal-view-user');
 };
 
-// Muestra el selector de empresa solo para el rol Proveedor
-function setupSupplierRoleToggle(roleSelectId, groupId, supplierSelectId) {
-  const roleSelect = document.getElementById(roleSelectId);
-  const update = () => {
-    const isSupplier = roleSelect.value === 'Proveedor';
-    document.getElementById(groupId).classList.toggle('hidden', !isSupplier);
-    document.getElementById(supplierSelectId).required = isSupplier;
-  };
-  roleSelect.addEventListener('change', update);
-  return update;
-}
-
 function setupBranchRoleToggle(roleSelectId, spaceSelectId, reqId) {
   const roleSelect = document.getElementById(roleSelectId);
   const spaceSelect = document.getElementById(spaceSelectId);
   const reqEl = document.getElementById(reqId);
   const update = () => {
-    const requiresBranch = roleSelect.value !== 'Administrador' && roleSelect.value !== 'Proveedor';
+    if (!roleSelect) return;
+    const requiresBranch = roleSelect.value !== 'Administrador';
     if (spaceSelect) spaceSelect.required = requiresBranch;
     if (reqEl) reqEl.classList.toggle('hidden', !requiresBranch);
   };
@@ -301,21 +252,17 @@ function setupBranchRoleToggle(roleSelectId, spaceSelectId, reqId) {
   return update;
 }
 
-const updateNewUserSupplierField = setupSupplierRoleToggle('new-user-role', 'new-user-supplier-group', 'new-user-supplier');
-const updateEditUserSupplierField = setupSupplierRoleToggle('edit-user-role', 'edit-user-supplier-group', 'edit-user-supplier');
 const updateNewUserBranchField = setupBranchRoleToggle('new-user-role', 'new-user-space', 'new-user-space-req');
 const updateEditUserBranchField = setupBranchRoleToggle('edit-user-role', 'edit-user-space', 'edit-user-space-req');
 
 async function prepareUserFormSelects(prefix, user = null) {
-  const suppliers = await apiFetch('/suppliers');
-  fillSelect(document.getElementById(`${prefix}-supplier`), suppliers, { placeholder: 'Seleccionar empresa...', value: user?.supplierId });
+  await ensureBaseData();
   fillSelect(document.getElementById(`${prefix}-space`), state.branches, { placeholder: 'Seleccionar Sucursal...', value: user?.physicalSpaceId, getLabel: branchLabel });
 }
 
 document.getElementById('btn-open-create-user-modal')?.addEventListener('click', async () => {
   document.getElementById('form-create-user').reset();
   await prepareUserFormSelects('new-user');
-  updateNewUserSupplierField();
   updateNewUserBranchField();
   openModal('modal-create-user');
 });
@@ -337,13 +284,12 @@ window.openEditUserModal = async (userId) => {
   document.getElementById('edit-user-address').value = user.address || '';
   document.getElementById('edit-user-zipcode').value = user.zipCode || '';
   document.getElementById('edit-user-role').value = user.role;
-  updateEditUserSupplierField();
   updateEditUserBranchField();
   openModal('modal-edit-user');
 };
 
 function readUserForm(prefix) {
-  const val = (id) => document.getElementById(`${prefix}-${id}`).value.trim();
+  const val = (id) => document.getElementById(`${prefix}-${id}`)?.value.trim() || '';
   const email = val('email');
   const documentStr = val('document');
   const role = val('role');
@@ -360,7 +306,7 @@ function readUserForm(prefix) {
     zipCode: val('zipcode'),
     role,
     physicalSpaceId: val('space') || null,
-    supplierId: role === 'Proveedor' ? (val('supplier') || null) : null
+    supplierId: null
   };
 }
 

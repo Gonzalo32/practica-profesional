@@ -135,7 +135,12 @@ const createProvision = async (req, res) => {
       if (!product) return res.status(404).json({ message: 'Producto no encontrado' });
       const err = lotError(product, item.lotNumber, item.expirationDate);
       if (err) return res.status(400).json({ message: err });
-      if (!(item.lotNumber && item.expirationDate)) { item.lotNumber = null; item.expirationDate = null; }
+      if (!item.lotNumber) {
+        item.lotNumber = null;
+        item.expirationDate = null;
+      } else if (product.perishable === false && !item.expirationDate) {
+        item.expirationDate = null;
+      }
     }
 
     const provision = await Provision.create({
@@ -187,12 +192,12 @@ const approveProvision = async (req, res) => {
 
     const links = {};
     for (const [index, item] of provision.items.entries()) {
-      const lot = item.lotNumber && item.expirationDate
+      const lot = item.lotNumber
         ? await stock.createLot({
           productId: item.productId,
           branchId: provision.branchId,
           lotNumber: item.lotNumber,
-          expirationDate: item.expirationDate,
+          expirationDate: item.expirationDate || null,
           quantity: item.quantity,
           supplierId: provision.supplierId,
           brandId: item.brandId || null,
@@ -329,10 +334,13 @@ const updateProvision = async (req, res) => {
         }
 
         if (lot) {
-          const expDate = new Date(newExp);
+          const expDate = newExp ? new Date(newExp) : null;
           const lotFilter = { _id: lot._id };
           if (delta < 0) lotFilter.remaining = { $gte: -delta };
           const remainingAfter = { $add: ['$remaining', delta] };
+          const newStatusExpr = expDate
+            ? { $cond: [{ $lte: [remainingAfter, 0] }, 'AGOTADO', { $cond: [{ $lt: [expDate, todayAsUTCDate()] }, 'VENCIDO', 'DISPONIBLE'] }] }
+            : { $cond: [{ $lte: [remainingAfter, 0] }, 'AGOTADO', 'DISPONIBLE'] };
           const updatedLot = await StockEntry.findOneAndUpdate(lotFilter, [{
             $set: {
               quantity: { $add: ['$quantity', delta] },
@@ -341,7 +349,7 @@ const updateProvision = async (req, res) => {
               expirationDate: expDate,
               supplierId: newSupplierId,
               brandId: step.newBrand,
-              status: { $cond: [{ $lte: [remainingAfter, 0] }, 'AGOTADO', { $cond: [{ $lt: [expDate, todayAsUTCDate()] }, 'VENCIDO', 'DISPONIBLE'] }] }
+              status: newStatusExpr
             }
           }], { returnDocument: 'after', updatePipeline: true });
           if (!updatedLot) {

@@ -1,6 +1,7 @@
-const { Order, OrderItem, Product, ActivityLog, PhysicalSpace, BranchStock, nextSequence } = require('../models');
+const { Order, OrderItem, Product, ActivityLog, PhysicalSpace, BranchStock, StockEntry, Counter, nextSequence } = require('../models');
 const stock = require('../services/stockService');
 const { toId, formatOrderCode, parsePagination } = require('../utils/format');
+const { effectiveBranchId } = require('../services/settingsService');
 
 // Une ítems repetidos del mismo producto en uno solo
 const mergeItems = (items) => {
@@ -12,7 +13,7 @@ const mergeItems = (items) => {
   return [...merged.entries()].map(([productId, quantity]) => ({ productId, quantity }));
 };
 
-// Un pedido con más de esta cantidad de un mismo producto requiere aprobación del administrador
+// Un pedido con más de esta cantidad de un mismo producto o con un producto marcado con requiresApproval pasa a Revisión
 const VALIDATION_THRESHOLD = 50;
 
 // T4.2 Crear una Orden de Pedido a partir de un carrito
@@ -21,18 +22,24 @@ const createOrder = async (req, res) => {
   try {
     const { fromBranchId, toBranchId, notes } = req.body;
     const items = mergeItems(req.body.items);
-    // Lo decide el servidor: no se confía en lo que mande el cliente
-    const requiresValidation = items.some(item => item.quantity > VALIDATION_THRESHOLD);
 
     if (fromBranchId && toBranchId && String(fromBranchId) === String(toBranchId)) {
       return res.status(400).json({ message: 'La sucursal de origen y la de destino no pueden ser la misma.' });
     }
 
-    const products = await Product.find({ _id: { $in: items.map(i => i.productId) } }).lean();
+    const [products, fromBranch, toBranch] = await Promise.all([
+      Product.find({ _id: { $in: items.map(i => i.productId) } }).lean(),
+      fromBranchId ? PhysicalSpace.findById(fromBranchId).lean() : null,
+      toBranchId ? PhysicalSpace.findById(toBranchId).lean() : null
+    ]);
     if (products.length !== items.length) {
       return res.status(400).json({ message: 'Uno o más productos del pedido no existen.' });
     }
-    const productName = (id) => products.find(p => String(p._id) === String(id))?.name || 'Producto';
+    const productById = (id) => products.find(p => String(p._id) === String(id));
+    const productName = (id) => productById(id)?.name || 'Producto';
+
+    // Lo decide el servidor: requiere validación si un ítem supera el umbral o si el producto requiere aprobación
+    const requiresValidation = items.some(item => item.quantity > VALIDATION_THRESHOLD || !!productById(item.productId)?.requiresApproval);
 
     // Módulo 5: reservar stock en la sucursal origen. Cada reserva es atómica:
     // si un ítem no alcanza, se revierten las reservas ya hechas.
@@ -51,37 +58,49 @@ const createOrder = async (req, res) => {
       }
     }
 
-    const number = await nextSequence('order');
-    const order = await Order.create({
-      number,
+    const orderPayload = {
       solicitanteId: req.user.id,
       status: requiresValidation ? 'PENDIENTE_VALIDACION' : 'PENDIENTE',
       requiresValidation,
       fromBranchId: fromBranchId || null,
       toBranchId: toBranchId || null,
       notes: notes || null
-    });
+    };
 
-    await OrderItem.insertMany(items.map(item => ({
-      orderId: order._id,
-      productId: item.productId,
-      quantity: item.quantity
-    })));
+    let number = await nextSequence('order');
+    let order;
+    try {
+      order = await Order.create({ ...orderPayload, number });
+    } catch (err) {
+      // Si el contador quedó desfasado respecto a pedidos existentes, se sincroniza y reintenta
+      if (err && err.code === 11000) {
+        const lastOrder = await Order.findOne({ number: { $type: 'number' } }).sort({ number: -1 }).select('number').lean();
+        const syncedSeq = (lastOrder?.number || 0) + 1;
+        await Counter.findOneAndUpdate({ _id: 'order' }, { $max: { seq: syncedSeq } }, { upsert: true });
+        number = syncedSeq;
+        order = await Order.create({ ...orderPayload, number });
+      } else {
+        throw err;
+      }
+    }
 
-    const [fromBranch, toBranch] = await Promise.all([
-      fromBranchId ? PhysicalSpace.findById(fromBranchId) : null,
-      toBranchId ? PhysicalSpace.findById(toBranchId) : null
-    ]);
     const branchInfo = fromBranch && toBranch
       ? ` (${fromBranch.name} → ${toBranch.name})`
       : fromBranch ? ` (${fromBranch.name})` : toBranch ? ` (${toBranch.name})` : '';
 
-    await ActivityLog.create({
-      userId: req.user.id,
-      action: 'CREATE_ORDER',
-      details: `Generó el pedido ${formatOrderCode(order)}. Estado: ${order.status}${branchInfo}`,
-      orderId: order._id
-    });
+    await Promise.all([
+      OrderItem.insertMany(items.map(item => ({
+        orderId: order._id,
+        productId: item.productId,
+        quantity: item.quantity
+      }))),
+      ActivityLog.create({
+        userId: req.user.id,
+        action: 'CREATE_ORDER',
+        details: `Generó el pedido ${formatOrderCode(order)}. Estado: ${order.status}${branchInfo}`,
+        orderId: order._id
+      })
+    ]);
 
     res.status(201).json({
       message: 'Orden generada',
@@ -134,6 +153,15 @@ const formatOrder = (o, items) => {
       orderId: it.orderId.toString(),
       productId: toId(it.productId),
       quantity: it.quantity,
+      dispatchedQuantity: it.dispatchedQuantity ?? null,
+      preparedVariants: (it.preparedVariants || []).map(v => ({
+        lotId: v.lotId ? v.lotId.toString() : null,
+        lotNumber: v.lotNumber || null,
+        expirationDate: v.expirationDate || null,
+        brandId: v.brandId ? v.brandId.toString() : null,
+        supplierId: v.supplierId ? v.supplierId.toString() : null,
+        quantity: v.quantity
+      })),
       Product: it.productId && typeof it.productId === 'object' ? { id: it.productId._id.toString(), name: it.productId.name } : null
     }))
   };
@@ -144,9 +172,23 @@ const formatOrder = (o, items) => {
 const getOrders = async (req, res) => {
   try {
     const query = {};
+    const andConditions = [];
 
     if (req.user.role === 'Solicitante') {
       query.solicitanteId = req.user.id;
+    } else if (req.user.role === 'Usuario Responsable') {
+      const ownBranch = await effectiveBranchId(req.user);
+      if (ownBranch) {
+        andConditions.push({
+          $or: [
+            { fromBranchId: ownBranch },
+            { toBranchId: ownBranch },
+            { solicitanteId: req.user.id }
+          ]
+        });
+      } else {
+        query.solicitanteId = req.user.id;
+      }
     }
 
     if (req.query.status) {
@@ -155,13 +197,20 @@ const getOrders = async (req, res) => {
     }
 
     if (req.query.branchId) {
-      query.$or = [
-        { fromBranchId: req.query.branchId },
-        { toBranchId: req.query.branchId }
-      ];
+      andConditions.push({
+        $or: [
+          { fromBranchId: req.query.branchId },
+          { toBranchId: req.query.branchId }
+        ]
+      });
     }
     if (req.query.toBranchId) {
       query.toBranchId = req.query.toBranchId;
+    }
+    if (andConditions.length === 1) {
+      Object.assign(query, andConditions[0]);
+    } else if (andConditions.length > 1) {
+      query.$and = andConditions;
     }
 
     const paginated = req.query.page !== undefined;
@@ -239,18 +288,21 @@ const canTransition = (order, status, user) => {
     return current === 'PENDIENTE' && ['Despachante', 'Administrador'].includes(role);
   }
   if (status === 'DESPACHADO') {
-    return current === 'EN_PREPARACION' && ['Despachante', 'Administrador'].includes(role);
+    return ['PENDIENTE', 'EN_PREPARACION'].includes(current) && ['Despachante', 'Administrador'].includes(role);
   }
   if (status === 'ENTREGADO') {
     if (current !== 'DESPACHADO') return false;
     if (role === 'Administrador') return true;
-    // El solicitante confirma sus propios pedidos; el responsable, los que llegan a su sucursal
+    // El solicitante confirma sus propios pedidos; el responsable, los propios o los que llegan a su sucursal
     if (role === 'Solicitante') return String(order.solicitanteId) === String(user.id);
-    if (role === 'Usuario Responsable') return !!user.branchId && String(order.toBranchId) === String(user.branchId);
+    if (role === 'Usuario Responsable') {
+      return String(order.solicitanteId) === String(user.id) || (!!user.branchId && String(order.toBranchId) === String(user.branchId));
+    }
     return false;
   }
   if (status === 'RECHAZADO') {
-    return !['ENTREGADO', 'RECHAZADO', 'CANCELADO'].includes(current) && role === 'Administrador';
+    // En la instancia de pendiente o revisión se puede rechazar un pedido y ahí termina su vida
+    return ['PENDIENTE_VALIDACION', 'PENDIENTE', 'EN_PREPARACION'].includes(current) && ['Administrador', 'Despachante'].includes(role);
   }
   if (status === 'CANCELADO') {
     // Solo antes de empezar a prepararlo, y lo cancela quien lo pidió o el administrador
@@ -259,10 +311,12 @@ const canTransition = (order, status, user) => {
   return false;
 };
 
-// Un pedido se puede modificar o cancelar mientras nadie empezó a prepararlo
+// Un pedido se puede modificar o cancelar mientras nadie empezó a prepararlo (todos menos el Despachante)
 const EDITABLE_STATUSES = ['PENDIENTE_VALIDACION', 'PENDIENTE'];
 const canEditOrder = (order, user) => EDITABLE_STATUSES.includes(order.status) && (
-  user.role === 'Administrador' || String(order.solicitanteId) === String(user.id)
+  user.role === 'Administrador'
+  || user.role === 'Usuario Responsable'
+  || String(order.solicitanteId) === String(user.id)
 );
 
 /**
@@ -288,7 +342,8 @@ const updateOrder = async (req, res) => {
     if (products.length !== items.length) {
       return res.status(400).json({ message: 'Uno o más productos del pedido no existen.' });
     }
-    const productName = (id) => products.find(p => String(p._id) === String(id))?.name || 'Producto';
+    const productById = (id) => products.find(p => String(p._id) === String(id));
+    const productName = (id) => productById(id)?.name || 'Producto';
 
     // Diferencia por producto contra lo que ya estaba reservado
     const before = await OrderItem.find({ orderId }).lean();
@@ -313,7 +368,7 @@ const updateOrder = async (req, res) => {
       }
     }
 
-    const requiresValidation = items.some(item => item.quantity > VALIDATION_THRESHOLD);
+    const requiresValidation = items.some(item => item.quantity > VALIDATION_THRESHOLD || !!productById(item.productId)?.requiresApproval);
     const newStatus = requiresValidation ? 'PENDIENTE_VALIDACION' : 'PENDIENTE';
     // Atómico: si mientras tanto se empezó a preparar, no se toca
     const order = await Order.findOneAndUpdate(
@@ -367,6 +422,159 @@ const updateOrder = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/orders/:orderId/prepare
+ * El Administrador o Despachante prepara un pedido seleccionando la cantidad a enviar
+ * de cada variante (lote o sin lote) de cada artículo solicitado, nunca más de lo solicitado.
+ * Al confirmar, el pedido pasa a DESPACHADO. El stock recién se descuenta del origen y se suma
+ * al destino cuando se confirma la recepción (ENTREGADO).
+ */
+const prepareOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const current = await Order.findById(orderId).lean();
+    if (!current) return res.status(404).json({ message: 'Orden no encontrada' });
+    if (!['PENDIENTE', 'EN_PREPARACION'].includes(current.status)) {
+      return res.status(400).json({ message: 'Solo se pueden preparar pedidos que están en estado Pendiente.' });
+    }
+
+    const orderItems = await OrderItem.find({ orderId }).populate('productId', 'name').lean();
+    if (!orderItems.length) {
+      return res.status(400).json({ message: 'El pedido no tiene artículos.' });
+    }
+
+    const inputByProduct = new Map();
+    for (const item of req.body.items || []) {
+      inputByProduct.set(String(item.productId), Array.isArray(item.variants) ? item.variants : []);
+    }
+
+    // Buscar todos los lotes involucrados en la sucursal de origen
+    const allLotIds = [];
+    for (const variants of inputByProduct.values()) {
+      for (const v of variants) {
+        if (v.lotId && (parseInt(v.quantity, 10) || 0) > 0) allLotIds.push(String(v.lotId));
+      }
+    }
+    const lotDocs = (allLotIds.length && current.fromBranchId)
+      ? await StockEntry.find({ _id: { $in: allLotIds }, branchId: current.fromBranchId }).lean()
+      : [];
+    const lotsById = new Map(lotDocs.map(l => [l._id.toString(), l]));
+
+    const updates = [];
+    let grandTotalDispatched = 0;
+
+    for (const orderItem of orderItems) {
+      const prodId = String(orderItem.productId?._id || orderItem.productId);
+      const prodName = orderItem.productId?.name || 'Artículo';
+      const requestedQty = orderItem.quantity;
+      const rawVariants = inputByProduct.get(prodId) || [];
+
+      const preparedVariants = [];
+      let totalForProduct = 0;
+      const seenLots = new Set();
+
+      for (const v of rawVariants) {
+        const qty = parseInt(v.quantity, 10) || 0;
+        if (qty <= 0) continue;
+        const lotKey = v.lotId ? String(v.lotId) : '__NO_LOT__';
+        if (seenLots.has(lotKey)) {
+          return res.status(400).json({ message: `Hay una variante repetida en "${prodName}".` });
+        }
+        seenLots.add(lotKey);
+
+        if (v.lotId) {
+          const lot = lotsById.get(String(v.lotId));
+          if (!lot || String(lot.productId) !== prodId) {
+            return res.status(400).json({ message: `El lote indicado para "${prodName}" no pertenece a la sucursal de origen.` });
+          }
+          if (qty > (lot.remaining || 0)) {
+            return res.status(400).json({ message: `El lote ${lot.lotNumber} de "${prodName}" tiene ${lot.remaining || 0} u. disponibles; no se pueden enviar ${qty}.` });
+          }
+          preparedVariants.push({
+            lotId: lot._id,
+            lotNumber: lot.lotNumber,
+            expirationDate: lot.expirationDate,
+            brandId: lot.brandId || null,
+            supplierId: lot.supplierId || null,
+            quantity: qty
+          });
+        } else {
+          preparedVariants.push({
+            lotId: null,
+            lotNumber: null,
+            expirationDate: null,
+            brandId: null,
+            supplierId: null,
+            quantity: qty
+          });
+        }
+        totalForProduct += qty;
+      }
+
+      if (totalForProduct > requestedQty) {
+        return res.status(400).json({
+          message: `No se pueden enviar más unidades de "${prodName}" (${totalForProduct}) que las solicitadas (${requestedQty}).`
+        });
+      }
+
+      grandTotalDispatched += totalForProduct;
+      updates.push({
+        orderItem,
+        prodId,
+        prodName,
+        requestedQty,
+        dispatchedQuantity: totalForProduct,
+        preparedVariants
+      });
+    }
+
+    if (grandTotalDispatched <= 0) {
+      return res.status(400).json({ message: 'Seleccioná al menos 1 unidad para enviar en el pedido.' });
+    }
+
+    const order = await Order.findOneAndUpdate(
+      { _id: orderId, status: current.status },
+      { $set: { status: 'DESPACHADO' } },
+      { returnDocument: 'after' }
+    );
+    if (!order) {
+      return res.status(409).json({ message: 'El pedido fue modificado por otro usuario. Actualizá la pantalla.' });
+    }
+
+    for (const u of updates) {
+      await OrderItem.updateOne(
+        { _id: u.orderItem._id },
+        { $set: { dispatchedQuantity: u.dispatchedQuantity, preparedVariants: u.preparedVariants } }
+      );
+      // Si se envía menos que lo solicitado originalmente, se libera la diferencia de la reserva en origen
+      const unfulfilled = u.requestedQty - u.dispatchedQuantity;
+      if (unfulfilled > 0 && current.fromBranchId) {
+        await stock.releaseReservation(current.fromBranchId, u.prodId, unfulfilled);
+      }
+    }
+
+    const code = formatOrderCode(order);
+    const summaryParts = updates.map(u => {
+      const varDesc = u.preparedVariants.map(v => `${v.lotNumber ? `Lote ${v.lotNumber}` : 'Sin lote'}: ${v.quantity}`).join(', ');
+      return `"${u.prodName}" ${u.dispatchedQuantity}/${u.requestedQty} u.${varDesc ? ` (${varDesc})` : ''}`;
+    });
+
+    await ActivityLog.create({
+      userId: req.user.id,
+      action: 'PREPARE_ORDER',
+      details: `Preparó y despachó el pedido ${code}: ${summaryParts.join(' · ')}`,
+      orderId: order._id
+    });
+
+    res.json({
+      message: 'Pedido preparado y despachado',
+      order: { ...order.toObject(), id: order._id.toString(), code }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error preparando el pedido', error: error.message });
+  }
+};
+
 // T5.2 y T5.3: Actualizar el estado del pedido (Máquina de Estados)
 // Al llegar a ENTREGADO: mueve el stock automáticamente entre sucursales
 const updateOrderStatus = async (req, res) => {
@@ -414,7 +622,12 @@ const updateOrderStatus = async (req, res) => {
     if (['RECHAZADO', 'CANCELADO'].includes(status) && order.fromBranchId) {
       for (const item of orderItems) {
         if (!item.productId) continue;
-        await stock.releaseReservation(order.fromBranchId, item.productId._id, item.quantity);
+        const reservedToRelease = item.dispatchedQuantity !== null && item.dispatchedQuantity !== undefined
+          ? item.dispatchedQuantity
+          : item.quantity;
+        if (reservedToRelease > 0) {
+          await stock.releaseReservation(order.fromBranchId, item.productId._id, reservedToRelease);
+        }
       }
       await ActivityLog.create({
         userId: req.user.id,
@@ -424,25 +637,29 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
-    // Movimiento automático de stock al entregar
+    // Movimiento automático de stock al entregar (confirmación de recepción)
     const discrepancies = [];
     if (status === 'ENTREGADO' && (order.fromBranchId || order.toBranchId)) {
       for (const item of orderItems) {
         if (!item.productId) continue;
         const prodId = item.productId._id;
         const productName = item.productId.name;
-        const qty = item.quantity;
+        const qty = item.dispatchedQuantity !== null && item.dispatchedQuantity !== undefined
+          ? item.dispatchedQuantity
+          : item.quantity;
+        if (qty <= 0) continue;
         let movedLots = [];
 
         if (order.fromBranchId) {
           const { missing } = await stock.consumeReservedStock(order.fromBranchId, prodId, qty);
-          movedLots = await stock.consumeLots(order.fromBranchId, prodId, qty);
+          movedLots = await stock.consumePreparedVariants(order.fromBranchId, prodId, item.preparedVariants, qty);
 
           await stock.recordMovement({
             type: 'TRANSFERENCIA_SALIDA',
             branchId: order.fromBranchId,
             productId: prodId,
             quantity: -qty,
+            lotNumber: movedLots.map(l => l.lotNumber).filter(Boolean).join(', ') || null,
             orderId: order._id,
             reason: `Entrega del pedido ${code} a "${toName}"`,
             userId: req.user.id
@@ -480,7 +697,7 @@ const updateOrderStatus = async (req, res) => {
             branchId: order.toBranchId,
             productId: prodId,
             quantity: qty,
-            lotNumber: movedLots.map(l => l.lotNumber).join(', ') || null,
+            lotNumber: movedLots.map(l => l.lotNumber).filter(Boolean).join(', ') || null,
             orderId: order._id,
             reason: `Recepción del pedido ${code} desde "${fromName}"`,
             userId: req.user.id
@@ -547,6 +764,7 @@ module.exports = {
   getOrders,
   approveOrder,
   updateOrder,
+  prepareOrder,
   updateOrderStatus,
   getOrderHistory
 };

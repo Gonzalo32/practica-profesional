@@ -113,7 +113,7 @@ const buildExpirationAlerts = async (user, days = 30) => {
     branchId: scope.branchId || { $ne: null },
     remaining: { $gt: 0 },
     status: { $ne: 'AGOTADO' },
-    expirationDate: { $lt: limitDate }
+    expirationDate: { $ne: null, $lt: limitDate }
   })
     .populate('productId', 'name')
     .populate('branchId', 'name')

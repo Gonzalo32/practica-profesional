@@ -133,7 +133,8 @@ const productFields = [
   optionalText('description', 'La descripción', 500),
   body('minimumStock').optional().isInt({ min: 0 }).withMessage('El stock mínimo debe ser un número entero mayor o igual a 0').toInt(),
   body('sku').optional({ values: 'falsy' }).isString().trim().isLength({ max: 40 }).withMessage('El SKU no puede superar 40 caracteres'),
-  body('perishable').optional().isBoolean().withMessage('Indicá si el producto tiene vencimiento').toBoolean()
+  body('perishable').optional().isBoolean().withMessage('Indicá si el producto tiene vencimiento').toBoolean(),
+  body('requiresApproval').optional().isBoolean().withMessage('Indicá si el producto requiere aprobación').toBoolean()
 ];
 
 const createProduct = [
@@ -238,6 +239,16 @@ const orderStatus = [
   validate
 ];
 
+const prepareOrder = [
+  idParam('orderId'),
+  body('items').isArray({ min: 1 }).withMessage('Indicá las variantes a enviar para los artículos del pedido'),
+  body('items.*.productId').isMongoId().withMessage('Producto inválido'),
+  body('items.*.variants').isArray().withMessage('Variantes inválidas'),
+  body('items.*.variants.*.lotId').optional({ values: 'falsy' }).isMongoId().withMessage('Lote inválido'),
+  body('items.*.variants.*.quantity').isInt({ min: 0 }).withMessage('La cantidad de cada variante debe ser un número entero mayor o igual a 0').toInt(),
+  validate
+];
+
 const branchMinStock = [
   mongoId('branchId', 'Sucursal'),
   mongoId('productId', 'Producto'),
@@ -336,6 +347,7 @@ module.exports = {
   approveOrder,
   updateOrder,
   orderStatus,
+  prepareOrder,
   branchMinStock,
   supplier,
   supplierUpdate,

@@ -33,7 +33,7 @@ router.get('/movements', requireRole(['Administrador', 'Usuario Responsable', 'D
 router.get('/:id/stock', requireBranchAccess, getBranchStock);
 
 // Productos con stock disponible en una sucursal (para armar pedidos: no se ofrece lo que no hay)
-router.get('/:id/available', requireRole(['Administrador', 'Solicitante', 'Usuario Responsable']), v.onlyId, getAvailableProducts);
+router.get('/:id/available', requireRole(['Administrador', 'Solicitante', 'Usuario Responsable', 'Despachante']), v.onlyId, getAvailableProducts);
 
 // Ajustar stock manualmente (Responsable o Admin, solo su sucursal)
 router.post('/:id/stock/adjust', requireRole(['Administrador', 'Usuario Responsable']), requireBranchAccess, v.stockAdjust, adjustBranchStock);

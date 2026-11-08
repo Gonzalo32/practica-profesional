@@ -190,7 +190,7 @@ const receivePurchaseOrder = async (req, res) => {
     const lots = req.body.lots || [];
     const lotFor = (productId) => {
       const lot = lots.find(l => String(l.productId) === String(productId));
-      return lot && lot.lotNumber && lot.expirationDate ? lot : null;
+      return lot && lot.lotNumber ? { ...lot, expirationDate: lot.expirationDate || null } : null;
     };
 
     const pending = await PurchaseOrder.findById(req.params.id).populate('items.productId', 'name perishable');
@@ -198,7 +198,8 @@ const receivePurchaseOrder = async (req, res) => {
     if (pending.status !== 'PENDIENTE') return res.status(400).json({ message: `La orden ya está ${pending.status.toLowerCase()}` });
 
     for (const item of pending.items) {
-      if (item.productId?.perishable !== false && !lotFor(item.productId?._id)) {
+      const lot = lotFor(item.productId?._id);
+      if (item.productId?.perishable !== false && !(lot && lot.lotNumber && lot.expirationDate)) {
         return res.status(400).json({ message: `"${item.productId?.name || 'Producto'}" tiene vencimiento: indicá el lote y la fecha de vencimiento.` });
       }
     }

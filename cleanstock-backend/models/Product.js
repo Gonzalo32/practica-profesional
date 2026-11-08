@@ -16,6 +16,8 @@ const productSchema = new mongoose.Schema({
   // Perecedero: al ingresar stock se exige lote y vencimiento. Los productos cargados
   // antes de este campo lo toman como true para conservar el control que ya tenían.
   perishable: { type: Boolean, default: true },
+  // Si este artículo requiere aprobación previa (va a la solapa Revisión al pedirse)
+  requiresApproval: { type: Boolean, default: false },
   categoryId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category',

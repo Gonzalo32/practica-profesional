@@ -309,7 +309,7 @@ describe('Ingresos, egresos y lotes', () => {
     expect(other.body.message).toMatch(/código interno/);
   });
 
-  test('un producto que no vence se ingresa sin lote ni vencimiento', async () => {
+  test('un producto que no vence se ingresa sin lote ni vencimiento, o con lote pero sin fecha de vencimiento', async () => {
     const created = await request(app).post('/api/inventory/products').set(auth(s.tokens.admin)).send({ name: 'Fideos 500g', perishable: false });
     expect(created.status).toBe(201);
     const res = await request(app).post('/api/inventory/stock').set(auth(s.tokens.responsable)).send({
@@ -318,6 +318,28 @@ describe('Ingresos, egresos y lotes', () => {
     expect(res.status).toBe(201);
     expect(res.body.newStock).toBe(12);
     expect(await StockEntry.countDocuments({ productId: created.body._id })).toBe(0);
+
+    // También puede tener lote sin fecha de vencimiento (tanto por ingreso directo como por provisión)
+    const withLot = await request(app).post('/api/inventory/stock').set(auth(s.tokens.responsable)).send({
+      productId: created.body._id, branchId: s.central._id, quantity: 8, lotNumber: 'LOT-NO-EXP-1'
+    });
+    expect(withLot.status).toBe(201);
+    expect(withLot.body.lotNumber).toBe('LOT-NO-EXP-1');
+    expect(withLot.body.expirationDate).toBe(null);
+
+    const prov = await request(app).post('/api/inventory/provisions').set(auth(s.tokens.responsable)).send({
+      branchId: s.central._id,
+      items: [{ productId: created.body._id, quantity: 5, lotNumber: 'LOT-NO-EXP-2' }]
+    });
+    expect(prov.status).toBe(201);
+    expect(prov.body.items[0].lotNumber).toBe('LOT-NO-EXP-2');
+    expect(prov.body.items[0].expirationDate).toBe(null);
+    const appRes = await request(app).post(`/api/inventory/provisions/${prov.body.id}/approve`).set(auth(s.tokens.responsable));
+    expect(appRes.status).toBe(200);
+
+    const lots = await request(app).get(`/api/inventory/lots?branchId=${s.central._id}&productId=${created.body._id}`).set(auth(s.tokens.responsable));
+    expect(lots.status).toBe(200);
+    expect(lots.body.map(l => l.lotNumber)).toEqual(['LOT-NO-EXP-1', 'LOT-NO-EXP-2']);
   });
 
   test('un producto perecedero exige lote y vencimiento', async () => {

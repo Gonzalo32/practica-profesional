@@ -49,6 +49,6 @@ router.post('/informal-entry', requireRole(STOCK_ROLES), v.informalEntry, regist
 router.post('/exit', requireRole(STOCK_ROLES), v.stockExit, registerExit);
 
 // Lotes con su vencimiento y saldo
-router.get('/lots', requireRole(['Administrador', 'Usuario Responsable', 'Despachante']), getLots);
+router.get('/lots', requireRole(['Administrador', 'Usuario Responsable', 'Despachante', 'Solicitante']), getLots);
 
 module.exports = router;

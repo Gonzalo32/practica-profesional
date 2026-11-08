@@ -74,7 +74,7 @@ const duplicateProductMessage = (error) => {
 
 const createProduct = async (req, res) => {
   try {
-    const { name, categoryId, description, minimumStock, sku, perishable, brandId } = req.body;
+    const { name, categoryId, description, minimumStock, sku, perishable, requiresApproval, brandId } = req.body;
     if (brandId && !(await Brand.exists({ _id: brandId }))) return res.status(404).json({ message: 'Marca no encontrada' });
 
     const product = await Product.create({
@@ -84,7 +84,8 @@ const createProduct = async (req, res) => {
       description,
       minimumStock,
       sku: sku || null,
-      perishable: perishable !== undefined ? perishable : true
+      perishable: perishable !== undefined ? perishable : true,
+      requiresApproval: !!requiresApproval
     });
 
     await ActivityLog.create({
@@ -110,6 +111,7 @@ const formatProduct = (p) => ({
   minimumStock: p.minimumStock,
   sku: p.sku || null,
   perishable: p.perishable !== false,
+  requiresApproval: !!p.requiresApproval,
   categoryId: p.categoryId ? toId(p.categoryId) : null,
   brandId: p.brandId ? toId(p.brandId) : null,
   Brand: p.brandId && typeof p.brandId === 'object' ? { id: p.brandId._id.toString(), name: p.brandId.name } : null,
@@ -144,7 +146,7 @@ const getProducts = async (req, res) => {
 const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, categoryId, description, minimumStock, sku, perishable, brandId } = req.body;
+    const { name, categoryId, description, minimumStock, sku, perishable, requiresApproval, brandId } = req.body;
     if (brandId && !(await Brand.exists({ _id: brandId }))) return res.status(404).json({ message: 'Marca no encontrada' });
 
     const product = await Product.findById(id);
@@ -157,6 +159,7 @@ const updateProduct = async (req, res) => {
     if (minimumStock !== undefined) product.minimumStock = minimumStock;
     if (sku !== undefined) product.sku = sku || null;
     if (perishable !== undefined) product.perishable = perishable;
+    if (requiresApproval !== undefined) product.requiresApproval = !!requiresApproval;
 
     await product.save();
 
@@ -192,11 +195,12 @@ const registerStockEntry = async (req, res) => {
     if (supplierId && !supplier) return res.status(404).json({ message: 'Proveedor no encontrado' });
     if (brandId && !brand) return res.status(404).json({ message: 'Marca no encontrada' });
 
-    // Lote y vencimiento son obligatorios solo para productos perecederos
-    const hasLot = !!(lotNumber && expirationDate);
-    if (prod.perishable !== false && !hasLot) {
+    // Todos los productos pueden tener lote, pero solo los perecederos exigen lote y fecha de vencimiento
+    if (prod.perishable !== false && !(lotNumber && expirationDate)) {
       return res.status(400).json({ message: `"${prod.name}" tiene vencimiento: indicá el número de lote y la fecha de vencimiento.` });
     }
+    const hasLot = !!lotNumber;
+    const effectiveExp = prod.perishable !== false ? expirationDate : (expirationDate || null);
 
     // Sin lote no se crea registro de lote: el stock se suma igual
     const stockEntry = hasLot
@@ -204,7 +208,7 @@ const registerStockEntry = async (req, res) => {
         productId,
         branchId,
         lotNumber,
-        expirationDate,
+        expirationDate: effectiveExp,
         quantity,
         supplierId: supplierId || null,
         brandId: brandId || null,
@@ -220,7 +224,7 @@ const registerStockEntry = async (req, res) => {
       productId,
       quantity,
       lotNumber: hasLot ? lotNumber : null,
-      expirationDate: hasLot ? expirationDate : null,
+      expirationDate: hasLot ? effectiveExp : null,
       supplierId: supplierId || null,
       brandId: brandId || null,
       stockEntryId: stockEntry?._id || null,
@@ -351,7 +355,7 @@ const getLots = async (req, res) => {
     if (req.query.status) filter.status = req.query.status;
     if (req.query.withStock === 'true') filter.remaining = { $gt: 0 };
 
-    if (req.user.role !== 'Administrador') {
+    if (!['Administrador', 'Despachante'].includes(req.user.role)) {
       const ownBranch = await effectiveBranchId(req.user);
       if (!ownBranch) return res.json([]);
       filter.branchId = ownBranch;

@@ -4,7 +4,7 @@ const { mongoose } = require('../config/database');
 // descuentan de los lotes de la sucursal en orden FEFO (primero vence, primero sale).
 const stockEntrySchema = new mongoose.Schema({
   lotNumber: { type: String, required: true },
-  expirationDate: { type: Date, required: true },
+  expirationDate: { type: Date, default: null },
   quantity: { type: Number, required: true, min: 1 },
   remaining: { type: Number, default: null, min: 0 },
   status: {

@@ -146,16 +146,21 @@ async function openCreateStockEntryModal(mode = 'direct') {
 }
 document.getElementById('btn-open-stock-entry-modal')?.addEventListener('click', () => openCreateStockEntryModal('direct'));
 
-// Los productos que no vencen no piden lote ni fecha: esos campos se desactivan
+// Todos los productos pueden tener lote, pero no todos tienen fecha de vencimiento
 function updateLotFields(product) {
-  const needsLot = !product || product.perishable !== false;
-  ['stock-modal-lot-number', 'stock-modal-expiration-date'].forEach(id => {
-    const input = document.getElementById(id);
-    input.disabled = !needsLot;
-    if (!needsLot) input.value = '';
-  });
-  document.getElementById('stock-modal-lot-number').placeholder = needsLot ? 'Ej: LOT-2026-99' : 'No vence';
-  document.querySelectorAll('#modal-create-stock-entry .lot-req').forEach(el => el.classList.toggle('hidden', !needsLot));
+  const needsExp = !product || product.perishable !== false;
+  const lotInput = document.getElementById('stock-modal-lot-number');
+  const expInput = document.getElementById('stock-modal-expiration-date');
+  if (lotInput) {
+    lotInput.disabled = false;
+    lotInput.placeholder = needsExp ? 'Ej: LOT-2026-99' : 'Ej: LOT-2026-99 (opcional)';
+  }
+  if (expInput) {
+    expInput.disabled = !needsExp;
+    if (!needsExp) expInput.value = '';
+  }
+  document.querySelectorAll('#modal-create-stock-entry .lot-req, #modal-create-stock-entry .exp-req').forEach(el => el.classList.toggle('hidden', !needsExp));
+  document.querySelectorAll('#modal-create-stock-entry .lot-opt').forEach(el => el.classList.toggle('hidden', needsExp));
 }
 
 // Marca de lo que se ingresa (buscador; se propone la marca habitual del producto)
@@ -212,7 +217,7 @@ document.getElementById('btn-stock-modal-add-item')?.addEventListener('click', (
 function renderStockModalItemsTable() {
   renderDraftItems('table-stock-modal-items-body', 'stock-modal-items-count', draftStockEntryItems, 'removeStockModalItem',
     'Aún no agregaste insumos a la lista de ingreso.',
-    item => `<td>${item.brandName ? escapeHtml(item.brandName) : '<span class="muted">—</span>'}</td><td>${item.lotNumber ? `<span class="badge">${escapeHtml(item.lotNumber)}</span>` : '<span class="muted">No vence</span>'}</td><td>${formatDateOnly(item.expirationDate)}</td>`);
+    item => `<td>${item.brandName ? escapeHtml(item.brandName) : '<span class="muted">—</span>'}</td><td>${item.lotNumber ? `<span class="badge">${escapeHtml(item.lotNumber)}</span>` : '<span class="muted">Sin lote</span>'}</td><td>${item.expirationDate ? formatDateOnly(item.expirationDate) : '<span class="muted">Sin vencimiento</span>'}</td>`);
 }
 
 window.removeStockModalItem = (index) => {

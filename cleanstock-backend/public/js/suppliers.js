@@ -9,7 +9,7 @@ const SUPPLIERS_PER_PAGE = 10;
 async function loadSuppliersPanel() {
   await ensureBaseData();
   const isSupplierUser = hasRole('Proveedor');
-  const canManage = hasRole('Administrador', 'Usuario Responsable');
+  const canManage = hasRole('Administrador');
 
   document.getElementById('suppliers-panel-title').textContent = isSupplierUser ? 'Mis Entregas' : 'Proveedores';
   document.getElementById('btn-open-supplier-modal')?.classList.toggle('hidden', !canManage);
@@ -199,15 +199,15 @@ window.openEditEntryModal = async (provisionId) => {
   document.getElementById('edit-entry-notes').value = editingEntry.notes || '';
 
   document.getElementById('edit-entry-items').innerHTML = editingEntry.items.map(i => {
-    const needsLot = i.perishable || !!i.lotNumber;
+    const needsExp = i.perishable !== false;
     const min = approved ? Math.max(1, i.used || 0) : 1;
     return `
       <tr data-item="${escapeHtml(i.id)}">
         <td><strong>${escapeHtml(i.productName || '—')}</strong>${approved && i.used ? `<br><small class="muted">ya salieron ${i.used} u.</small>` : ''}</td>
         <td><div class="edit-item-brand"></div></td>
         <td><input type="number" class="edit-item-qty" value="${i.quantity}" min="${min}" step="1" required aria-label="Cantidad"></td>
-        <td>${needsLot ? `<input type="text" class="edit-item-lot" value="${escapeHtml(i.lotNumber || '')}" maxlength="60" ${i.perishable ? 'required' : ''} aria-label="Lote">` : '<span class="muted">No vence</span>'}</td>
-        <td>${needsLot ? `<input type="date" class="edit-item-exp" value="${i.expirationDate ? String(i.expirationDate).slice(0, 10) : ''}" ${i.perishable ? 'required' : ''} aria-label="Vencimiento">` : '<span class="muted">—</span>'}</td>
+        <td><input type="text" class="edit-item-lot" value="${escapeHtml(i.lotNumber || '')}" maxlength="60" placeholder="${needsExp ? 'Ej: LOT-1' : 'Opcional'}" ${needsExp ? 'required' : ''} aria-label="Lote"></td>
+        <td>${needsExp ? `<input type="date" class="edit-item-exp" value="${i.expirationDate ? String(i.expirationDate).slice(0, 10) : ''}" required aria-label="Vencimiento">` : '<span class="muted">Sin vencimiento</span>'}</td>
       </tr>`;
   }).join('');
   // Un buscador de marca por producto
@@ -279,13 +279,17 @@ document.getElementById('form-edit-entry')?.addEventListener('submit', async (e)
 
 async function renderSuppliersTable() {
   const tbody = document.getElementById('table-suppliers-body');
-  if (!state.suppliers.length) setTableLoading(tbody, 5, 3);
+  const isAdmin = hasRole('Administrador');
+  const cols = isAdmin ? 5 : 4;
+  const actionsTh = document.querySelector('#subpanel-suppliers-list thead th:last-child');
+  if (actionsTh) actionsTh.classList.toggle('hidden', !isAdmin);
+  if (!state.suppliers.length) setTableLoading(tbody, cols, 3);
   try {
     await loadSuppliers();
     const list = state.suppliers.filter(s => !supplierSearch ||
       [s.name, s.cuit, s.contactName, s.email].join(' ').toLowerCase().includes(supplierSearch));
     if (!list.length) {
-      renderEmptyRow(tbody, 5, supplierSearch ? 'Sin resultados' : 'Todavía no hay proveedores', 'Registrá a quién le comprás para asociarlo a las provisiones.');
+      renderEmptyRow(tbody, cols, supplierSearch ? 'Sin resultados' : 'Todavía no hay proveedores', isAdmin ? 'Registrá a quién le comprás para asociarlo a las provisiones.' : '');
       const pag = document.getElementById('suppliers-pagination');
       if (pag) pag.innerHTML = '';
       return;
@@ -294,20 +298,19 @@ async function renderSuppliersTable() {
     const pageData = paginate(list, suppliersPage, SUPPLIERS_PER_PAGE);
     suppliersPage = pageData.page;
 
-    const isAdmin = hasRole('Administrador');
     tbody.innerHTML = pageData.items.map(s => `
       <tr>
         <td><strong>${escapeHtml(s.name)}</strong>${s.notes ? `<div class="cell-detail">${escapeHtml(s.notes)}</div>` : ''}</td>
         <td>${s.cuit ? escapeHtml(s.cuit) : '<span class="muted">—</span>'}</td>
         <td>${s.contactName ? escapeHtml(s.contactName) : '<span class="muted">—</span>'}</td>
         <td>${escapeHtml(s.phone || '')}${s.phone && s.email ? '<br>' : ''}<span class="muted">${escapeHtml(s.email || '')}</span>${!s.phone && !s.email ? '<span class="muted">—</span>' : ''}</td>
-        <td>
+        ${isAdmin ? `<td>
           <div class="action-btn-group">
             <button class="btn-icon" title="Ver Detalle" onclick="openViewSupplierModal('${s.id}')">${ICON_VIEW}</button>
             <button class="btn-icon" title="Editar" onclick="openSupplierModal('${s.id}')">${ICON_EDIT}</button>
-            ${isAdmin ? `<button class="btn-icon btn-icon-danger" title="Dar de baja" onclick="deactivateSupplier('${s.id}')">${ICON_DELETE}</button>` : ''}
+            <button class="btn-icon btn-icon-danger" title="Dar de baja" onclick="deactivateSupplier('${s.id}')">${ICON_DELETE}</button>
           </div>
-        </td>
+        </td>` : ''}
       </tr>`).join('');
 
     renderPagination('suppliers-pagination', pageData, 'proveedores', (p) => {
@@ -315,7 +318,7 @@ async function renderSuppliersTable() {
       renderSuppliersTable();
     });
   } catch (err) {
-    renderErrorRow(tbody, 5, err.message);
+    renderErrorRow(tbody, cols, err.message);
   }
 }
 

@@ -135,7 +135,7 @@ function formatDateOnly(value) {
 }
 
 const STATUS_LABELS = {
-  PENDIENTE_VALIDACION: 'Esperando validación',
+  PENDIENTE_VALIDACION: 'En revisión',
   PENDIENTE: 'Pendiente',
   EN_PREPARACION: 'En preparación',
   DESPACHADO: 'Despachado',
@@ -420,9 +420,9 @@ function operableBranches() {
   return state.branches.filter(b => String(b.id) === String(own));
 }
 
-// Sucursales donde se puede ingresar mercadería (cualquiera, salvo en modo de un solo local)
+// Sucursales donde se puede ingresar mercadería (el admin en cualquiera; el resto en la propia)
 function entryBranches() {
-  return isSingleBranch() ? operableBranches() : state.branches;
+  return operableBranches();
 }
 
 // ==========================================================================
@@ -465,3 +465,26 @@ document.addEventListener('click', (e) => {
   applyThemeLabels();
   document.dispatchEvent(new CustomEvent('theme:changed'));
 });
+
+// ==========================================================================
+// CAPITALIZACIÓN AUTOMÁTICA DE ENTRADAS DE TEXTO
+// Todo lo que escriba el usuario empieza con mayúscula (excepto correo/login)
+// ==========================================================================
+document.addEventListener('input', (e) => {
+  const el = e.target;
+  if (!el || el.id === 'username') return;
+  const isTextInput = (el.tagName === 'INPUT' && (!el.type || el.type === 'text' || el.type === 'search')) || el.tagName === 'TEXTAREA';
+  if (!isTextInput || el.readOnly || el.disabled) return;
+
+  const val = el.value;
+  if (!val) return;
+  const capitalized = val.replace(/(^\s*[a-záéíóúñü])|([.\n]\s+[a-záéíóúñü])/g, m => m.toUpperCase());
+  if (capitalized !== val) {
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    el.value = capitalized;
+    if (typeof start === 'number' && typeof end === 'number') {
+      try { el.setSelectionRange(start, end); } catch { /* ignorar si el input no soporta selección */ }
+    }
+  }
+}, true);

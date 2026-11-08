@@ -32,6 +32,9 @@ document.getElementById('catalog-filter-category')?.addEventListener('change', (
 function renderCatalogTable() {
   const tbody = document.getElementById('table-catalog-body');
   const canEdit = hasRole('Administrador', 'Usuario Responsable');
+  const cols = canEdit ? 7 : 6;
+  const actionsTh = document.querySelector('#panel-catalog thead th:last-child');
+  if (actionsTh) actionsTh.classList.toggle('hidden', !canEdit);
   const q = catalogFilters.search;
 
   const filtered = state.products.filter(p => {
@@ -42,7 +45,7 @@ function renderCatalogTable() {
   });
 
   if (!filtered.length) {
-    renderEmptyRow(tbody, 7, 'No se encontraron productos', 'Probá con otra búsqueda o categoría.');
+    renderEmptyRow(tbody, cols, 'No se encontraron productos', 'Probá con otra búsqueda o categoría.');
     const pagContainer = document.getElementById('catalog-pagination');
     if (pagContainer) pagContainer.innerHTML = '';
     return;
@@ -53,7 +56,7 @@ function renderCatalogTable() {
 
   tbody.innerHTML = pageData.items.map(p => `
     <tr>
-      <td><strong>${escapeHtml(p.name)}</strong>${p.perishable ? '<div class="cell-detail">Con vencimiento</div>' : ''}</td>
+      <td><strong>${escapeHtml(p.name)}</strong>${p.perishable ? '<div class="cell-detail">Con vencimiento</div>' : ''}${p.requiresApproval ? '<div class="cell-detail text-warning">Requiere aprobación</div>' : ''}</td>
       <td>${p.Brand ? escapeHtml(p.Brand.name) : '<span class="muted">—</span>'}</td>
       <td>
         ${p.sku ? `<span class="badge">${escapeHtml(p.sku)}</span>` : '<span class="muted">—</span>'}
@@ -61,7 +64,7 @@ function renderCatalogTable() {
       <td><span class="badge">${escapeHtml(p.Category?.name || 'Sin categoría')}</span></td>
       <td><span class="cell-detail">${escapeHtml(p.description || 'Sin descripción')}</span></td>
       <td><span class="strong">${p.minimumStock || 0} unidades</span></td>
-      <td>${canEdit ? `<button class="btn-icon" title="Editar producto" onclick="openProductModal('${p.id}')">${ICON_EDIT}</button>` : ''}</td>
+      ${canEdit ? `<td><button class="btn-icon" title="Editar producto" onclick="openProductModal('${p.id}')">${ICON_EDIT}</button></td>` : ''}
     </tr>`).join('');
 
   renderPagination('catalog-pagination', pageData, 'productos', (page) => {
@@ -86,6 +89,8 @@ window.openProductModal = async (productId = null) => {
   setBrandPickerValue(product?.brandId || null);
   // Productos nuevos: sin vencimiento por defecto (lo más común en un almacén)
   document.getElementById('prod-perishable').checked = product ? product.perishable !== false : false;
+  const reqAppEl = document.getElementById('prod-requires-approval');
+  if (reqAppEl) reqAppEl.checked = !!product?.requiresApproval;
 
   document.getElementById('modal-product-title').textContent = product ? `Editar ${product.name}` : 'Agregar Nuevo Insumo al Catálogo';
   document.getElementById('btn-product-submit').textContent = product ? 'Guardar Cambios' : 'Agregar Producto';
@@ -103,7 +108,8 @@ document.getElementById('form-product')?.addEventListener('submit', async (e) =>
     description: document.getElementById('prod-description').value.trim(),
     minimumStock: parseInt(document.getElementById('prod-minstock').value, 10) || 0,
     sku: document.getElementById('prod-sku').value.trim() || null,
-    perishable: document.getElementById('prod-perishable').checked
+    perishable: document.getElementById('prod-perishable').checked,
+    requiresApproval: !!document.getElementById('prod-requires-approval')?.checked
   };
 
   try {

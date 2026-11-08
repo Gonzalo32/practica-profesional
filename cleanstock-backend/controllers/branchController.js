@@ -1,7 +1,7 @@
 const { PhysicalSpace, BranchStock, Product, User, ActivityLog, StockEntry, StockMovement } = require('../models');
 const stock = require('../services/stockService');
 const { toId, parsePagination, startOfDay } = require('../utils/format');
-const { getSettings } = require('../services/settingsService');
+const { getSettings, effectiveBranchId } = require('../services/settingsService');
 
 // Obtener todas las sucursales
 const getBranches = async (req, res) => {
@@ -136,10 +136,26 @@ const getAvailableProducts = async (req, res) => {
     if (!branch) return res.status(404).json({ message: 'Sucursal no encontrada' });
     const rows = await BranchStock.aggregate([
       { $match: { branchId: branch._id } },
-      { $project: { productId: 1, available: { $subtract: ['$quantity', { $ifNull: ['$reservedQuantity', 0] }] } } },
-      { $match: { available: { $gt: 0 } } }
+      {
+        $project: {
+          productId: 1,
+          quantity: 1,
+          reservedQuantity: { $ifNull: ['$reservedQuantity', 0] },
+          available: { $subtract: ['$quantity', { $ifNull: ['$reservedQuantity', 0] }] }
+        }
+      },
+      { $match: { quantity: { $gt: 0 } } }
     ]);
-    res.json(rows.map(r => ({ productId: r.productId.toString(), available: r.available })));
+    // Para compatibilidad con armar pedidos: si no pide ?includeTotal=true, filtramos available > 0 y devolvemos { productId, available }
+    if (req.query.includeTotal === 'true') {
+      return res.json(rows.map(r => ({
+        productId: r.productId.toString(),
+        quantity: r.quantity,
+        reservedQuantity: r.reservedQuantity,
+        available: Math.max(0, r.available)
+      })));
+    }
+    res.json(rows.filter(r => r.available > 0).map(r => ({ productId: r.productId.toString(), available: r.available })));
   } catch (error) {
     res.status(500).json({ message: 'Error obteniendo los productos disponibles', error: error.message });
   }
@@ -359,7 +375,13 @@ const getStockMovements = async (req, res) => {
     const { branchId, productId, type, from, to } = req.query;
     const filter = {};
 
-    if (branchId) filter.branchId = branchId;
+    if (req.user.role !== 'Administrador') {
+      const ownBranch = await effectiveBranchId(req.user);
+      if (!ownBranch) return res.json({ items: [], total: 0, page: 1, pages: 1 });
+      filter.branchId = ownBranch;
+    } else if (branchId) {
+      filter.branchId = branchId;
+    }
     if (productId) filter.productId = productId;
     if (type) filter.type = { $in: String(type).split(',') };
     if (from || to) {
