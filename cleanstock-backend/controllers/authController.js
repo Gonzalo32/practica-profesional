@@ -33,7 +33,8 @@ const login = async (req, res) => {
       lastName: user.lastName || '',
       email: user.email || '',
       role: user.role,
-      branchId: user.physicalSpaceId ? user.physicalSpaceId.toString() : null
+      branchId: user.physicalSpaceId ? user.physicalSpaceId.toString() : null,
+      supplierId: user.supplierId ? user.supplierId.toString() : null
     };
 
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '8h' });
@@ -52,87 +53,11 @@ const login = async (req, res) => {
   }
 };
 
-const registerInitialAdmin = async (req, res) => {
-  try {
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash('admin123', salt);
-    
-    let admin = await User.findOne({
-      $or: [
-        { email: 'admin@cleanstock.com' },
-        { username: 'admin@cleanstock.com' },
-        { username: 'admin' },
-        { role: 'Administrador' }
-      ]
-    });
-
-    if (!admin) {
-      admin = await User.create({
-        username: 'admin@cleanstock.com',
-        email: 'admin@cleanstock.com',
-        passwordHash,
-        role: 'Administrador',
-        firstName: 'Administrador',
-        lastName: 'Principal',
-        phone: '1122334455',
-        document: '20-12345678-9',
-        cuil: '20-12345678-9',
-        birthDate: '1990-01-01',
-        address: 'Av. Central 123',
-        zipCode: '1000',
-        isActive: true
-      });
-    } else {
-      admin.username = 'admin@cleanstock.com';
-      admin.email = 'admin@cleanstock.com';
-      admin.passwordHash = passwordHash;
-      admin.firstName = admin.firstName || 'Administrador';
-      admin.lastName = admin.lastName || 'Principal';
-      admin.phone = admin.phone || '1122334455';
-      admin.document = admin.document || '20-12345678-9';
-      admin.cuil = admin.cuil || '20-12345678-9';
-      admin.birthDate = admin.birthDate || '1990-01-01';
-      admin.address = admin.address || 'Av. Central 123';
-      admin.zipCode = admin.zipCode || '1000';
-      admin.isActive = true;
-      await admin.save();
-    }
-    
-    res.status(200).json({ message: 'Usuario administrador inicializado exitosamente', email: 'admin@cleanstock.com' });
-  } catch (error) {
-    res.status(500).json({ message: 'Error creando usuario de prueba', error: error.message });
-  }
-};
-
-// T1.4: Sistema de tokens para validaciones específicas
-const generateValidationToken = async (req, res) => {
-  try {
-    const { orderId, action } = req.body;
-    
-    const payload = {
-      adminId: req.user.id,
-      orderId,
-      action,
-      type: 'validation_token'
-    };
-    
-    const validationToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '15m' });
-    
-    await ActivityLog.create({
-      userId: req.user.id,
-      action: 'GENERATE_VALIDATION_TOKEN',
-      details: `Generó token de validación para orden ${orderId}`
-    });
-    
-    res.json({ validationToken });
-  } catch (error) {
-    res.status(500).json({ message: 'Error generando token de validación' });
-  }
-};
-
 const getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).populate('physicalSpaceId', 'name type');
+    const user = await User.findById(req.user.id)
+      .populate('physicalSpaceId', 'name type')
+      .populate('supplierId', 'name');
     if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
     res.json({
       id: user._id.toString(),
@@ -145,6 +70,8 @@ const getMe = async (req, res) => {
       document: user.document || '',
       cuil: user.cuil || '',
       branchId: user.physicalSpaceId ? (user.physicalSpaceId._id ? user.physicalSpaceId._id.toString() : user.physicalSpaceId) : null,
+      supplierId: user.supplierId ? (user.supplierId._id ? user.supplierId._id.toString() : user.supplierId) : null,
+      Supplier: user.supplierId && typeof user.supplierId === 'object' ? { id: user.supplierId._id.toString(), name: user.supplierId.name } : null,
       EspacioFisico: user.physicalSpaceId && typeof user.physicalSpaceId === 'object' ? {
         id: user.physicalSpaceId._id.toString(),
         name: user.physicalSpaceId.name,
@@ -158,7 +85,5 @@ const getMe = async (req, res) => {
 
 module.exports = {
   login,
-  registerInitialAdmin,
-  generateValidationToken,
   getMe
 };

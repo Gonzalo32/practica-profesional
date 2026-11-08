@@ -1,6 +1,13 @@
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
+const { effectiveBranchId } = require('../services/settingsService');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_cleanstock_key';
+// El secreto tiene que venir del .env. Si falta, se genera uno aleatorio para que
+// nadie pueda firmar tokens con un valor conocido (las sesiones se cierran al reiniciar).
+const JWT_SECRET = process.env.JWT_SECRET || (() => {
+  console.warn('ADVERTENCIA: falta JWT_SECRET en el .env. Se usa un secreto temporal; las sesiones se cerrarán al reiniciar el servidor.');
+  return crypto.randomBytes(48).toString('hex');
+})();
 
 // T1.3: Middleware para validar token
 const verifyToken = (req, res, next) => {
@@ -35,36 +42,42 @@ const requireRole = (roles) => {
 };
 
 // Módulo 3: Middleware de visibilidad de stock por sucursal
-// Admin ve todo. Otros roles solo pueden acceder a su propia sucursal asignada.
-const requireBranchAccess = (req, res, next) => {
+// Admin ve todo. Otros roles solo pueden acceder a su propia sucursal asignada
+// (o al local principal, si el negocio trabaja en modo de un solo local).
+const requireBranchAccess = async (req, res, next) => {
   const { id } = req.params;
   const user = req.user;
+  const ownBranch = await effectiveBranchId(user);
+
+  // Si el parámetro es 'my-branch', reemplazarlo con la sucursal del usuario
+  if (id === 'my-branch') {
+    if (!ownBranch) {
+      return res.status(403).json({ message: 'No tenés una sucursal asignada. Contactá al administrador.' });
+    }
+    req.params.id = ownBranch;
+    return next();
+  }
 
   // Admin siempre tiene acceso total
   if (user.role === 'Administrador') return next();
 
-  // Si el parámetro es 'my-branch', reemplazarlo con el branchId del token
-  if (id === 'my-branch') {
-    if (!user.branchId) {
-      return res.status(403).json({ message: 'No tenés una sucursal asignada. Contactá al administrador.' });
-    }
-    req.params.id = user.branchId;
-    return next();
-  }
-
-  // Verificar que el id solicitado coincida con la sucursal del usuario
-  if (!user.branchId) {
+  if (!ownBranch) {
     return res.status(403).json({ message: 'No tenés una sucursal asignada. Contactá al administrador.' });
   }
 
-  if (id !== user.branchId) {
+  if (id !== ownBranch) {
     return res.status(403).json({ message: 'No tenés acceso al stock de esta sucursal.' });
   }
 
   next();
 };
 
+// Para controladores: el Administrador accede a todas las sucursales, el resto solo a la propia
+const canAccessBranch = async (user, branchId) =>
+  user.role === 'Administrador' || (await effectiveBranchId(user)) === String(branchId);
+
 module.exports = {
+  canAccessBranch,
   verifyToken,
   requireRole,
   requireBranchAccess,
